@@ -807,6 +807,8 @@ let activeProjectId=null,activeWpId=null,activeView='plan',filteredIndices=null;
 let projectSaveTimer=null;
 let wpSyncTimer=null;
 const phaseSaveTimers=new Map();
+/** Set by loadUserRoleMatchesFromDb: true when sbReq returned null (HTTP/parse failure), false when response was read successfully. */
+let lastUserRolesQueryFailed=false;
 
 /* ── HELPERS ── */
 function escHtml(s){if(s==null)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
@@ -859,9 +861,17 @@ async function sbReq(path,method='GET',body=null){
     if(method==='POST')headers['Prefer']='return=representation,resolution=merge-duplicates';
     if(method==='PATCH')headers['Prefer']='return=representation';
     const r=await fetch(supaUrl+'/rest/v1/'+path,{method,headers,body:body?JSON.stringify(body):undefined});
-    if(!r.ok){console.error('SB err:',r.status);return null;}
-    const txt=await r.text();return txt?JSON.parse(txt):null;
-  }catch(e){console.error('SB:',e);return null;}
+    const txt=await r.text();
+    if(!r.ok){
+      console.error('SB err',{path,method,status:r.status,body:txt});
+      return null;
+    }
+    if(!txt)return null;
+    try{return JSON.parse(txt);}catch(parseErr){
+      console.error('SB JSON parse err',{path,method,status:r.status,body:txt,parseErr});
+      return null;
+    }
+  }catch(e){console.error('SB fetch failed',{path,method,error:e});return null;}
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -911,24 +921,31 @@ async function loadAllProjectData(projectId){
   return wps;
 }
 async function loadUserRoleMatchesFromDb(){
-  if(!currentUser)return[];
-  const email=((currentUser.email || '').trim().toLowerCase());
-  const data=await sbReq(`user_roles?is_active=eq.true&select=email,role,project_id`);
-  if(!data||!Array.isArray(data))return[];
-  return data.filter(r=>String(r?.email||'').trim().toLowerCase()===email);
+  if(!currentUser){lastUserRolesQueryFailed=false;return[];}
+  lastUserRolesQueryFailed=false;
+  const email=String(currentUser.email||'').trim().toLowerCase();
+  const path='user_roles?is_active=eq.true&email=eq.'+encodeURIComponent(email)+'&select=email,role,project_id';
+  const data=await sbReq(path);
+  if(data===null){
+    lastUserRolesQueryFailed=true;
+    console.error('[user_roles] Query failed, was blocked, or returned invalid JSON. Role will fall back to viewer. See SB err log above; check RLS SELECT on user_roles.',{email,path});
+    return[];
+  }
+  if(!Array.isArray(data)){
+    console.error('[user_roles] Expected array from PostgREST, got:',{email,data});
+    return[];
+  }
+  return data.map(r=>({...r,email:String(r.email||'').trim().toLowerCase(),role:String(r.role||'').trim().toLowerCase()}));
 }
 /** PM ili LeadPM na bilo kom redu = ista prava na sve projekte; inače viewer. */
 function effectiveRoleFromMatches(matches){
   if(!matches||matches.length===0)return 'viewer';
-  const rank=role=>role==='pm'?2:role==='leadpm'?1:0;
-  const elevated=matches.filter(r=>r.role==='pm'||r.role==='leadpm');
-  if(elevated.length)return elevated.slice().sort((a,b)=>rank(b.role)-rank(a.role))[0].role;
-  const viewerMatch=matches.find(r=>r.role==='viewer');
-  return viewerMatch?.role||'viewer';
-}
-async function loadUserRoleFromDb(){
-  const matches=await loadUserRoleMatchesFromDb();
-  return effectiveRoleFromMatches(matches);
+  const normalized=matches.map(r=>({...r,role:String(r.role||'').trim().toLowerCase()}));
+  if(normalized.some(r=>r.role==='pm'))return 'pm';
+  if(normalized.some(r=>r.role==='leadpm'))return 'leadpm';
+  if(normalized.some(r=>r.role==='viewer'))return 'viewer';
+  console.warn('Unknown roles found in user_roles:',normalized);
+  return 'viewer';
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1054,6 +1071,14 @@ async function restoreSession(){
 async function initAfterAuth(){
   document.getElementById('authOverlay').classList.add('hidden');
   const roleMatches=await loadUserRoleMatchesFromDb();
+  if(currentUser){
+    if(lastUserRolesQueryFailed){
+      console.error('[user_roles] Request did not succeed; effective role may be viewer until the API works. This is not the same as “no row in DB”.');
+    }else if(roleMatches.length===0){
+      console.warn('No user_roles rows visible for logged-in user. Either no row for this email in the table, or Supabase RLS is hiding them (check SELECT policies on user_roles).',{email:String(currentUser.email||'').trim().toLowerCase()});
+    }
+  }
+  console.log('AUTH DEBUG',{email:currentUser?.email,roleMatches,effectiveRole:effectiveRoleFromMatches(roleMatches)});
   const projects=await loadProjectsFromDb();
   if(projects&&projects.length>0){
     allData.projects=projects;
@@ -1162,8 +1187,6 @@ function switchProject(id){
   /* If online, load WPs from DB */
   if(isOnline&&p){loadAllProjectData(p.id).then(wps=>{if(wps){p.workPackages=wps;activeWpId=wps[0]?.id||null;cacheToLocal();buildWpTabs();render();}});}
   else{buildWpTabs();render();}
-  /* Reload role for this project */
-  if(isOnline)loadUserRoleFromDb().then(r=>{currentRole=r;updateAuthUI();render();});
 }
 function switchWP(id){activeWpId=id;filteredIndices=null;render();}
 function editProjectMeta(){
