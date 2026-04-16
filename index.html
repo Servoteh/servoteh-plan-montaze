@@ -925,37 +925,56 @@ async function loadUserRoleMatchesFromDb(){
   lastUserRolesQueryFailed=false;
   const emailNorm=String(currentUser.email||'').trim().toLowerCase();
   const emailRaw=String(currentUser.emailRaw||'').trim();
-  const hasLikeWild=emailNorm.includes('%')||emailNorm.includes('_');
+  /* Build list of distinct filter strategies. Order matters — most likely match first.
+     PostgREST quirks:
+       - ilike WITHOUT '*' wildcards behaves like case-sensitive eq
+       - to get real case-insensitive match we need ilike.*EMAIL* OR proper LOWER() index
+       - safest is: try eq with lowercase, then eq with raw, then ilike with wildcards */
   const filters=[];
-  filters.push(hasLikeWild?('email=eq.'+encodeURIComponent(emailNorm)):('email=ilike.'+encodeURIComponent(emailNorm)));
-  if(emailRaw&&(emailRaw.toLowerCase()!==emailNorm||emailRaw!==emailNorm))filters.push('email=eq.'+encodeURIComponent(emailRaw));
+  filters.push('email=eq.'+encodeURIComponent(emailNorm));
+  if(emailRaw&&emailRaw!==emailNorm)filters.push('email=eq.'+encodeURIComponent(emailRaw));
+  /* Case-insensitive fallback using PostgREST ilike with explicit wildcards.
+     Note: '*' is the PostgREST wildcard, not '%'. */
+  filters.push('email=ilike.'+encodeURIComponent('*'+emailNorm+'*'));
   let collected=[];
+  let anyQuerySucceeded=false;
   for(let fi=0;fi<filters.length;fi++){
     const path='user_roles?is_active=eq.true&'+filters[fi]+'&select=email,role,project_id';
-    console.log('USER ROLE QUERY PATH',path);
-    console.log('USER ROLE QUERY EMAIL',{emailNorm,emailRaw,filterIndex:fi});
+    console.log('[user_roles] QUERY',{filterIndex:fi,path,emailNorm,emailRaw});
     const data=await sbReq(path);
     if(data===null){
-      lastUserRolesQueryFailed=true;
-      console.error('[user_roles] Query failed, was blocked, or returned invalid JSON. Role will fall back to viewer. See SB err log above.',{emailNorm,emailRaw,path});
-      return[];
+      console.error('[user_roles] Filter '+fi+' failed (HTTP/parse error). Trying next filter.',{path});
+      continue;
     }
+    anyQuerySucceeded=true;
     if(!Array.isArray(data)){
-      console.error('[user_roles] Expected array from PostgREST, got:',{emailNorm,data});
-      return[];
+      console.error('[user_roles] Filter '+fi+' returned non-array:',{data});
+      continue;
     }
-    console.log('USER ROLE RAW RESPONSE',data);
+    console.log('[user_roles] Filter '+fi+' returned '+data.length+' rows:',data);
     collected=collected.concat(data);
     if(collected.length>0)break;
   }
+  if(!anyQuerySucceeded){
+    lastUserRolesQueryFailed=true;
+    console.error('[user_roles] ALL queries failed. Likely causes: (1) RLS on user_roles blocks SELECT for authenticated role; (2) network/CORS issue; (3) Supabase key/URL wrong.');
+    return[];
+  }
   const normRow=r=>({...r,email:String(r.email||'').trim().toLowerCase(),role:String(r.role||'').trim().toLowerCase()});
   const seen=new Set();
-  return collected.map(normRow).filter(r=>{
+  const result=collected.map(normRow).filter(r=>{
     const k=r.email+'|'+r.role+'|'+String(r.project_id??'');
     if(seen.has(k))return false;
     seen.add(k);
     return true;
   });
+  /* Final filter: keep ONLY rows that match the logged-in user's email exactly (case-insensitive).
+     The ilike fallback could pick up nenad@... if you also have nenad-test@... in DB. */
+  const filtered=result.filter(r=>r.email===emailNorm);
+  if(filtered.length===0&&result.length>0){
+    console.warn('[user_roles] ilike fallback returned rows but none matched email exactly. Check email spelling in user_roles table.',{emailNorm,returnedEmails:result.map(r=>r.email)});
+  }
+  return filtered;
 }
 /** PM ili LeadPM na bilo kom redu = ista prava na sve projekte; inače viewer. */
 function effectiveRoleFromMatches(matches){
@@ -1097,21 +1116,23 @@ async function restoreSession(){
 }
 async function initAfterAuth(){
   document.getElementById('authOverlay').classList.add('hidden');
-  console.log('CURRENT USER RAW',currentUser);
-  console.log('CURRENT USER EMAIL NORMALIZED',String(currentUser?.email||'').trim().toLowerCase());
+  console.log('[auth] currentUser raw:',currentUser);
+  console.log('[auth] email normalized:',String(currentUser?.email||'').trim().toLowerCase());
+  /* STEP 1: resolve role FIRST, before any data load — RLS may depend on role */
   const roleMatches=await loadUserRoleMatchesFromDb();
   await debugLoadAllUserRoles();
-  /* Frontend role resolution is OK.
-     If user is still viewer, the likely cause is Supabase RLS or missing/hidden rows in user_roles.
-     Compare USER ROLE QUERY logs + DEBUG ALL USER ROLES with sql/diagnose_user_roles.sql in Supabase SQL editor. */
   if(currentUser){
     if(lastUserRolesQueryFailed){
-      console.error('[user_roles] Request did not succeed; effective role may be viewer until the API works. This is not the same as “no row in DB”.');
+      console.error('[user_roles] Request did not succeed; effective role may be viewer until the API works. This is not the same as "no row in DB".');
     }else if(roleMatches.length===0){
-      console.warn('No user_roles rows visible for logged-in user. Either no row for this email in the table, or Supabase RLS is hiding them (check SELECT policies on user_roles).',{emailNorm:String(currentUser.email||'').trim().toLowerCase(),emailRaw:currentUser.emailRaw});
+      console.warn('[user_roles] No rows visible for logged-in user. Either no row for this email in the table, or Supabase RLS is hiding them (check SELECT policies on user_roles).',{emailNorm:String(currentUser.email||'').trim().toLowerCase(),emailRaw:currentUser.emailRaw});
     }
   }
-  console.log('AUTH DEBUG',{email:currentUser?.email,emailRaw:currentUser?.emailRaw,roleMatches,effectiveRole:effectiveRoleFromMatches(roleMatches)});
+  currentRole=effectiveRoleFromMatches(roleMatches);
+  console.log('[auth] RESOLVED ROLE',{email:currentUser?.email,emailRaw:currentUser?.emailRaw,roleMatches,effectiveRole:currentRole});
+  /* Update UI immediately so the badge shows real role even if data load is slow */
+  updateAuthUI();
+  /* STEP 2: now load project data with role already known */
   const projects=await loadProjectsFromDb();
   if(projects&&projects.length>0){
     allData.projects=projects;
@@ -1123,19 +1144,20 @@ async function initAfterAuth(){
     allData={projects:[createBlankProject('RN 9000','Kovačka linija')]};
     activeProjectId=allData.projects[0].id;activeWpId=allData.projects[0].workPackages[0].id;
   }
-  currentRole=effectiveRoleFromMatches(roleMatches);
   if(!(projects&&projects.length>0)&&canEdit()){
     await saveProjectToDb(allData.projects[0]);for(const wp of allData.projects[0].workPackages)await saveWorkPackageToDb(wp,allData.projects[0].id);
   }
   updateAuthUI();
   cacheToLocal();buildProjectSelector();buildWpTabs();render();
-  showToast('🌐 Online — '+currentUser.email);
+  showToast('🌐 Online — '+currentUser.email+' ['+currentRole.toUpperCase()+']');
 }
 function updateAuthUI(){
   document.getElementById('userEmail').textContent=currentUser?currentUser.email:'';
   document.getElementById('userBar').style.display=currentUser?'flex':'none';
-  document.getElementById('roleLabel').textContent=currentRole.toUpperCase();
-  document.getElementById('roleLabel').className='role-indicator '+(currentRole==='viewer'?'role-viewer':'role-pm');
+  const roleLabel=document.getElementById('roleLabel');
+  roleLabel.textContent=currentRole.toUpperCase();
+  /* role badge: pm/leadpm = blue (editor), viewer = grey */
+  roleLabel.className='role-indicator '+(canEdit()?'role-pm':'role-viewer');
   document.getElementById('connBadge').className=isOnline?'online-badge':'offline-badge';
   document.getElementById('connBadge').textContent=isOnline?'ONLINE':'OFFLINE';
   const edit=canEdit();
