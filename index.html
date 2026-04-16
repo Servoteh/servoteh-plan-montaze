@@ -914,16 +914,16 @@ async function loadUserRoleFromDb(){
   if(!currentUser)return 'viewer';
   // Role lookup always uses lowercase trimmed email so Auth and user_roles stay aligned.
   const email=((currentUser.email || '').trim().toLowerCase());
-  let data=await sbReq('user_roles?project_id=is.null&is_active=eq.true&select=email,role');
-  if(data&&data.length){
-    const match=data.find(row=>String(row.email||'').trim().toLowerCase()===email);
-    if(match?.role)return match.role;
-  }
-  if(activeProjectId){
-    data=await sbReq(`user_roles?project_id=eq.${activeProjectId}&is_active=eq.true&select=email,role`);
-    if(data&&data.length){
-      const match=data.find(row=>String(row.email||'').trim().toLowerCase()===email);
-      if(match?.role)return match.role;
+  // Avoid null-comparison corner cases in PostgREST filters by fetching by email only,
+  // then deciding global vs project role locally.
+  let data=await sbReq(`user_roles?select=email,role,project_id,is_active&email=ilike.${email}`);
+  if(data&&Array.isArray(data)&&data.length){
+    const active=data.filter(r=>r?.is_active===true && (r.role==='pm'||r.role==='leadpm'));
+    const global=active.find(r=>r.project_id==null);
+    if(global?.role)return global.role;
+    if(activeProjectId){
+      const proj=active.find(r=>String(r.project_id)===String(activeProjectId));
+      if(proj?.role)return proj.role;
     }
   }
   return 'viewer';
@@ -1051,9 +1051,6 @@ async function restoreSession(){
 }
 async function initAfterAuth(){
   document.getElementById('authOverlay').classList.add('hidden');
-  /* Load role */
-  currentRole=await loadUserRoleFromDb();
-  updateAuthUI();
   /* Load projects */
   const projects=await loadProjectsFromDb();
   if(projects&&projects.length>0){
@@ -1068,6 +1065,9 @@ async function initAfterAuth(){
     activeProjectId=allData.projects[0].id;activeWpId=allData.projects[0].workPackages[0].id;
     if(canEdit()){await saveProjectToDb(allData.projects[0]);for(const wp of allData.projects[0].workPackages)await saveWorkPackageToDb(wp,allData.projects[0].id);}
   }
+  /* Load role after activeProjectId is known (global or project-specific). */
+  currentRole=await loadUserRoleFromDb();
+  updateAuthUI();
   cacheToLocal();buildProjectSelector();buildWpTabs();render();
   showToast('🌐 Online — '+currentUser.email);
 }
