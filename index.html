@@ -603,6 +603,16 @@ tr.row-finished td { color: var(--text3); }
 /* ═══ PRINT ═══ */
 @media print {
   @page { size: A4 portrait; margin: 10mm; }
+  /* Isključi sve animacije/tranzicije/shadow-e — ubrzava paint u Chrome print preview-u */
+  *, *::before, *::after {
+    transition: none !important;
+    animation: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    text-shadow: none !important;
+    filter: none !important;
+  }
   body.print-gantt,
   body.print-total { }
   body.print-gantt + style + *, body.print-total { }
@@ -1624,21 +1634,61 @@ function updatePrintHeader(which){
   parts.push(`<span><strong>Datum:</strong> ${dateStr}</span>`);
   const meta=document.getElementById('printHeaderMeta');if(meta)meta.innerHTML=parts.join('');
 }
+let _printBackup=null;
+function preparePrintDom(which){
+  const mc=document.getElementById('mobileCards');
+  const rz=document.getElementById('reminderZone');
+  const vPlan=document.getElementById('view-plan');
+  const vGantt=document.getElementById('view-gantt');
+  const vTotal=document.getElementById('view-total');
+  _printBackup={
+    mobileCards: mc?mc.innerHTML:'',
+    reminderZone: rz?rz.innerHTML:'',
+    planHtml: vPlan?vPlan.innerHTML:null,
+    ganttHtml: vGantt?vGantt.innerHTML:null,
+    totalHtml: vTotal?vTotal.innerHTML:null,
+  };
+  // Uklanja neiskorišćeni sadržaj iz DOM-a da Chrome print preview ne layout-uje hiljade ćelija nepotrebno.
+  if(mc)mc.innerHTML='';
+  if(rz)rz.innerHTML='';
+  if(which!=='plan'&&vPlan)vPlan.innerHTML='';
+  if(which!=='gantt'&&vGantt)vGantt.innerHTML='';
+  if(which!=='total'&&vTotal)vTotal.innerHTML='';
+}
+function restorePrintDom(){
+  if(!_printBackup)return;
+  const mc=document.getElementById('mobileCards');
+  const rz=document.getElementById('reminderZone');
+  const vPlan=document.getElementById('view-plan');
+  const vGantt=document.getElementById('view-gantt');
+  const vTotal=document.getElementById('view-total');
+  if(mc)mc.innerHTML=_printBackup.mobileCards;
+  if(rz)rz.innerHTML=_printBackup.reminderZone;
+  if(vPlan&&_printBackup.planHtml!=null)vPlan.innerHTML=_printBackup.planHtml;
+  if(vGantt&&_printBackup.ganttHtml!=null)vGantt.innerHTML=_printBackup.ganttHtml;
+  if(vTotal&&_printBackup.totalHtml!=null)vTotal.innerHTML=_printBackup.totalHtml;
+  _printBackup=null;
+  // Ne-full render — samo obnovi trenutni view da interaktivnost radi
+  render();
+}
 function printView(which){
   document.getElementById('printOverlay').classList.remove('open');
-  // Pobrini se da je odgovarajući view renderovan pre štampe
-  const prevView=activeView;
+  // Osiguraj da je odgovarajući view renderovan PRE cleanup-a
   if(which==='gantt'){renderGantt();}
   else if(which==='total'){renderGanttWpFilter();renderTotalGantt();}
   updatePrintHeader(which);
+  preparePrintDom(which);
   document.body.classList.remove('print-plan','print-gantt','print-total');
   document.body.classList.add('print-'+which);
+  let cleaned=false;
   const cleanup=()=>{
+    if(cleaned)return;cleaned=true;
     document.body.classList.remove('print-plan','print-gantt','print-total');
+    restorePrintDom();
     window.removeEventListener('afterprint',cleanup);
   };
   window.addEventListener('afterprint',cleanup);
-  setTimeout(()=>{try{window.print();}catch(e){console.error('print error',e);cleanup();}},80);
+  setTimeout(()=>{try{window.print();}catch(e){console.error('print error',e);cleanup();}},30);
 }
 
 /* Try session restore first */
