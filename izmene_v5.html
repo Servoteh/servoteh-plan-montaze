@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="UTF-8">
+<title>Plan Montaže v5.0 — Model + Izmene</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}body{font-family:'IBM Plex Sans',sans-serif;font-size:11pt;color:#1a1a2e;line-height:1.6;max-width:210mm;margin:0 auto;padding:20mm 25mm;background:#fff}
+@media print{body{padding:0}.pb{page-break-before:always}}
+h1{font-size:17pt;color:#2e75b6;margin:14pt 0 7pt;font-weight:700;border-bottom:2px solid #2e75b6;padding-bottom:3pt}
+h2{font-size:12pt;color:#1a5276;margin:10pt 0 5pt;font-weight:600}
+p{margin-bottom:5pt;text-align:justify}ul{margin:3pt 0 7pt 16pt}li{margin-bottom:3pt}
+table{width:100%;border-collapse:collapse;margin:5pt 0 10pt;font-size:9.5pt}
+th{background:#2e75b6;color:#fff;font-weight:600;text-align:left;padding:5pt 7pt}
+td{padding:4pt 7pt;border:1px solid #d0d7de;vertical-align:top}tr:nth-child(even) td{background:#f8f9fa}td:first-child{font-weight:600}
+.t{font-size:21pt;color:#2e75b6;font-weight:700}.s{font-size:11pt;color:#8b949e;margin-bottom:10pt}
+hr{border:none;border-top:1px solid #2e75b6;margin:8pt 0}
+code{background:#f0f0f0;padding:1pt 4pt;border-radius:3pt;font-family:'IBM Plex Mono',monospace;font-size:9pt}
+pre{background:#1a1a2e;color:#e2e8f0;padding:10pt;border-radius:6pt;font-family:'IBM Plex Mono',monospace;font-size:8.5pt;white-space:pre-wrap;margin:6pt 0 10pt}
+.ft{margin-top:16pt;padding-top:6pt;border-top:1px solid #8b949e;font-size:8.5pt;color:#8b949e;text-align:center}
+</style>
+</head>
+<body>
+<div class="t">Plan Montaže v5.0</div>
+<div class="s">Promena modela: project → work_packages → phases</div>
+<hr>
+
+<h1>A) Šta je promenjeno u modelu</h1>
+<table>
+<tr><th>Stari model (v4.x)</th><th>Novi model (v5.0)</th></tr>
+<tr><td>MACHINES[] hardkodiran niz</td><td>projects[] → workPackages[] → phases[] dinamički</td></tr>
+<tr><td>allState[machineId] = phases[]</td><td>allData.projects[].workPackages[].phases[]</td></tr>
+<tr><td>Machine tabs (fiksni)</td><td>Project selector + WP tabs (dinamički)</td></tr>
+<tr><td>project_machine_meta odvojeno</td><td>Meta integrisano u projects objekat</td></tr>
+<tr><td>Jedan implicitni projekat</td><td>Više projekata istovremeno</td></tr>
+<tr><td>localStorage key per machine</td><td>Jedan key sa celom strukturom</td></tr>
+</table>
+
+<h2>Novi UI tok</h2>
+<ul>
+<li>Project selector na vrhu (dropdown + dugmad za dodavanje)</li>
+<li>Work package tabs ispod projekta</li>
+<li>Plan/Gantt/Total prikazuju faze izabranog WP-a</li>
+<li>Meta podaci (RN, PM, rok, email) u popup editoru po projektu</li>
+<li>Dashboard prikazuje projekat + trenutnu poziciju</li>
+</ul>
+
+<h2>Migracija sa v4</h2>
+<p>Automatska migracija: ako postoji <code>plan_kovacka_linija_v4</code> u localStorage, stare mašine se pretvaraju u work_packages jednog projekta.</p>
+
+<div class="pb"></div>
+<h1>B) SQL Schema</h1>
+
+<table>
+<tr><th>Tabela</th><th>Ključne kolone</th></tr>
+<tr><td>projects</td><td>id, project_code, project_name, projectm, project_deadline, pm_email, leadpm_email, reminder_enabled, status</td></tr>
+<tr><td>work_packages</td><td>id, project_id, rn_code, rn_order, name, location, responsible_engineer_default, montage_lead_default, deadline, sort_order, is_active</td></tr>
+<tr><td>phases</td><td>id, project_id, work_package_id, phase_name, location, start_date, end_date, responsible_engineer, montage_lead, status, pct, checks (JSONB), blocker, note, sort_order, updated_by</td></tr>
+<tr><td>user_roles</td><td>id, email, role (pm/leadpm/viewer), project_id (nullable), is_active</td></tr>
+<tr><td>reminder_log</td><td>id, project_id, work_package_id, phase_id, sent_to, sent_type, sent_at, status, error_message</td></tr>
+</table>
+
+<h1>C) Reminder Payload</h1>
+<pre>{
+  "alerts": [
+    {
+      "project_code": "RN 9000",
+      "project_id": "proj_abc123",
+      "work_package": "Presa 350t",
+      "work_package_id": "wp_def456",
+      "rn_code": "9000/1",
+      "phase": "Montaža agregata",
+      "start_date": "2026-04-20",
+      "days_until": 2,
+      "urgency": "critical",
+      "reasons": [
+        "Montažni crteži: NE",
+        "Nema vođe montaže"
+      ],
+      "engineer": "Dejan Ćirković",
+      "lead": "Miloš Oreščanin",
+      "pm_email": "pm@company.com",
+      "leadpm_email": "leadpm@company.com"
+    }
+  ]
+}</pre>
+
+<h1>D) Supabase funkcije u frontu</h1>
+<table>
+<tr><th>Funkcija</th><th>Opis</th></tr>
+<tr><td>loadProjects()</td><td>GET projects iz baze</td></tr>
+<tr><td>loadWorkPackages(projId)</td><td>GET work_packages za projekat</td></tr>
+<tr><td>loadPhasesFromDb(projId,wpId)</td><td>GET phases za WP</td></tr>
+<tr><td>saveProject(proj)</td><td>POST/PATCH projekat</td></tr>
+<tr><td>saveWorkPackage(wp)</td><td>POST/PATCH WP</td></tr>
+<tr><td>savePhase(phase)</td><td>POST/PATCH fazu</td></tr>
+<tr><td>loadUserRole()</td><td>GET rola korisnika</td></tr>
+<tr><td>callReminderEndpoint()</td><td>POST reminder Edge Function</td></tr>
+<tr><td>buildReminderPayload()</td><td>Gradi payload sa project_id, wp_id, phase info</td></tr>
+</table>
+
+<h1>E) Zadržane funkcionalnosti</h1>
+<ul>
+<li>Odgovoran ing. (16 inženjera)</li>
+<li>Vođa montaže</li>
+<li>8 readiness checkova sa calcReadiness()</li>
+<li>Risk indikatori sa calcRisk()</li>
+<li>Tvrda validacija datuma</li>
+<li>Obavezan blokator za "Na čekanju"</li>
+<li>Završeno stanje (posivljeni redovi, precrtano ime)</li>
+<li>Gantt bez završenih faza</li>
+<li>Warning/reminder kartice (crvene 0-3d, žute 4-7d)</li>
+<li>Role sistem (PM/LeadPM/Viewer + canEdit())</li>
+<li>Collapsible mobile filteri</li>
+<li>Mobile card prikaz sa edit mogućnostima</li>
+<li>Total Gantt sa WP filterom</li>
+<li>Import/export sa punim modelom</li>
+<li>Supabase DB dugme (online/offline toggle)</li>
+</ul>
+
+<div class="ft">Plan Montaže v5.0 — April 2026</div>
+</body>
+</html>

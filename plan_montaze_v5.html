@@ -1,0 +1,1279 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plan Montaže Kovačke Linije v5.0</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --bg: #0a0e14;
+  --surface: #12171e;
+  --surface2: #1a2028;
+  --surface3: #242c38;
+  --surface4: #2e3846;
+  --border: #1e2632;
+  --border2: #2e3846;
+  --border3: #3d4a5c;
+  --text: #e2e8f0;
+  --text2: #8892a2;
+  --text3: #5a6578;
+  --blue: #1a4977;
+  --blue-light: #2b6cb0;
+  --blue-bar: #4da3ff;
+  --blue-bg: #0c1a2e;
+  --green: #2d5a1e;
+  --green-light: #38b249;
+  --green-bg: #0b1f12;
+  --yellow: #c98a1a;
+  --yellow-bg: #1a1600;
+  --orange: #e07a35;
+  --orange-bg: #1c0f02;
+  --red: #e5534b;
+  --red-bg: #1c0806;
+  --accent: #4da3ff;
+  --accent-dim: rgba(77,163,255,0.08);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.35);
+  --shadow-lg: 0 12px 40px rgba(0,0,0,0.5);
+  --radius: 6px;
+  --radius-lg: 10px;
+  --font: 'IBM Plex Sans', sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 13px; min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+/* ═══ HEADER ═══ */
+.header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border2);
+  padding: 0;
+  position: sticky; top: 0; z-index: 100;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+}
+.header-top {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+  padding: 14px 24px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.header h1 { font-size: 15px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 8px; letter-spacing: -0.2px; }
+.header h1 span.tag { font-family: var(--mono); font-size: 9px; background: var(--blue-light); color: white; padding: 2px 8px; border-radius: 10px; font-weight: 500; letter-spacing: 0.3px; }
+.header-sub { color: var(--text3); font-size: 10px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.header-sub span { display: flex; align-items: center; gap: 4px; }
+.dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+.dot-blue { background: var(--blue-bar); }
+.dot-green { background: var(--green-light); }
+
+.toolbar { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.btn { display: flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: var(--radius); font-size: 10px; font-weight: 600; cursor: pointer; border: 1px solid; font-family: var(--font); transition: all 0.15s; letter-spacing: 0.2px; text-transform: uppercase; }
+.btn-save  { background: var(--blue-bg); border-color: var(--blue-light); color: #79c0ff; }
+.btn-save:hover  { background: #142e50; }
+.btn-load  { background: var(--green-bg); border-color: #2d7a3e; color: #7ee787; }
+.btn-load:hover  { background: #14301e; }
+.btn-reset { background: var(--red-bg); border-color: #5a2020; color: var(--red); }
+.btn-reset:hover { background: #2a0e0e; }
+
+/* ═══ KPI CARDS ═══ */
+.kpi-zone { padding: 12px 24px 14px; background: var(--bg); border-bottom: 1px solid var(--border); }
+.kpi-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px;
+}
+.kpi-card {
+  background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius-lg);
+  padding: 10px 14px; display: flex; flex-direction: column; gap: 2px;
+  transition: border-color 0.15s;
+}
+.kpi-card:hover { border-color: var(--border3); }
+.kpi-label { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text3); }
+.kpi-value { font-size: 22px; font-weight: 700; font-family: var(--mono); color: var(--text); line-height: 1.1; }
+.kpi-sub { font-size: 10px; color: var(--text3); font-family: var(--mono); }
+.kpi-card.kpi-ok { border-left: 3px solid var(--green-light); }
+.kpi-card.kpi-ok .kpi-value { color: var(--green-light); }
+.kpi-card.kpi-warn { border-left: 3px solid var(--orange); }
+.kpi-card.kpi-warn .kpi-value { color: var(--orange); }
+.kpi-card.kpi-danger { border-left: 3px solid var(--red); }
+.kpi-card.kpi-danger .kpi-value { color: var(--red); }
+.kpi-card.kpi-info { border-left: 3px solid var(--blue-bar); }
+.kpi-card.kpi-info .kpi-value { color: var(--blue-bar); }
+.kpi-card.kpi-neutral .kpi-value { color: var(--text2); }
+
+/* ═══ MACHINE TABS ═══ */
+.machine-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border2); background: var(--surface); overflow-x: auto; }
+.machine-tab { padding: 10px 22px; cursor: pointer; font-size: 12px; font-weight: 600; color: var(--text3); border-bottom: 2px solid transparent; white-space: nowrap; transition: all 0.15s; border-right: 1px solid var(--border); letter-spacing: 0.1px; }
+.machine-tab:hover { color: var(--text2); background: var(--surface2); }
+.machine-tab.active { color: var(--accent); border-bottom-color: var(--accent); background: var(--bg); }
+
+/* ═══ VIEW TABS ═══ */
+.main { padding: 16px 24px; }
+.view-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border2); margin-bottom: 14px; }
+.view-tab { padding: 8px 20px; cursor: pointer; font-size: 11px; color: var(--text3); border-bottom: 2px solid transparent; transition: all 0.15s; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+.view-tab:hover { color: var(--text2); }
+.view-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.view-section { display: none; }
+.view-section.active { display: block; }
+
+/* ═══ FILTERS ═══ */
+.filter-bar {
+  display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end;
+  padding: 10px 16px; margin-bottom: 14px;
+  background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+.filter-bar label { font-size: 9px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.7px; font-weight: 600; margin-bottom: 1px; }
+.filter-group { display: flex; flex-direction: column; gap: 3px; }
+.filter-bar select, .filter-bar input[type="text"] {
+  background: var(--surface3); border: 1px solid var(--border2); color: var(--text);
+  border-radius: var(--radius); padding: 6px 10px; font-size: 11px; font-family: var(--font);
+  outline: none; min-width: 120px; height: 32px; transition: all 0.15s;
+}
+.filter-bar select:focus, .filter-bar input[type="text"]:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-dim); }
+.filter-bar .btn-filter-reset {
+  background: var(--surface3); border: 1px solid var(--border2); color: var(--text3);
+  border-radius: var(--radius); padding: 6px 14px; font-size: 10px; cursor: pointer;
+  font-family: var(--font); font-weight: 600; transition: all 0.15s; margin-left: auto;
+  height: 32px; text-transform: uppercase; letter-spacing: 0.3px;
+}
+.filter-bar .btn-filter-reset:hover { background: var(--surface4); color: var(--text2); }
+.filter-count { font-size: 10px; color: var(--text3); font-family: var(--mono); }
+
+/* ═══ TABLE ═══ */
+.table-wrap { overflow-x: auto; border-radius: var(--radius-lg); border: 1px solid var(--border2); box-shadow: var(--shadow-sm); }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+thead tr th { background: var(--surface2); color: var(--text3); font-weight: 600; font-size: 9px; text-transform: uppercase; letter-spacing: 0.6px; padding: 8px 8px; text-align: left; border-bottom: 1px solid var(--border2); white-space: nowrap; position: sticky; top: 0; z-index: 5; }
+/* Sticky first two header columns: must be above both scroll axes */
+thead tr th:first-child { position: sticky; left: 0; z-index: 12; }
+thead tr th:nth-child(2) { position: sticky; left: 34px; z-index: 12; border-right: 1px solid var(--border2); }
+thead tr.grp-hdr th:first-child { position: sticky; left: 0; z-index: 12; }
+/* Row backgrounds for sticky columns */
+tbody tr .td-num { background: var(--bg); }
+tbody tr .td-name { background: var(--bg); }
+tbody tr:nth-child(even) .td-num, tbody tr:nth-child(even) .td-name { background: #0b1016; }
+tbody tr:hover .td-num, tbody tr:hover .td-name { background: var(--surface2); }
+thead tr.grp-hdr th { background: var(--surface); color: var(--text3); font-size: 8px; padding: 4px 8px; letter-spacing: 1px; }
+.th-plan  { background: #0c1628 !important; color: var(--blue-bar) !important; }
+.th-check { background: #0b1812 !important; color: var(--green-light) !important; }
+.th-loc   { background: #101e32 !important; color: #6aafff !important; }
+.th-risk  { background: #1a1008 !important; color: var(--orange) !important; }
+tbody tr { border-bottom: 1px solid var(--border); transition: background 0.12s; }
+tbody tr:hover { background: rgba(77,163,255,0.03); }
+tbody tr:nth-child(even) { background: rgba(255,255,255,0.012); }
+tbody tr:nth-child(even):hover { background: rgba(77,163,255,0.03); }
+td { padding: 6px 8px; vertical-align: middle; }
+.td-num    { color: var(--text3); font-family: var(--mono); font-size: 10px; width: 34px; text-align: center; position: sticky; left: 0; z-index: 2; background: var(--bg); }
+.td-name   { color: var(--text); font-weight: 500; min-width: 200px; position: sticky; left: 34px; z-index: 2; background: var(--bg); border-right: 1px solid var(--border2); }
+.td-loc    { width: 110px; }
+.td-date   { width: 112px; }
+.td-dur    { width: 55px; text-align: center; font-family: var(--mono); color: var(--text3); font-size: 11px; }
+.td-person { width: 150px; }
+.td-status { width: 115px; }
+.td-pct    { width: 105px; }
+.td-check  { width: 44px; text-align: center; }
+.td-ready  { width: 80px; text-align: center; }
+.td-note   { min-width: 140px; }
+.td-blocker { min-width: 130px; }
+.td-risk   { width: 36px; text-align: center; }
+
+/* ═══ RISK ROW ═══ */
+tr.row-risk-high { border-left: 3px solid var(--red); }
+tr.row-risk-med  { border-left: 3px solid var(--orange); }
+tr.row-risk-low  { border-left: 3px solid var(--yellow); }
+tr.row-risk-none { border-left: 3px solid transparent; }
+.risk-icon { font-size: 13px; cursor: help; }
+
+/* ═══ TOOLTIPS ═══ */
+.risk-tooltip, .ready-tooltip { position: relative; display: inline-block; cursor: help; }
+.risk-tooltip .risk-tip-text, .ready-tooltip .ready-tip-text {
+  visibility: hidden; opacity: 0;
+  width: 220px; background: var(--surface2); color: var(--text2);
+  border: 1px solid var(--border3); border-radius: var(--radius);
+  padding: 10px 12px; font-size: 10px; line-height: 1.6;
+  position: absolute; z-index: 50; bottom: 130%; left: 50%; transform: translateX(-50%);
+  transition: opacity 0.15s; box-shadow: var(--shadow-lg);
+  white-space: normal; text-align: left;
+}
+.risk-tooltip .risk-tip-text::after, .ready-tooltip .ready-tip-text::after {
+  content: ""; position: absolute; top: 100%; left: 50%; margin-left: -5px;
+  border-width: 5px; border-style: solid; border-color: var(--border3) transparent transparent transparent;
+}
+.risk-tooltip:hover .risk-tip-text, .ready-tooltip:hover .ready-tip-text { visibility: visible; opacity: 1; }
+
+/* ═══ DATE ERR / BLOCKER ═══ */
+.date-error input { background: #1c0806 !important; border-color: var(--red) !important; color: var(--red) !important; }
+.dur-error { color: var(--red) !important; font-weight: 700; }
+.blocker-highlight textarea { background: #1c0f02 !important; border-color: var(--orange) !important; }
+
+/* ═══ INPUTS ═══ */
+select, input[type="text"] { background: var(--surface3); border: 1px solid var(--border2); color: var(--text); border-radius: var(--radius); padding: 4px 8px; font-size: 11px; font-family: var(--font); width: 100%; outline: none; transition: all 0.15s; }
+select:focus, input[type="text"]:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-dim); }
+.date-input-wrap { position: relative; }
+.date-input-wrap input { padding-right: 24px; cursor: pointer; background: #101e10; border-color: #1e3a1e; color: #92cc7a; font-family: var(--mono); font-size: 10px; }
+.date-input-wrap input.empty { background: var(--surface3); border-color: var(--border2); color: var(--text3); }
+.date-btn { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 12px; color: var(--green-light); opacity: 0.5; transition: opacity 0.15s; padding: 0; }
+.date-btn:hover { opacity: 1; }
+.loc-dob { background: var(--blue-bg); border-color: #1e3a5c; color: #6aafff; font-weight: 600; }
+.loc-kru { background: var(--green-bg); border-color: #1e3a22; color: #7ee787; font-weight: 600; }
+select.st-0 { background: #141200; border-color: #3a3200; color: var(--yellow); }
+select.st-1 { background: #001428; border-color: #003366; color: var(--blue-bar); }
+select.st-2 { background: var(--green-bg); border-color: #1e4a26; color: var(--green-light); }
+select.st-3 { background: var(--red-bg); border-color: #3a1414; color: var(--red); }
+select.ck-da { background: #0a1a0e; border-color: #1e4a26; color: #7ee787; font-weight: 700; font-size: 10px; }
+select.ck-ne { background: var(--surface3); border-color: var(--border2); color: var(--text3); font-size: 10px; }
+
+/* ═══ PCT BAR ═══ */
+.pct-bar-wrap { display: flex; align-items: center; gap: 5px; }
+.pct-bar { flex: 1; height: 3px; background: var(--surface4); border-radius: 2px; overflow: hidden; }
+.pct-bar-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
+.pct-fill-normal { background: var(--accent); }
+.pct-fill-done   { background: var(--green-light); }
+.pct-fill-hold   { background: var(--red); }
+
+/* ═══ BADGES ═══ */
+.badge-ready { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 9px; font-weight: 700; font-family: var(--mono); letter-spacing: 0.3px; }
+.badge-yes { background: #0e2216; color: var(--green-light); border: 1px solid #1e4a26; }
+.badge-no  { background: var(--surface3); color: var(--text3); border: 1px solid var(--border2); }
+.badge-done { background: var(--surface3); color: var(--text3); border: 1px solid var(--border); }
+
+/* ═══ TEXTAREA ═══ */
+textarea.note-area { background: var(--surface3); border: 1px solid var(--border2); color: var(--text); border-radius: var(--radius); padding: 5px 8px; font-size: 10px; font-family: var(--font); width: 100%; outline: none; transition: all 0.15s; resize: vertical; min-height: 34px; line-height: 1.5; }
+textarea.note-area:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-dim); }
+
+/* ═══ LEGEND ═══ */
+.legend { display: flex; gap: 14px; flex-wrap: wrap; padding: 12px 0; border-top: 1px solid var(--border); margin-top: 12px; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--text3); }
+.legend-box { width: 10px; height: 10px; border-radius: 3px; }
+
+/* ═══ GANTT ═══ */
+.gantt-wrap { overflow-x: auto; border-radius: var(--radius-lg); border: 1px solid var(--border2); box-shadow: var(--shadow-sm); }
+.gantt-table { border-collapse: collapse; font-size: 11px; min-width: 100%; }
+.gantt-table th { background: var(--surface2); color: var(--text3); font-weight: 600; font-size: 9px; padding: 5px 6px; text-align: left; border: 1px solid var(--border); white-space: nowrap; }
+.gantt-table td { border: 1px solid var(--border); padding: 0; height: 28px; }
+.gantt-label { padding: 2px 10px; white-space: nowrap; min-width: 200px; }
+.gantt-label-name { color: var(--text); font-weight: 500; font-size: 11px; }
+.gantt-label-sub { font-size: 9px; font-family: var(--mono); margin-top: 1px; }
+.gantt-label-sub.dob { color: var(--blue-bar); }
+.gantt-label-sub.kru { color: var(--green-light); }
+.gantt-label-status { font-size: 8px; font-family: var(--mono); display: inline; }
+.gantt-label-status.gs-0 { color: var(--yellow); }
+.gantt-label-status.gs-1 { color: var(--blue-bar); }
+.gantt-label-status.gs-2 { color: var(--green-light); }
+.gantt-label-status.gs-3 { color: var(--red); }
+.gantt-month-hdr { background: #0c1628; color: var(--blue-bar); font-size: 9px; font-weight: 700; text-align: center; border: 1px solid var(--border); padding: 4px 6px; letter-spacing: 0.3px; }
+.gantt-day-hdr { text-align: center; font-family: var(--mono); font-size: 9px; padding: 3px 0; min-width: 22px; width: 22px; }
+.gantt-day-hdr.today-col { background: rgba(77,163,255,0.18); color: var(--accent); font-weight: 700; }
+.gantt-day-hdr.wknd { color: rgba(229,83,75,0.5); background: rgba(229,83,75,0.04); }
+.gantt-cell { width: 22px; min-width: 22px; max-width: 22px; }
+.gantt-cell.wknd { background: rgba(229,83,75,0.025); }
+.gantt-cell.today-col { background: rgba(77,163,255,0.06); }
+.gantt-cell.bar-dob,.gantt-cell.bar-start-dob,.gantt-cell.bar-end-dob { background: var(--blue-light); }
+.gantt-cell.bar-kru,.gantt-cell.bar-start-kru,.gantt-cell.bar-end-kru { background: var(--green); }
+.gantt-row:hover .bar-dob,.gantt-row:hover .bar-start-dob,.gantt-row:hover .bar-end-dob { background: #3a8acc !important; }
+.gantt-row:hover .bar-kru,.gantt-row:hover .bar-start-kru,.gantt-row:hover .bar-end-kru { background: #3a6e28 !important; }
+.gantt-row:hover td { background: rgba(77,163,255,0.03); }
+.gantt-row-risk td.gantt-label { border-left: 3px solid var(--orange); }
+.gantt-machine-hdr td { background: #0c1628; color: var(--blue-bar); font-weight: 700; font-size: 11px; padding: 6px 12px; letter-spacing: 0.5px; border-top: 2px solid var(--blue-light); border-bottom: 1px solid var(--border); }
+
+/* ═══ CALENDAR ═══ */
+.cal-overlay { display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); }
+.cal-overlay.open { display: flex; align-items: center; justify-content: center; }
+.cal-popup { background: var(--surface); border: 1px solid var(--border3); border-radius: var(--radius-lg); width: 290px; box-shadow: var(--shadow-lg); overflow: hidden; animation: popIn 0.15s ease-out; }
+@keyframes popIn { from { opacity:0; transform:scale(0.96) translateY(6px); } to { opacity:1; transform:scale(1) translateY(0); } }
+.cal-header { background: var(--surface2); padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border2); }
+.cal-title { font-size: 13px; font-weight: 700; color: var(--text); font-family: var(--mono); }
+.cal-nav { display: flex; gap: 4px; }
+.cal-nav-btn { background: var(--surface3); border: 1px solid var(--border2); color: var(--text2); border-radius: var(--radius); width: 28px; height: 28px; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+.cal-nav-btn:hover { background: var(--surface4); color: var(--text); }
+.cal-body { padding: 10px; }
+.cal-days-hdr { display: grid; grid-template-columns: repeat(7,1fr); margin-bottom: 4px; }
+.cal-days-hdr span { text-align: center; font-size: 9px; font-weight: 700; color: var(--text3); text-transform: uppercase; padding: 4px 0; }
+.cal-days-hdr span:nth-child(6),.cal-days-hdr span:nth-child(7) { color: var(--red); }
+.cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 2px; }
+.cal-day { aspect-ratio:1; display:flex; align-items:center; justify-content:center; border-radius:var(--radius); cursor:pointer; font-size:11px; font-family:var(--mono); color:var(--text3); transition:all 0.1s; border:1px solid transparent; }
+.cal-day:hover { background: var(--surface4); color: var(--text); }
+.cal-day.today { background: var(--accent-dim); color: var(--accent); border-color: rgba(77,163,255,0.2); font-weight: 700; }
+.cal-day.selected { background: var(--accent); color: #000; font-weight: 700; }
+.cal-day.weekend { color: rgba(229,83,75,0.6); }
+.cal-day.weekend:hover { background: rgba(229,83,75,0.08); color: var(--red); }
+.cal-day.empty { cursor: default; }
+.cal-footer { padding: 10px 12px; display: flex; justify-content: space-between; border-top: 1px solid var(--border2); }
+.cal-btn { padding: 6px 16px; border-radius: var(--radius); font-size: 11px; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s; font-family: var(--font); }
+.cal-btn-cancel { background: var(--surface3); color: var(--text2); }
+.cal-btn-cancel:hover { background: var(--surface4); color: var(--text); }
+.cal-btn-clear { background: transparent; color: var(--red); border: 1px solid rgba(229,83,75,0.2); }
+.cal-btn-clear:hover { background: rgba(229,83,75,0.08); }
+
+/* ═══ TOAST ═══ */
+.toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface2); border: 1px solid var(--border3); border-radius: var(--radius); padding: 10px 16px; font-size: 12px; color: var(--text); z-index: 2000; transform: translateY(60px); opacity: 0; transition: all 0.25s; box-shadow: var(--shadow-lg); }
+.toast.show { transform: translateY(0); opacity: 1; }
+
+/* ═══ ROW ACTIONS ═══ */
+.td-actions { width: 70px; text-align: center; white-space: nowrap; }
+.row-btn { background: none; border: 1px solid transparent; color: var(--text3); border-radius: var(--radius); cursor: pointer; font-size: 12px; padding: 3px 5px; transition: all 0.15s; }
+.row-btn:hover { border-color: var(--border3); color: var(--text2); background: var(--surface3); }
+.row-btn.btn-del:hover { border-color: #3a1414; color: var(--red); background: var(--red-bg); }
+.row-btn.btn-up:hover  { border-color: #1e3a5c; color: var(--accent); }
+.row-btn.btn-dn:hover  { border-color: #1e3a5c; color: var(--accent); }
+
+/* ═══ ADD PHASE ═══ */
+.add-phase-bar { display: flex; gap: 8px; align-items: center; padding: 12px 0; border-top: 1px solid var(--border); margin-top: 10px; }
+.add-phase-input { flex: 1; background: var(--surface3); border: 1px solid var(--border2); color: var(--text); border-radius: var(--radius); padding: 7px 12px; font-size: 12px; font-family: var(--font); outline: none; transition: all 0.15s; }
+.add-phase-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-dim); }
+.btn-add-phase { display: flex; align-items: center; gap: 5px; padding: 7px 16px; border-radius: var(--radius); font-size: 11px; font-weight: 600; cursor: pointer; border: 1px solid #1e4a26; background: var(--green-bg); color: #7ee787; font-family: var(--font); transition: all 0.15s; white-space: nowrap; }
+.btn-add-phase:hover { background: #14301e; }
+
+/* ═══ PHASE NAME ═══ */
+.phase-name-input { background: transparent; border: 1px solid transparent; color: var(--text); font-family: var(--font); font-size: 12px; font-weight: 500; width: 100%; padding: 3px 5px; border-radius: var(--radius); outline: none; transition: all 0.15s; }
+.phase-name-input:hover { border-color: var(--border2); background: var(--surface3); }
+.phase-name-input:focus { border-color: var(--accent); background: var(--surface3); box-shadow: 0 0 0 2px var(--accent-dim); }
+
+.checks-container { display: flex; gap: 0; }
+.checks-container .td-check { min-width: 44px; }
+/* ═══ FINISHED ROW ═══ */
+tr.row-finished { opacity: 0.5; }
+tr.row-finished .phase-name-input { text-decoration: line-through; color: var(--text3); }
+tr.row-finished td { color: var(--text3); }
+.m-card.m-finished { opacity: 0.55; }
+.m-card.m-finished .m-card-name { text-decoration: line-through; color: var(--text3); }
+
+/* ═══ REMINDER ALERTS ═══ */
+.reminder-zone { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.reminder-card {
+  padding: 8px 12px; border-radius: var(--radius); font-size: 11px; flex: 1 1 260px;
+  border: 1px solid; display: flex; flex-direction: column; gap: 2px;
+}
+.reminder-card.rc-red { background: #1c0806; border-color: var(--red); color: #ffaaaa; }
+.reminder-card.rc-yellow { background: #1a1600; border-color: var(--yellow); color: #ffe0a0; }
+.reminder-card .rc-title { font-weight: 600; font-size: 12px; }
+.reminder-card .rc-sub { font-size: 10px; opacity: 0.8; }
+.reminder-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+.reminder-dot.rd-red { background: var(--red); }
+.reminder-dot.rd-yellow { background: var(--yellow); }
+
+/* ═══ TOTAL GANTT MACHINE FILTER ═══ */
+.gantt-machine-filter { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius-lg); }
+.gantt-machine-filter label { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text2); cursor: pointer; padding: 4px 8px; border-radius: var(--radius); transition: background 0.15s; }
+.gantt-machine-filter label:hover { background: var(--surface3); }
+.gantt-machine-filter input[type="checkbox"] { accent-color: var(--accent); width: 14px; height: 14px; }
+
+/* ═══ ENGINEER COLUMN ═══ */
+.td-eng { width: 130px; }
+
+/* ═══ META INFO ═══ */
+.meta-sub { display: flex; gap: 12px; flex-wrap: wrap; font-size: 10px; color: var(--text3); margin-top: 2px; font-family: var(--mono); }
+.meta-sub span { display: flex; align-items: center; gap: 3px; }
+
+/* ═══ ROLE INDICATOR ═══ */
+.role-indicator { font-size: 9px; padding: 2px 8px; border-radius: 10px; font-weight: 600; font-family: var(--mono); letter-spacing: 0.3px; }
+.role-pm { background: #1a2d4a; color: var(--blue-bar); border: 1px solid var(--blue-light); }
+.role-viewer { background: var(--surface3); color: var(--text3); border: 1px solid var(--border2); }
+
+
+/* ═══════════════════════════════════════════════
+   MOBILE CARD VIEW
+   ═══════════════════════════════════════════════ */
+.mobile-cards { display: none; }
+.m-card {
+  background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius-lg);
+  margin-bottom: 8px; overflow: hidden; transition: border-color 0.15s;
+}
+.m-card.m-risk-high { border-left: 3px solid var(--red); }
+.m-card.m-risk-med  { border-left: 3px solid var(--orange); }
+.m-card.m-risk-low  { border-left: 3px solid var(--yellow); }
+.m-card-top {
+  display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: start;
+  padding: 10px 12px 8px; cursor: pointer;
+}
+.m-card-name { font-weight: 600; font-size: 13px; color: var(--text); }
+.m-card-badges { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
+.m-card-row { display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 0 12px 8px; font-size: 11px; color: var(--text2); }
+.m-card-field { display: flex; align-items: center; gap: 4px; }
+.m-card-field .m-lbl { color: var(--text3); font-size: 9px; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
+.m-card-pct { display: flex; align-items: center; gap: 6px; padding: 0 12px 8px; }
+.m-card-pct .pct-bar { flex: 1; height: 4px; }
+.m-card-pct span { font-family: var(--mono); font-size: 10px; color: var(--text3); min-width: 30px; }
+.m-card-details {
+  display: none; padding: 8px 12px; border-top: 1px solid var(--border);
+  background: var(--bg); font-size: 11px;
+}
+.m-card-details.open { display: block; }
+.m-card-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.m-card-detail-item { display: flex; flex-direction: column; gap: 2px; }
+.m-card-detail-item .m-lbl { color: var(--text3); font-size: 9px; text-transform: uppercase; font-weight: 600; }
+.m-card-checks { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
+.m-card-check { font-size: 9px; padding: 2px 6px; border-radius: 3px; font-family: var(--mono); }
+.m-card-check.ck-y { background: #0a1a0e; color: #7ee787; border: 1px solid #1e4a26; }
+.m-card-check.ck-n { background: var(--surface3); color: var(--text3); border: 1px solid var(--border2); }
+.m-card-actions { display: flex; gap: 6px; padding: 6px 12px; border-top: 1px solid var(--border); justify-content: flex-end; }
+.m-card-actions .row-btn { padding: 6px 10px; font-size: 13px; }
+.m-card-edit { padding: 6px 12px 10px; }
+.m-card-edit select, .m-card-edit input, .m-card-edit textarea { font-size: 13px; padding: 8px 10px; margin-bottom: 6px; }
+.m-expand-btn { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 10px; padding: 4px 8px; font-family: var(--font); }
+.m-expand-btn:hover { color: var(--text2); }
+
+/* ═══════════════════════════════════════════════
+   TABLET: 768px - 1199px
+   ═══════════════════════════════════════════════ */
+@media (max-width: 1199px) {
+  .main { padding: 12px 16px; }
+  .header-top { padding: 10px 16px 8px; }
+  .kpi-zone { padding: 10px 16px 12px; }
+  .kpi-grid { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 6px; }
+  .kpi-card { padding: 8px 10px; }
+  .kpi-value { font-size: 18px; }
+  .kpi-label { font-size: 8px; }
+  .filter-bar { padding: 8px 12px; gap: 8px; }
+  .filter-bar select, .filter-bar input[type="text"] { min-width: 100px; font-size: 11px; height: 30px; padding: 4px 6px; }
+  .machine-tab { padding: 8px 14px; font-size: 11px; }
+  .view-tab { padding: 6px 14px; font-size: 10px; }
+  td { padding: 4px 6px; }
+  .td-check { width: 38px; }
+  select.ck-da, select.ck-ne { font-size: 9px; padding: 2px 3px; }
+  .td-note, .td-blocker { min-width: 110px; }
+  textarea.note-area { font-size: 10px; min-height: 30px; }
+  .gantt-cell, .gantt-day-hdr { width: 20px; min-width: 20px; max-width: 20px; }
+}
+
+/* ═══════════════════════════════════════════════
+   MOBILE: < 768px
+   ═══════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════
+   MOBILE: < 768px
+   ═══════════════════════════════════════════════ */
+@media (max-width: 767px) {
+  body { font-size: 13px; }
+  .main { padding: 8px 10px; }
+
+  /* Header ultra-compact */
+  .header-top { padding: 8px 12px 6px; flex-direction: column; align-items: stretch; gap: 6px; }
+  .header h1 { font-size: 13px; }
+  .header-sub { font-size: 9px; gap: 8px; }
+  .toolbar { justify-content: flex-start; gap: 4px; }
+  .btn { padding: 6px 8px; font-size: 9px; }
+
+  /* KPI compact: 3-col tight grid */
+  .kpi-zone { padding: 6px 10px 8px; }
+  .kpi-grid { grid-template-columns: repeat(3, 1fr); gap: 4px; }
+  .kpi-card { padding: 6px 8px; border-radius: 6px; }
+  .kpi-value { font-size: 16px; }
+  .kpi-label { font-size: 7px; letter-spacing: 0.4px; }
+  .kpi-sub { font-size: 9px; }
+  .kpi-card.kpi-neutral .kpi-value { font-size: 11px; }
+
+  /* Machine tabs scroll */
+  .machine-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .machine-tab { padding: 8px 14px; font-size: 11px; min-width: max-content; }
+
+  /* View tabs */
+  .view-tabs { margin-bottom: 8px; }
+  .view-tab { padding: 7px 12px; font-size: 10px; }
+
+  /* Collapsible filter panel */
+  .filter-toggle-btn {
+    display: flex; align-items: center; justify-content: space-between; width: 100%;
+    background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius-lg);
+    padding: 10px 14px; margin-bottom: 8px; cursor: pointer; color: var(--text2);
+    font-family: var(--font); font-size: 11px; font-weight: 600; transition: all 0.15s;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .filter-toggle-btn:hover { background: var(--surface2); color: var(--text); }
+  .filter-toggle-btn .filter-arrow { transition: transform 0.2s; }
+  .filter-toggle-btn.open .filter-arrow { transform: rotate(180deg); }
+
+  .filter-bar {
+    flex-direction: column; align-items: stretch; gap: 8px; padding: 10px 12px;
+    max-height: 0; overflow: hidden; opacity: 0; margin-bottom: 0;
+    border: none; padding: 0; transition: max-height 0.25s ease, opacity 0.2s ease, padding 0.25s ease, margin 0.25s ease;
+  }
+  .filter-bar.filter-open {
+    max-height: 600px; opacity: 1; margin-bottom: 10px;
+    border: 1px solid var(--border2); padding: 10px 12px;
+  }
+  .filter-group { flex-direction: row; align-items: center; gap: 8px; }
+  .filter-group label { min-width: 56px; font-size: 9px; }
+  .filter-bar select, .filter-bar input[type="text"] { min-width: 0; flex: 1; height: 38px; font-size: 14px; padding: 6px 10px; }
+  .filter-bar .btn-filter-reset { margin-left: 0; height: 38px; font-size: 12px; }
+
+  /* Hide desktop table, show mobile cards */
+  .table-wrap { display: none; }
+  .mobile-cards { display: block; }
+  .legend { font-size: 9px; gap: 8px; padding: 8px 0; }
+
+  /* Add phase bar */
+  .add-phase-bar { flex-direction: column; gap: 6px; }
+  .add-phase-input { font-size: 14px; padding: 10px 12px; }
+  .btn-add-phase { padding: 10px 16px; font-size: 13px; justify-content: center; }
+
+  /* Calendar full-width-ish */
+  .cal-popup { width: calc(100vw - 32px); max-width: 320px; }
+  .cal-day { font-size: 13px; }
+  .cal-btn { padding: 8px 18px; font-size: 12px; }
+  .cal-nav-btn { width: 32px; height: 32px; font-size: 15px; }
+
+  /* Gantt mobile polish */
+  .gantt-wrap { -webkit-overflow-scrolling: touch; border-radius: 8px; }
+  .gantt-label { min-width: 150px; padding: 3px 8px; }
+  .gantt-label-name { font-size: 10px; white-space: normal; line-height: 1.3; }
+  .gantt-label-sub { font-size: 8px; }
+  .gantt-cell, .gantt-day-hdr { width: 20px; min-width: 20px; max-width: 20px; }
+  .gantt-day-hdr { font-size: 8px; padding: 3px 0; }
+  .gantt-month-hdr { font-size: 8px; padding: 3px 4px; }
+  .gantt-table td { height: 30px; }
+
+  /* Mobile card touch improvements */
+  .m-card { margin-bottom: 6px; }
+  .m-card-top { padding: 12px 14px 8px; min-height: 44px; }
+  .m-card-name { font-size: 14px; }
+  .m-card-row { padding: 0 14px 8px; font-size: 12px; gap: 6px 16px; }
+  .m-card-pct { padding: 0 14px 10px; }
+  .m-card-details { padding: 10px 14px 12px; }
+  .m-card-detail-grid { gap: 8px; }
+  .m-card-detail-item select, .m-card-detail-item textarea { min-height: 40px; }
+  .m-card-checks { gap: 6px; margin: 8px 0; }
+  .m-card-check { padding: 6px 10px !important; font-size: 11px !important; min-height: 32px; display: inline-flex; align-items: center; }
+  .m-card-actions .row-btn, .m-card-details .row-btn { min-height: 36px; min-width: 36px; display: inline-flex; align-items: center; justify-content: center; }
+
+  /* Toast */
+  .toast { left: 10px; right: 10px; bottom: 10px; text-align: center; }
+
+  /* Hide filter toggle on desktop */
+  .filter-toggle-btn { display: flex; }
+}
+
+/* Filter toggle button: hidden on desktop, shown on mobile via media query */
+.filter-toggle-btn { display: none; }
+
+/* Small phone: < 400px */
+@media (max-width: 399px) {
+  .kpi-grid { grid-template-columns: 1fr 1fr; }
+  .kpi-value { font-size: 14px; }
+  .kpi-label { font-size: 7px; }
+  .header h1 { font-size: 12px; }
+  .btn { font-size: 8px; padding: 5px 6px; }
+  .m-card-name { font-size: 13px; }
+  .m-card-check { padding: 5px 7px !important; font-size: 10px !important; }
+}
+
+
+/* ═══ PROJECT SELECTOR ═══ */
+.project-bar {
+  display: flex; align-items: center; gap: 10px; padding: 8px 24px;
+  background: var(--bg); border-bottom: 1px solid var(--border2); flex-wrap: wrap;
+}
+.project-bar label { font-size: 9px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.7px; font-weight: 600; }
+.project-bar select { background: var(--surface3); border: 1px solid var(--border2); color: var(--text); border-radius: var(--radius); padding: 6px 10px; font-size: 12px; font-family: var(--font); outline: none; min-width: 180px; }
+.project-bar select:focus { border-color: var(--accent); }
+.project-bar .btn-sm { padding: 5px 10px; font-size: 9px; border-radius: var(--radius); cursor: pointer; border: 1px solid var(--border2); background: var(--surface3); color: var(--text2); font-family: var(--font); font-weight: 600; transition: all 0.15s; }
+.project-bar .btn-sm:hover { background: var(--surface4); color: var(--text); }
+.wp-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border2); background: var(--surface); overflow-x: auto; }
+.wp-tab { padding: 8px 18px; cursor: pointer; font-size: 11px; font-weight: 600; color: var(--text3); border-bottom: 2px solid transparent; white-space: nowrap; transition: all 0.15s; border-right: 1px solid var(--border); letter-spacing: 0.1px; }
+.wp-tab:hover { color: var(--text2); background: var(--surface2); }
+.wp-tab.active { color: var(--accent); border-bottom-color: var(--accent); background: var(--bg); }
+.wp-tab .wp-code { font-family: var(--mono); font-size: 9px; color: var(--text3); margin-left: 4px; }
+@media (max-width: 767px) {
+  .project-bar { padding: 6px 12px; gap: 6px; }
+  .project-bar select { min-width: 140px; font-size: 13px; height: 36px; }
+  .wp-tabs { -webkit-overflow-scrolling: touch; }
+  .wp-tab { padding: 8px 14px; font-size: 10px; }
+}
+
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <div>
+      <h1>⚙ Plan Montaže <span class="tag">v5.0</span></h1>
+      <div class="header-sub">
+        <span><span class="dot dot-blue"></span> Dobanovci</span>
+        <span><span class="dot dot-green"></span> Kruševac</span>
+      </div>
+    </div>
+    <div class="toolbar">
+      <button class="btn btn-save" onclick="exportData()">💾 Sačuvaj</button>
+      <button class="btn btn-load" onclick="document.getElementById('fileInput').click()">📂 Učitaj</button>
+      <button class="btn btn-reset" onclick="resetData()">🗑 Reset</button>
+      <input type="file" id="fileInput" accept=".json" style="display:none" onchange="importData(event)">
+      <select id="roleSelector" onchange="setRole(this.value)" style="font-size:10px;padding:4px 8px;border-radius:6px;background:var(--surface3);border:1px solid var(--border2);color:var(--text);font-family:var(--font)"><option value="pm">PM</option><option value="leadpm">Lead PM</option><option value="viewer">Viewer</option></select>
+      <span class="role-indicator role-pm" id="roleLabel">PM</span>
+      <button class="btn" style="background:var(--surface3);border-color:var(--border2);color:var(--text3)" onclick="promptSupabaseConnect()" title="Poveži sa Supabase">🌐 DB</button>
+    </div>
+  </div>
+  <div class="kpi-zone">
+    <div id="projectMetaBar" class="meta-sub"></div>
+    <div class="kpi-grid" id="summaryBar"></div>
+  </div>
+</div>
+
+<!-- Project selector -->
+<div class="project-bar" id="projectBar">
+  <label>Projekat</label>
+  <select id="projectSelect" onchange="switchProject(this.value)"></select>
+  <button class="btn-sm" onclick="addProject()">+ Projekat</button>
+  <button class="btn-sm" onclick="addWorkPackage()">+ Pozicija</button>
+  <button class="btn-sm" onclick="editProjectMeta()">⚙ Meta</button>
+</div>
+
+<!-- Work package tabs -->
+<div class="wp-tabs" id="wpTabs"></div>
+
+<div class="main">
+  <div class="view-tabs">
+    <div class="view-tab active" onclick="switchView('plan')">📋 Plan montaže</div>
+    <div class="view-tab" onclick="switchView('gantt')">📊 Gant dijagram</div>
+    <div class="view-tab" onclick="switchView('total')">🗓 Ukupan Gant</div>
+  </div>
+
+  <!-- Filter toggle for mobile -->
+  <button class="filter-toggle-btn" id="filterToggleBtn" onclick="toggleMobileFilters()">
+    <span>Filteri</span><span class="filter-arrow">▼</span>
+  </button>
+
+  <div class="filter-bar" id="filterBar">
+    <div class="filter-group"><label>Pretraga</label><input type="text" id="fSearch" placeholder="Naziv faze..." oninput="applyFilters()"></div>
+    <div class="filter-group"><label>Lokacija</label><select id="fLoc" onchange="applyFilters()"><option value="">Sve</option><option value="Dobanovci">Dobanovci</option><option value="Kruševac">Kruševac</option></select></div>
+    <div class="filter-group"><label>Status</label><select id="fStatus" onchange="applyFilters()"><option value="">Svi</option><option value="0">Nije počelo</option><option value="1">U toku</option><option value="2">Završeno</option><option value="3">Na čekanju</option></select></div>
+    <div class="filter-group"><label>Vođa</label><select id="fPerson" onchange="applyFilters()"></select></div>
+    <div class="filter-group"><label>Spremnost</label><select id="fReady" onchange="applyFilters()"><option value="">Sve</option><option value="ready">Samo spremne</option><option value="notready">Samo nespremne</option></select></div>
+    <div class="filter-group"><label>Datumi</label><select id="fDates" onchange="applyFilters()"><option value="">Sve</option><option value="nodate">Bez datuma</option><option value="hasdate">Sa datumima</option></select></div>
+    <div class="filter-group"><label>Rizik</label><select id="fRisk" onchange="applyFilters()"><option value="">Svi</option><option value="hasrisk">Samo sa rizikom</option></select></div>
+    <button class="btn-filter-reset" onclick="resetFilters()">✕ Reset filtera</button>
+    <span class="filter-count" id="filterCount"></span>
+  </div>
+
+  <div id="view-plan" class="view-section active">
+    <div class="reminder-zone" id="reminderZone"></div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr class="grp-hdr">
+            <th colspan="2" class="th-plan">PLAN MONTAŽE</th>
+            <th colspan="1" class="th-loc">LOK.</th>
+            <th colspan="5" class="th-plan">RASPORED</th>
+            <th colspan="2" class="th-plan">NAPREDAK</th>
+            <th colspan="9" class="th-check">✔ PROVERA SPREMNOSTI</th>
+            <th colspan="1" class="th-risk">RIZIK</th>
+            <th colspan="2" class="th-plan">BELEŠKE</th>
+            <th class="th-plan">AKC.</th>
+          </tr>
+          <tr>
+            <th class="td-num">#</th>
+            <th>Faza montaže</th>
+            <th class="th-loc" style="min-width:100px">Lokacija</th>
+            <th style="min-width:110px">📅 Početak</th>
+            <th style="min-width:110px">📅 Kraj</th>
+            <th>Dani</th>
+            <th>Odg. ing.</th>
+            <th>Vođa montaže</th>
+            <th>Status</th>
+            <th>%</th>
+            <th>M. crteži</th><th>M. komp.</th><th>Got. roba</th><th>Vijč. roba</th>
+            <th>El. mater.</th><th>Alati</th><th>Termin</th><th>Ekipa</th>
+            <th>SPREMAN</th>
+            <th>⚠</th>
+            <th>Blokator</th>
+            <th>Napomena</th>
+            <th class="td-actions">Akcije</th>
+          </tr>
+        </thead>
+        <tbody id="planBody"></tbody>
+      </table>
+    </div>
+    <div class="mobile-cards" id="mobileCards"></div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-box" style="background:#1f4e79"></div> Dobanovci</div>
+      <div class="legend-item"><div class="legend-box" style="background:#375623"></div> Kruševac</div>
+      <div class="legend-item"><div class="legend-box" style="background:#1a1a00;border:1px solid #d29922"></div> Nije počelo</div>
+      <div class="legend-item"><div class="legend-box" style="background:#001a2e;border:1px solid #004488"></div> U toku</div>
+      <div class="legend-item"><div class="legend-box" style="background:#0d2117;border:1px solid #2ea043"></div> Završeno</div>
+      <div class="legend-item"><div class="legend-box" style="background:#200000;border:1px solid #880000"></div> Na čekanju</div>
+      <div class="legend-item"><span style="font-size:14px">🔴</span> Visok rizik</div>
+      <div class="legend-item"><span style="font-size:14px">🟠</span> Srednji rizik</div>
+      <div class="legend-item"><span style="font-size:14px">🟡</span> Nizak rizik</div>
+    </div>
+    <div class="add-phase-bar">
+      <input class="add-phase-input" id="newPhaseInput" type="text" placeholder="Naziv nove faze montaže..." onkeydown="if(event.key==='Enter') addPhase()">
+      <button class="btn-add-phase" onclick="addPhase()">＋ Dodaj fazu</button>
+    </div>
+  </div>
+
+  <div id="view-gantt" class="view-section">
+    <div class="gantt-wrap" id="ganttWrap"></div>
+  </div>
+
+  <div id="view-total" class="view-section">
+    <div class="gantt-machine-filter" id="ganttWpFilter"></div>
+    <div class="gantt-wrap" id="totalGanttWrap"></div>
+  </div>
+</div>
+
+<!-- Calendar -->
+<div class="cal-overlay" id="calOverlay" onclick="closeCalIfOutside(event)">
+  <div class="cal-popup">
+    <div class="cal-header">
+      <div class="cal-title" id="calTitle"></div>
+      <div class="cal-nav">
+        <button class="cal-nav-btn" onclick="calNav(-1)">‹</button>
+        <button class="cal-nav-btn" onclick="calNav(1)">›</button>
+      </div>
+    </div>
+    <div class="cal-body">
+      <div class="cal-days-hdr"><span>Po</span><span>Ut</span><span>Sr</span><span>Če</span><span>Pe</span><span>Su</span><span>Ne</span></div>
+      <div class="cal-grid" id="calGrid"></div>
+    </div>
+    <div class="cal-footer">
+      <button class="cal-btn cal-btn-clear" onclick="clearDate()">Obriši</button>
+      <button class="cal-btn cal-btn-cancel" onclick="closeCalendar()">Zatvori</button>
+    </div>
+  </div>
+</div>
+
+<!-- Project meta editor modal -->
+<div class="cal-overlay" id="metaOverlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="cal-popup" style="width:340px">
+    <div class="cal-header"><div class="cal-title">Podešavanja projekta</div></div>
+    <div style="padding:12px;display:flex;flex-direction:column;gap:8px" id="metaForm"></div>
+    <div class="cal-footer"><button class="cal-btn cal-btn-cancel" onclick="document.getElementById('metaOverlay').classList.remove('open')">Zatvori</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script>
+/* ═══════════════════════════════════════════════════════════
+   CONSTANTS
+   ═══════════════════════════════════════════════════════════ */
+const DEFAULT_PHASES = [
+  "Montaža agregata","Elektro montaža agregata","Montaža postolja prese sa cilindrima",
+  "Montaža agregata na lokaciji naručioca","Povezivanje agregata sa cilindrima",
+  "Montaža na batu","Elektro montaža bata","Kompletiranje tela prese",
+  "Montaža ruke podmazivanja","Elektro montaža ruke podmazivanja",
+  "Montaža ruke podmazivanja (2)","Postavljanje robota",
+  "Postavljanje agregata podmazivanja","Postavljanje kanalica",
+  "Elektro povezivanje kompletne prese"
+];
+const STATUSES = ["Nije počelo", "U toku", "Završeno", "Na čekanju"];
+const VODJA = ["", "Miloš Oreščanin", "Vladan Radivojević", "Stefan Mirić", "Slaviša Babić", "Goran Mlađenović"];
+const ENGINEERS = [
+  "", "Dejan Ćirković", "Đorđe Arsić", "Igor Voštić", "Jovan Papić",
+  "Luka Talović", "Marko Stojanović", "Milan Milovanović", "Milan Stojadinović",
+  "Milorad Jerotić", "Nebojša Milošević", "Nikola Aksentijević", "Pavle Ilić",
+  "Slaviša Radosavljević", "Tatjana Gnjidić", "Vladan Pavlović", "Vuk Radivojević"
+];
+const CHECK_LABELS = ["Montažni crteži","Mašinske komponente","Gotova roba","Vijčana roba","Električni materijal","Alati / oprema","Termin potvrđen","Dostupna ekipa"];
+const CHECK_SHORT = ['Crteži','Mašin.','Got.rob','Vijci','Elektro','Alati','Termin','Ekipa'];
+const NUM_CHECKS = CHECK_LABELS.length;
+const MONTHS_SR = ["Januar","Februar","Mart","April","Maj","Jun","Jul","Avgust","Septembar","Oktobar","Novembar","Decembar"];
+const KEY = 'plan_montaze_v5';
+
+/* ═══════════════════════════════════════════════════════════
+   DATA MODEL: project → work_packages → phases
+   ═══════════════════════════════════════════════════════════ */
+function createBlankPhase(name) {
+  return { name: name||'', loc:'Dobanovci', start:null, end:null, engineer:'', person:'', status:0, pct:0, checks:new Array(NUM_CHECKS).fill(false), note:'', blocker:'' };
+}
+function createBlankWP(name, rnCode, order) {
+  return { id:'wp_'+Date.now()+'_'+Math.random().toString(36).slice(2,6), rnCode:rnCode||'', rnOrder:order||1, name:name||'Nova pozicija', location:'Dobanovci', defaultEngineer:'', defaultLead:'', deadline:'', isActive:true, phases: DEFAULT_PHASES.map(n=>createBlankPhase(n)) };
+}
+function createBlankProject(code, name) {
+  return { id:'proj_'+Date.now()+'_'+Math.random().toString(36).slice(2,6), code:code||'', name:name||'Novi projekat', projectM:'', deadline:'', pmEmail:'', leadPmEmail:'', reminderEnabled:false, status:'active', workPackages:[createBlankWP('Presa 350t', code?code+'/1':'', 1)] };
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ROLE SYSTEM
+   ═══════════════════════════════════════════════════════════ */
+let currentRole = 'pm';
+function canEdit() { return currentRole==='pm'||currentRole==='leadpm'; }
+function setRole(role) { currentRole=role; document.getElementById('roleLabel').textContent=role.toUpperCase(); document.getElementById('roleLabel').className='role-indicator '+(role==='viewer'?'role-viewer':'role-pm'); render(); showToast('🔐 Uloga: '+role.toUpperCase()); }
+function disabledAttr() { return canEdit()?'':'disabled'; }
+
+/* ═══════════════════════════════════════════════════════════
+   HELPERS
+   ═══════════════════════════════════════════════════════════ */
+function escHtml(s){if(s==null)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+function formatDate(d){if(!d)return'';const dt=new Date(d);if(isNaN(dt))return'';return`${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}.${dt.getFullYear()}`;}
+function calcDuration(s,e){if(!s||!e)return null;const a=new Date(s),b=new Date(e);if(isNaN(a)||isNaN(b))return null;const d=Math.round((b-a)/864e5);return d<0?-1:d+1;}
+function statusClass(s){return['st-0','st-1','st-2','st-3'][s]||'st-0';}
+
+function calcReadiness(row) {
+  const reasons=[];
+  if(row.status===2) return{ready:false,reasons:['Status: Završeno'],done:true};
+  for(let ci=0;ci<NUM_CHECKS;ci++){if(!row.checks[ci])reasons.push(CHECK_LABELS[ci]+': NE');}
+  if(!row.person)reasons.push('Nema vođe montaže');
+  if(!row.start)reasons.push('Nema datuma početka');
+  return{ready:reasons.length===0,reasons,done:false};
+}
+
+function calcRisk(row) {
+  const reasons=[]; const dur=calcDuration(row.start,row.end);
+  if(dur===-1)reasons.push('🔴 Kraj je pre početka');
+  if(row.status===2&&!row.checks.every(c=>c))reasons.push('🔴 Završeno ali spremnost nepotpuna');
+  if(row.start&&row.status!==2){const d=Math.round((new Date(row.start)-today)/864e5);if(d>=0&&d<=7&&!calcReadiness(row).ready)reasons.push('🟠 Početak uskoro, faza nije spremna');}
+  if(!row.person&&row.status!==2)reasons.push('🟡 Nema dodeljenog vođe');
+  if((!row.start||!row.end)&&row.status!==2)reasons.push('⚪ Nedostaju datumi');
+  if(row.status===3&&!row.blocker.trim())reasons.push('🟠 Na čekanju bez blokatora');
+  let level='none';
+  if(reasons.some(r=>r.startsWith('🔴')))level='high';
+  else if(reasons.some(r=>r.startsWith('🟠')))level='med';
+  else if(reasons.some(r=>r.startsWith('🟡')||r.startsWith('⚪')))level='low';
+  return{level,reasons};
+}
+
+function applyBusinessRules(row) {
+  if(row.status===2)row.pct=100;
+  if(row.status===0)row.pct=0;
+  if(row.pct>0&&row.status===0)row.status=1;
+  if(row.pct===100&&row.status!==2)row.status=2;
+  if(row.start&&row.end){if(new Date(row.end)<new Date(row.start))row.end=row.start;}
+}
+
+function normalizePhase(p){if(!p||typeof p!=='object')return createBlankPhase('?');const r={...createBlankPhase(p.name||'?')};['loc','start','end','engineer','person','note','blocker'].forEach(k=>{if(typeof p[k]==='string')r[k]=p[k];});if(typeof p.status==='number'&&p.status>=0&&p.status<=3)r.status=p.status;if(typeof p.pct==='number')r.pct=Math.max(0,Math.min(100,p.pct));if(Array.isArray(p.checks)){for(let i=0;i<NUM_CHECKS;i++)r.checks[i]=i<p.checks.length?!!p.checks[i]:false;}return r;}
+
+/* ═══════════════════════════════════════════════════════════
+   STATE
+   ═══════════════════════════════════════════════════════════ */
+const today=new Date();today.setHours(0,0,0,0);
+let allData={projects:[]};
+let activeProjectId=null;
+let activeWpId=null;
+let activeView='plan';
+let filteredIndices=null;
+
+function getProject(){return allData.projects.find(p=>p.id===activeProjectId)||null;}
+function getWP(){const p=getProject();if(!p)return null;return p.workPackages.find(w=>w.id===activeWpId)||null;}
+function getPhases(){const wp=getWP();return wp?wp.phases:[];}
+
+function loadState(){
+  try{
+    const s=localStorage.getItem(KEY);if(s){allData=JSON.parse(s);if(allData.projects&&allData.projects.length>0)return;}
+    /* Migrate from v4 */
+    const s4=localStorage.getItem('plan_kovacka_linija_v4');
+    if(s4){
+      const old=JSON.parse(s4);
+      const proj=createBlankProject('RN-migrated','Migrirani projekat');
+      proj.workPackages=[];
+      const machines=[{id:'presa350',label:'Presa 350t'},{id:'presa1000',label:'Presa 1000t'},{id:'presa400',label:'Presa 400t'},{id:'decunder',label:'Decunderisanje sa manipulacijom'},{id:'rashladni',label:'Rashladni tunel'}];
+      machines.forEach((m,i)=>{
+        if(old[m.id]&&Array.isArray(old[m.id])){
+          const wp=createBlankWP(m.label,'migr/'+(i+1),i+1);
+          wp.phases=old[m.id].map(r=>normalizePhase(r));
+          proj.workPackages.push(wp);
+        }
+      });
+      if(proj.workPackages.length===0)proj.workPackages.push(createBlankWP('Presa 350t','1/1',1));
+      allData={projects:[proj]};
+      showToast('📦 Podaci migrirani sa v4 formata');
+      return;
+    }
+  }catch(e){console.error('loadState error:',e);}
+  allData={projects:[createBlankProject('RN 9000','Kovačka linija')]};
+}
+loadState();
+if(allData.projects.length>0){activeProjectId=allData.projects[0].id;const p=allData.projects[0];if(p.workPackages.length>0)activeWpId=p.workPackages[0].id;}
+
+function saveState(){try{localStorage.setItem(KEY,JSON.stringify(allData));}catch(e){}}
+
+/* ═══════════════════════════════════════════════════════════
+   SUPABASE LAYER
+   ═══════════════════════════════════════════════════════════ */
+const SUPABASE_CONFIG={url:'',anonKey:'',reminderEndpoint:'/functions/v1/send-reminders'};
+let useOnlineDb=false;
+async function supabaseReq(path,method,body){
+  if(!SUPABASE_CONFIG.url)return null;
+  try{const r=await fetch(SUPABASE_CONFIG.url+'/rest/v1/'+path,{method,headers:{'Content-Type':'application/json','apikey':SUPABASE_CONFIG.anonKey,'Authorization':'Bearer '+SUPABASE_CONFIG.anonKey},body:body?JSON.stringify(body):undefined});return r.ok?await r.json():null;}catch(e){return null;}
+}
+async function loadProjects(){if(!useOnlineDb)return null;return await supabaseReq('projects?select=*','GET');}
+async function loadWorkPackages(projId){if(!useOnlineDb)return null;return await supabaseReq('work_packages?project_id=eq.'+projId+'&select=*','GET');}
+async function loadPhasesFromDb(projId,wpId){if(!useOnlineDb)return null;return await supabaseReq('phases?work_package_id=eq.'+wpId+'&select=*','GET');}
+async function saveProject(proj){if(!useOnlineDb)return;await supabaseReq('projects','POST',proj);}
+async function saveWorkPackage(wp){if(!useOnlineDb)return;await supabaseReq('work_packages','POST',wp);}
+async function savePhase(phase){if(!useOnlineDb)return;await supabaseReq('phases','POST',phase);}
+async function loadUserRole(){if(!useOnlineDb)return;}
+async function callReminderEndpoint(){
+  const payload=buildReminderPayload();
+  if(payload.length===0){showToast('✅ Nema faza za podsetnik');return;}
+  if(!useOnlineDb){console.log('Reminder payload:',payload);showToast('📧 Payload: '+payload.length+' podsetnika (offline)');return;}
+  try{const r=await fetch(SUPABASE_CONFIG.url+SUPABASE_CONFIG.reminderEndpoint,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+SUPABASE_CONFIG.anonKey},body:JSON.stringify({alerts:payload})});const d=await r.json();showToast('📧 Poslato: '+(d.sent||0));}catch(e){showToast('❌ Greška');}
+}
+function promptSupabaseConnect(){
+  if(useOnlineDb){if(confirm('Prebaciti na offline?')){useOnlineDb=false;showToast('💾 Offline');}return;}
+  const url=prompt('Supabase URL:','');if(!url)return;
+  const key=prompt('Anon Key:','');if(!key)return;
+  SUPABASE_CONFIG.url=url.trim();SUPABASE_CONFIG.anonKey=key.trim();useOnlineDb=true;showToast('🌐 Online');
+}
+function buildReminderPayload(){
+  const alerts=[];
+  allData.projects.forEach(proj=>{
+    if(!proj.reminderEnabled)return;
+    proj.workPackages.forEach(wp=>{
+      wp.phases.forEach(row=>{
+        if(row.status===2||!row.start)return;
+        const d=Math.round((new Date(row.start)-today)/864e5);
+        if(d<0||d>7)return;
+        const rd=calcReadiness(row);if(rd.ready)return;
+        alerts.push({project_code:proj.code,project_id:proj.id,work_package:wp.name,work_package_id:wp.id,rn_code:wp.rnCode,phase:row.name,start_date:row.start,days_until:d,urgency:d<=3?'critical':'warning',reasons:rd.reasons,engineer:row.engineer,lead:row.person,pm_email:proj.pmEmail,leadpm_email:proj.leadPmEmail});
+      });
+    });
+  });
+  return alerts;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PROJECT & WP MANAGEMENT
+   ═══════════════════════════════════════════════════════════ */
+function addProject(){
+  const code=prompt('Kod projekta (npr RN 9000):','');if(!code)return;
+  const name=prompt('Naziv projekta:','');if(!name)return;
+  const p=createBlankProject(code,name);allData.projects.push(p);
+  activeProjectId=p.id;activeWpId=p.workPackages[0]?.id||null;
+  saveState();buildProjectSelector();render();showToast('✅ Projekat "'+name+'" kreiran');
+}
+function addWorkPackage(){
+  const p=getProject();if(!p)return;
+  const name=prompt('Naziv pozicije/mašine:','');if(!name)return;
+  const order=p.workPackages.length+1;
+  const wp=createBlankWP(name,p.code+'/'+ order,order);
+  p.workPackages.push(wp);activeWpId=wp.id;
+  saveState();buildWpTabs();render();showToast('✅ Pozicija "'+name+'" dodata');
+}
+function switchProject(id){activeProjectId=id;const p=getProject();activeWpId=p&&p.workPackages.length>0?p.workPackages[0].id:null;filteredIndices=null;buildWpTabs();render();}
+function switchWP(id){activeWpId=id;filteredIndices=null;render();}
+
+function editProjectMeta(){
+  const p=getProject();if(!p)return;const _d=disabledAttr();
+  document.getElementById('metaForm').innerHTML=`
+    <label style="font-size:10px;color:var(--text3)">Kod projekta</label><input type="text" value="${escHtml(p.code)}" onchange="getProject().code=this.value;saveState();render()" ${_d}>
+    <label style="font-size:10px;color:var(--text3)">Naziv</label><input type="text" value="${escHtml(p.name)}" onchange="getProject().name=this.value;saveState();render()" ${_d}>
+    <label style="font-size:10px;color:var(--text3)">Project Manager</label><input type="text" value="${escHtml(p.projectM)}" onchange="getProject().projectM=this.value;saveState();render()" ${_d}>
+    <label style="font-size:10px;color:var(--text3)">Rok</label><input type="text" value="${escHtml(p.deadline)}" onchange="getProject().deadline=this.value;saveState();render()" placeholder="dd.mm.yyyy" ${_d}>
+    <label style="font-size:10px;color:var(--text3)">PM Email</label><input type="text" value="${escHtml(p.pmEmail)}" onchange="getProject().pmEmail=this.value;saveState()" ${_d}>
+    <label style="font-size:10px;color:var(--text3)">LeadPM Email</label><input type="text" value="${escHtml(p.leadPmEmail)}" onchange="getProject().leadPmEmail=this.value;saveState()" ${_d}>
+    <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" ${p.reminderEnabled?'checked':''} onchange="getProject().reminderEnabled=this.checked;saveState()" ${_d} style="accent-color:var(--accent)"> <span style="font-size:11px;color:var(--text2)">Reminder aktivan</span></label>
+  `;
+  document.getElementById('metaOverlay').classList.add('open');
+}
+
+function buildProjectSelector(){
+  const sel=document.getElementById('projectSelect');
+  sel.innerHTML=allData.projects.map(p=>`<option value="${p.id}" ${p.id===activeProjectId?'selected':''}>${escHtml(p.code)} — ${escHtml(p.name)}</option>`).join('');
+}
+function buildWpTabs(){
+  const p=getProject();if(!p){document.getElementById('wpTabs').innerHTML='';return;}
+  document.getElementById('wpTabs').innerHTML=p.workPackages.map(w=>
+    `<div class="wp-tab ${w.id===activeWpId?'active':''}" onclick="switchWP('${w.id}')">${escHtml(w.name)} <span class="wp-code">${escHtml(w.rnCode)}</span></div>`
+  ).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   VIEW TABS & FILTERS
+   ═══════════════════════════════════════════════════════════ */
+function switchView(v){
+  activeView=v;
+  document.querySelectorAll('.view-tab').forEach((el,i)=>el.classList.toggle('active',['plan','gantt','total'][i]===v));
+  document.querySelectorAll('.view-section').forEach((el,i)=>el.classList.toggle('active',['plan','gantt','total'][i]===v));
+  const isPlan=v==='plan';
+  if(isMobile()){document.getElementById('filterToggleBtn').style.display=isPlan?'':'none';if(!isPlan)document.getElementById('filterBar').classList.remove('filter-open');}
+  else{document.getElementById('filterBar').style.display=isPlan?'flex':'none';document.getElementById('filterToggleBtn').style.display='none';}
+  if(v==='gantt')renderGantt();if(v==='total'){renderGanttWpFilter();renderTotalGantt();}
+}
+function isMobile(){return window.innerWidth<768;}
+function toggleMobileFilters(){document.getElementById('filterBar').classList.toggle('filter-open');document.getElementById('filterToggleBtn').classList.toggle('open');}
+function getFilterValues(){return{search:(document.getElementById('fSearch')?.value||'').toLowerCase().trim(),loc:document.getElementById('fLoc')?.value||'',status:document.getElementById('fStatus')?.value||'',person:document.getElementById('fPerson')?.value||'',ready:document.getElementById('fReady')?.value||'',dates:document.getElementById('fDates')?.value||'',risk:document.getElementById('fRisk')?.value||''};}
+function applyFilters(){
+  const f=getFilterValues(),state=getPhases(),indices=[];
+  state.forEach((row,i)=>{
+    if(f.search&&!row.name.toLowerCase().includes(f.search))return;if(f.loc&&row.loc!==f.loc)return;
+    if(f.status!==''&&row.status!==parseInt(f.status))return;
+    if(f.person==='__none__'&&row.person!=='')return;if(f.person&&f.person!=='__none__'&&row.person!==f.person)return;
+    const rd=calcReadiness(row);if(f.ready==='ready'&&!rd.ready)return;if(f.ready==='notready'&&rd.ready)return;
+    if(f.dates==='nodate'&&row.start&&row.end)return;if(f.dates==='hasdate'&&(!row.start||!row.end))return;
+    if(f.risk==='hasrisk'&&calcRisk(row).level==='none')return;
+    indices.push(i);
+  });
+  const any=f.search||f.loc||f.status!==''||f.person||f.ready||f.dates||f.risk;
+  filteredIndices=any?indices:null;
+  const ce=document.getElementById('filterCount');if(any)ce.textContent=`Prikazano: ${indices.length}/${state.length}`;else ce.textContent='';
+  renderPlan();
+}
+function resetFilters(){['fSearch','fLoc','fStatus','fPerson','fReady','fDates','fRisk'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});filteredIndices=null;document.getElementById('filterCount').textContent='';renderPlan();}
+function buildPersonFilter(){const sel=document.getElementById('fPerson');if(!sel)return;const v=sel.value;sel.innerHTML='<option value="">Svi</option><option value="__none__">— Bez vođe —</option>'+VODJA.filter(v=>v).map(v=>`<option value="${v}">${v}</option>`).join('');sel.value=v;}
+
+/* ═══════════════════════════════════════════════════════════
+   CALENDAR
+   ═══════════════════════════════════════════════════════════ */
+let calTarget=null,calYear,calMonth;
+function openCalendar(ri,field){calTarget={ri,field};const d=getPhases()[ri][field]?new Date(getPhases()[ri][field]):new Date(today);calYear=d.getFullYear();calMonth=d.getMonth();renderCalendar();document.getElementById('calOverlay').classList.add('open');}
+function closeCalendar(){document.getElementById('calOverlay').classList.remove('open');calTarget=null;}
+function closeCalIfOutside(e){if(e.target===document.getElementById('calOverlay'))closeCalendar();}
+function clearDate(){if(!calTarget)return;getPhases()[calTarget.ri][calTarget.field]=null;saveState();render();closeCalendar();}
+function calNav(dir){calMonth+=dir;if(calMonth<0){calMonth=11;calYear--;}if(calMonth>11){calMonth=0;calYear++;}renderCalendar();}
+function selectDay(y,m,d){
+  if(!calTarget)return;const row=getPhases()[calTarget.ri];const f=calTarget.field;
+  row[f]=new Date(y,m,d).toISOString().split('T')[0];
+  if(row.start&&row.end&&new Date(row.end)<new Date(row.start)){row.end=row.start;showToast('📅 Kraj pomeren na datum početka');}else{showToast(`📅 Datum: ${d}.${m+1}.${y}`);}
+  applyBusinessRules(row);saveState();render();closeCalendar();
+}
+function renderCalendar(){
+  document.getElementById('calTitle').textContent=`${MONTHS_SR[calMonth]} ${calYear}`;
+  const grid=document.getElementById('calGrid');grid.innerHTML='';
+  const fd=new Date(calYear,calMonth,1),ld=new Date(calYear,calMonth+1,0),off=(fd.getDay()+6)%7;
+  const sel=calTarget&&getPhases()[calTarget.ri][calTarget.field]?new Date(getPhases()[calTarget.ri][calTarget.field]):null;
+  for(let i=0;i<off;i++){const el=document.createElement('div');el.className='cal-day empty';grid.appendChild(el);}
+  for(let d=1;d<=ld.getDate();d++){
+    const dt=new Date(calYear,calMonth,d),dow=(dt.getDay()+6)%7,el=document.createElement('div');el.className='cal-day';el.textContent=d;
+    if(dow>=5)el.classList.add('weekend');if(dt.getTime()===today.getTime())el.classList.add('today');
+    if(sel&&dt.getTime()===sel.getTime())el.classList.add('selected');el.onclick=()=>selectDay(calYear,calMonth,d);grid.appendChild(el);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   UPDATE FUNCTIONS
+   ═══════════════════════════════════════════════════════════ */
+function update(i,field,value){
+  const row=getPhases()[i];
+  if(field==='status'&&value===3&&!row.blocker.trim()){showToast('⚠ Upiši blokator pre "Na čekanju"');render();return;}
+  row[field]=value;applyBusinessRules(row);saveState();render();
+}
+function updateCheck(i,ci,value){getPhases()[i].checks[ci]=value;saveState();render();}
+
+/* ═══════════════════════════════════════════════════════════
+   RENDER: Mobile Cards
+   ═══════════════════════════════════════════════════════════ */
+function renderMobileCards(){
+  const c=document.getElementById('mobileCards');if(!c)return;c.innerHTML='';
+  const state=getPhases(),indices=filteredIndices!==null?filteredIndices:state.map((_,i)=>i);
+  indices.forEach(i=>{
+    const row=state[i],dur=calcDuration(row.start,row.end),rd=calcReadiness(row),rk=calcRisk(row);
+    const eName=escHtml(row.name),eNote=escHtml(row.note),eBlk=escHtml(row.blocker);
+    let durT='—';if(dur===-1)durT='⚠ERR';else if(dur!==null)durT=dur+'d';
+    let rI='✅';if(rk.level==='high')rI='🔴';else if(rk.level==='med')rI='🟠';else if(rk.level==='low')rI='🟡';
+    let rB;if(rd.done)rB='<span class="badge-ready badge-done">DONE</span>';else if(rd.ready)rB='<span class="badge-ready badge-yes">✔</span>';else rB='<span class="badge-ready badge-no">✘</span>';
+    const stN=STATUSES[row.status],stC=['st-0','st-1','st-2','st-3'][row.status],rkC=rk.level!=='none'?`m-risk-${rk.level}`:'',mF=row.status===2?' m-finished':'';
+    const pC=row.status===2?'pct-fill-done':row.status===3?'pct-fill-hold':'pct-fill-normal';
+    const chH=row.checks.map((c,ci)=>`<span class="m-card-check ${c?'ck-y':'ck-n'}" onclick="updateCheck(${i},${ci},${!c});event.stopPropagation()" style="cursor:pointer;user-select:none;padding:4px 8px;font-size:10px">${CHECK_SHORT[ci]}${c?' ✔':' ✘'}</span>`).join('');
+    const cId='mc-'+i;const card=document.createElement('div');card.className=`m-card ${rkC}${mF}`;
+    card.innerHTML=`<div class="m-card-top" onclick="document.getElementById('${cId}').classList.toggle('open')"><div><div class="m-card-name">${eName}</div><div style="font-size:10px;color:var(--text3);margin-top:2px"><span class="${row.loc==='Dobanovci'?'loc-dob':'loc-kru'}" style="background:none;border:none;padding:0;width:auto;font-size:10px">${row.loc}</span> · ${stN} · ${row.pct}%</div></div><div class="m-card-badges">${rI} ${rB}</div></div>
+    <div class="m-card-row"><div class="m-card-field"><span class="m-lbl">Poč:</span> ${formatDate(row.start)||'—'}</div><div class="m-card-field"><span class="m-lbl">Kraj:</span> ${formatDate(row.end)||'—'}</div><div class="m-card-field"><span class="m-lbl">Dani:</span> ${durT}</div><div class="m-card-field"><span class="m-lbl">Ing:</span> ${row.engineer||'—'}</div><div class="m-card-field"><span class="m-lbl">Vođa:</span> ${row.person||'—'}</div></div>
+    <div class="m-card-pct"><div class="pct-bar"><div class="pct-bar-fill ${pC}" style="width:${row.pct}%"></div></div><span>${row.pct}%</span></div>
+    <div class="m-card-details" id="${cId}">
+      <div style="margin-bottom:6px;font-weight:600;color:var(--text3);font-size:9px;text-transform:uppercase;letter-spacing:0.5px">Spremnost</div>
+      <div class="m-card-checks">${chH}</div>
+      <div class="m-card-detail-grid">
+        <div class="m-card-detail-item"><span class="m-lbl">Status</span><select class="${stC}" onchange="update(${i},'status',parseInt(this.value))" style="font-size:13px;padding:6px 8px" ${disabledAttr()}>${STATUSES.map((s,si)=>`<option value="${si}" ${row.status===si?'selected':''}>${s}</option>`).join('')}</select></div>
+        <div class="m-card-detail-item"><span class="m-lbl">Odg.ing.</span><select onchange="update(${i},'engineer',this.value)" style="font-size:13px;padding:6px 8px" ${disabledAttr()}>${ENGINEERS.map(v=>`<option value="${v}" ${row.engineer===v?'selected':''}>${v||'— —'}</option>`).join('')}</select></div>
+        <div class="m-card-detail-item"><span class="m-lbl">Vođa</span><select onchange="update(${i},'person',this.value)" style="font-size:13px;padding:6px 8px" ${disabledAttr()}>${VODJA.map(v=>`<option value="${v}" ${row.person===v?'selected':''}>${v||'— —'}</option>`).join('')}</select></div>
+        <div class="m-card-detail-item"><span class="m-lbl">%</span><input type="range" min="0" max="100" step="5" value="${row.pct}" style="width:100%;accent-color:var(--accent)" oninput="update(${i},'pct',parseInt(this.value))" ${disabledAttr()}></div>
+      </div>
+      ${row.blocker||row.status===3?`<div class="m-card-detail-item" style="margin-top:6px"><span class="m-lbl">Blokator</span><textarea class="note-area" rows="2" style="font-size:13px;padding:8px" onchange="update(${i},'blocker',this.value)" ${disabledAttr()}>${eBlk}</textarea></div>`:''}
+      <div class="m-card-detail-item" style="margin-top:6px"><span class="m-lbl">Napomena</span><textarea class="note-area" rows="2" style="font-size:13px;padding:8px" onchange="update(${i},'note',this.value)" ${disabledAttr()}>${eNote}</textarea></div>
+      <div style="display:flex;gap:6px;margin-top:8px;padding-top:6px;border-top:1px solid var(--border)">
+        <button class="row-btn" onclick="openCalendar(${i},'start')" style="padding:6px 10px;font-size:12px">📅 Poč</button>
+        <button class="row-btn" onclick="openCalendar(${i},'end')" style="padding:6px 10px;font-size:12px">📅 Kraj</button>
+        <button class="row-btn btn-up" onclick="moveRow(${i},-1)" style="padding:6px 10px">▲</button>
+        <button class="row-btn btn-dn" onclick="moveRow(${i},1)" style="padding:6px 10px">▼</button>
+        <button class="row-btn btn-del" onclick="deleteRow(${i})" style="padding:6px 10px">✕</button>
+      </div>
+    </div>`;
+    c.appendChild(card);
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RENDER: Plan Table
+   ═══════════════════════════════════════════════════════════ */
+function renderPlan(){
+  renderMobileCards();
+  const tb=document.getElementById('planBody');tb.innerHTML='';
+  const state=getPhases(),indices=filteredIndices!==null?filteredIndices:state.map((_,i)=>i);
+  const _dis=disabledAttr();
+  indices.forEach(i=>{
+    const row=state[i],dur=calcDuration(row.start,row.end),rd=calcReadiness(row),rk=calcRisk(row);
+    let durT='—',durC='td-dur';if(dur===-1){durT='⚠ERR';durC='td-dur dur-error';}else if(dur!==null)durT=dur+' d';
+    const dateErr=dur===-1;
+    let pctC='pct-fill-normal';if(row.status===2)pctC='pct-fill-done';if(row.status===3)pctC='pct-fill-hold';
+    let rI='✅';if(rk.level==='high')rI='🔴';else if(rk.level==='med')rI='🟠';else if(rk.level==='low')rI='🟡';
+    let rdH;if(rd.done)rdH='<span class="badge-ready badge-done">— DONE</span>';else if(rd.ready)rdH='<span class="badge-ready badge-yes">✔ DA</span>';else{const t=rd.reasons.map(r=>'• '+r).join('<br>');rdH=`<div class="ready-tooltip"><span class="badge-ready badge-no">✘ NE</span><div class="ready-tip-text">${t}</div></div>`;}
+    let rkH;if(rk.reasons.length>0){const t=rk.reasons.join('<br>');rkH=`<div class="risk-tooltip"><span class="risk-icon">${rI}</span><div class="risk-tip-text">${t}</div></div>`;}else rkH=`<span class="risk-icon">${rI}</span>`;
+    const blkH=(row.status===3&&!row.blocker.trim())?'blocker-highlight':'';
+    const rkC=rk.level!=='none'?`row-risk-${rk.level}`:'row-risk-none';
+    const finC=row.status===2?' row-finished':'';
+    let remDot='';if(row.start&&row.status!==2){const _du=Math.round((new Date(row.start)-today)/864e5);if(_du>=0&&_du<=3&&!rd.ready)remDot='<span class="reminder-dot rd-red"></span>';else if(_du>=4&&_du<=7&&!rd.ready)remDot='<span class="reminder-dot rd-yellow"></span>';}
+    const eN=escHtml(row.name),eNo=escHtml(row.note),eBl=escHtml(row.blocker);
+    const tr=document.createElement('tr');tr.className=rkC+finC;
+    tr.innerHTML=`<td class="td-num">${i+1}</td>
+      <td class="td-name">${remDot}<input class="phase-name-input" type="text" value="${eN}" onchange="update(${i},'name',this.value)" ${_dis}></td>
+      <td class="td-loc"><select onchange="update(${i},'loc',this.value)" class="${row.loc==='Dobanovci'?'loc-dob':'loc-kru'}" ${_dis}><option ${row.loc==='Dobanovci'?'selected':''}>Dobanovci</option><option ${row.loc==='Kruševac'?'selected':''}>Kruševac</option></select></td>
+      <td class="td-date ${dateErr?'date-error':''}"><div class="date-input-wrap"><input type="text" readonly value="${formatDate(row.start)}" placeholder="—" class="${row.start?'':'empty'}" onclick="openCalendar(${i},'start')"><button class="date-btn" onclick="openCalendar(${i},'start')">📅</button></div></td>
+      <td class="td-date ${dateErr?'date-error':''}"><div class="date-input-wrap"><input type="text" readonly value="${formatDate(row.end)}" placeholder="—" class="${row.end?'':'empty'}" onclick="openCalendar(${i},'end')"><button class="date-btn" onclick="openCalendar(${i},'end')">📅</button></div></td>
+      <td class="${durC}">${durT}</td>
+      <td class="td-eng"><select onchange="update(${i},'engineer',this.value)" ${_dis}>${ENGINEERS.map(v=>`<option value="${v}" ${row.engineer===v?'selected':''}>${v||'— —'}</option>`).join('')}</select></td>
+      <td class="td-person"><select onchange="update(${i},'person',this.value)" ${_dis}>${VODJA.map(v=>`<option value="${v}" ${row.person===v?'selected':''}>${v||'— —'}</option>`).join('')}</select></td>
+      <td class="td-status"><select class="${statusClass(row.status)}" onchange="update(${i},'status',parseInt(this.value))" ${_dis}>${STATUSES.map((s,si)=>`<option value="${si}" ${row.status===si?'selected':''}>${s}</option>`).join('')}</select></td>
+      <td class="td-pct"><div class="pct-bar-wrap"><div class="pct-bar"><div class="pct-bar-fill ${pctC}" style="width:${row.pct}%"></div></div><span style="font-family:var(--mono);font-size:10px;color:var(--text2);min-width:26px">${row.pct}%</span></div><input type="range" min="0" max="100" step="5" value="${row.pct}" style="width:100%;margin-top:2px;accent-color:var(--accent)" oninput="update(${i},'pct',parseInt(this.value))" ${_dis}></td>
+      ${row.checks.map((c,ci)=>`<td class="td-check"><select class="${c?'ck-da':'ck-ne'}" onchange="updateCheck(${i},${ci},this.value==='DA')" title="${CHECK_LABELS[ci]}" ${_dis}><option ${!c?'selected':''}>NE</option><option ${c?'selected':''}>DA</option></select></td>`).join('')}
+      <td class="td-ready">${rdH}</td><td class="td-risk">${rkH}</td>
+      <td class="td-blocker ${blkH}"><textarea class="note-area" rows="2" placeholder="${row.status===3?'⚠ Blokator!':''}" onchange="update(${i},'blocker',this.value)" ${_dis}>${eBl}</textarea></td>
+      <td class="td-note"><textarea class="note-area" rows="2" onchange="update(${i},'note',this.value)" ${_dis}>${eNo}</textarea></td>
+      <td class="td-actions"><button class="row-btn btn-up" onclick="moveRow(${i},-1)">▲</button><button class="row-btn btn-dn" onclick="moveRow(${i},1)">▼</button><button class="row-btn btn-del" onclick="deleteRow(${i})">✕</button></td>`;
+    tb.appendChild(tr);
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RENDER: Gantt (single WP)
+   ═══════════════════════════════════════════════════════════ */
+function renderGantt(){
+  const wrap=document.getElementById('ganttWrap'),state=getPhases().filter(r=>r.status!==2);
+  let min=new Date(today),max=new Date(today);max.setDate(max.getDate()+60);
+  state.forEach(r=>{if(r.start){const d=new Date(r.start);if(d<min)min=d;}if(r.end){const d=new Date(r.end);if(d>max)max=d;}});
+  min.setDate(min.getDate()-3);max.setDate(max.getDate()+5);
+  const days=[];let cur=new Date(min);while(cur<=max){days.push(new Date(cur));cur.setDate(cur.getDate()+1);}
+  const months={};days.forEach(d=>{const k=d.getFullYear()+'-'+d.getMonth();if(!months[k])months[k]={label:MONTHS_SR[d.getMonth()]+' '+d.getFullYear(),count:0};months[k].count++;});
+  let h=`<table class="gantt-table"><thead><tr><th class="gantt-label" rowspan="2">Faza</th>${Object.values(months).map(m=>`<th class="gantt-month-hdr" colspan="${m.count}">${m.label}</th>`).join('')}</tr><tr>${days.map(d=>{const isT=d.getTime()===today.getTime(),isW=d.getDay()===0||d.getDay()===6;return`<th class="gantt-day-hdr ${isT?'today-col':''} ${isW?'wknd':''}">${d.getDate()}</th>`;}).join('')}</tr></thead><tbody>`;
+  state.forEach(row=>{
+    const sMs=row.start?new Date(row.start).setHours(0,0,0,0):null,eMs=row.end?new Date(row.end).setHours(0,0,0,0):null;
+    const lc=row.loc==='Dobanovci'?'dob':'kru',rk=calcRisk(row),rkC=rk.level!=='none'?' gantt-row-risk':'';
+    const eng=row.engineer?row.engineer.split(' ').pop():'',ld=row.person?row.person.split(' ').pop():'';
+    h+=`<tr class="gantt-row${rkC}"><td class="gantt-label" style="background:var(--surface2);border-right:2px solid var(--border2)"><div class="gantt-label-name">${escHtml(row.name)}</div><div class="gantt-label-sub ${lc}">${row.loc} ${eng?'· '+eng:''} ${ld?'· '+ld:''} · <span class="gantt-label-status gs-${row.status}">${STATUSES[row.status]} ${row.pct}%</span></div></td>`;
+    days.forEach(d=>{const dMs=d.getTime(),isT=dMs===today.getTime(),isW=d.getDay()===0||d.getDay()===6;const inB=sMs!==null&&eMs!==null&&dMs>=sMs&&dMs<=eMs;const isS=sMs!==null&&dMs===sMs,isE=eMs!==null&&dMs===eMs;let cls='gantt-cell';if(isW)cls+=' wknd';if(isT)cls+=' today-col';if(inB){if(isS&&isE)cls+=` bar-${lc} bar-start-${lc} bar-end-${lc}`;else if(isS)cls+=` bar-start-${lc}`;else if(isE)cls+=` bar-end-${lc}`;else cls+=` bar-${lc}`;}h+=`<td class="${cls}"></td>`;});
+    h+=`</tr>`;
+  });
+  h+=`</tbody></table>`;wrap.innerHTML=h;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RENDER: Total Gantt (all WPs of current project)
+   ═══════════════════════════════════════════════════════════ */
+let totalGanttWPs={};
+function toggleGanttWP(id){totalGanttWPs[id]=!totalGanttWPs[id];renderTotalGantt();}
+function renderGanttWpFilter(){
+  const p=getProject();if(!p)return;
+  p.workPackages.forEach(w=>{if(totalGanttWPs[w.id]===undefined)totalGanttWPs[w.id]=true;});
+  const el=document.getElementById('ganttWpFilter');
+  el.innerHTML='<span style="font-size:9px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-right:6px">Pozicije:</span>'+
+    p.workPackages.map(w=>`<label><input type="checkbox" ${totalGanttWPs[w.id]?'checked':''} onchange="toggleGanttWP('${w.id}')">${escHtml(w.name)}</label>`).join('');
+}
+function renderTotalGantt(){
+  const p=getProject();if(!p){document.getElementById('totalGanttWrap').innerHTML='';return;}
+  let min=new Date(today),max=new Date(today);max.setDate(max.getDate()+60);
+  p.workPackages.forEach(w=>{if(!totalGanttWPs[w.id])return;w.phases.forEach(r=>{if(r.start){const d=new Date(r.start);if(d<min)min=d;}if(r.end){const d=new Date(r.end);if(d>max)max=d;}});});
+  min.setDate(min.getDate()-3);max.setDate(max.getDate()+5);
+  const days=[];let cur=new Date(min);while(cur<=max){days.push(new Date(cur));cur.setDate(cur.getDate()+1);}
+  const months={};days.forEach(d=>{const k=d.getFullYear()+'-'+d.getMonth();if(!months[k])months[k]={label:MONTHS_SR[d.getMonth()]+' '+d.getFullYear(),count:0};months[k].count++;});
+  const MC=['#1f3a6e','#1a3a1a','#3a2800','#2a0a2a','#002a2a'];
+  let h=`<table class="gantt-table"><thead><tr><th class="gantt-label" rowspan="2" style="min-width:220px">Pozicija / Faza</th>${Object.values(months).map(m=>`<th class="gantt-month-hdr" colspan="${m.count}">${m.label}</th>`).join('')}</tr><tr>${days.map(d=>{const isT=d.getTime()===today.getTime(),isW=d.getDay()===0||d.getDay()===6;return`<th class="gantt-day-hdr ${isT?'today-col':''} ${isW?'wknd':''}">${d.getDate()}</th>`;}).join('')}</tr></thead><tbody>`;
+  p.workPackages.forEach((wp,wi)=>{
+    if(!totalGanttWPs[wp.id])return;
+    const active=wp.phases.filter(r=>r.status!==2),tc=days.length;
+    h+=`<tr class="gantt-machine-hdr"><td colspan="${tc+1}" style="background:${MC[wi%5]};color:#aac8ff;font-weight:700;font-size:11px;padding:5px 10px;letter-spacing:0.5px;border-top:2px solid #2e75b6;">⚙ ${escHtml(wp.name)} <span style="font-size:9px;opacity:0.7">${escHtml(wp.rnCode)}</span></td></tr>`;
+    if(active.length===0){h+=`<tr><td colspan="${tc+1}" style="color:var(--text3);font-style:italic;padding:6px 10px;font-size:11px">Nema aktivnih faza</td></tr>`;}
+    else active.forEach(row=>{
+      const sMs=row.start?new Date(row.start).setHours(0,0,0,0):null,eMs=row.end?new Date(row.end).setHours(0,0,0,0):null;
+      const lc=row.loc==='Dobanovci'?'dob':'kru',rk=calcRisk(row),rkC=rk.level!=='none'?' gantt-row-risk':'';
+      const eng=row.engineer?row.engineer.split(' ').pop():'',ld=row.person?row.person.split(' ').pop():'';
+      h+=`<tr class="gantt-row${rkC}"><td class="gantt-label" style="background:var(--surface2);border-right:2px solid var(--border2);padding-left:18px"><div class="gantt-label-name">${escHtml(row.name)}</div><div class="gantt-label-sub ${lc}">${row.loc} ${eng?'· '+eng:''} ${ld?'· '+ld:''} · <span class="gantt-label-status gs-${row.status}">${STATUSES[row.status]} ${row.pct}%</span></div></td>`;
+      days.forEach(d=>{const dMs=d.getTime(),isT=dMs===today.getTime(),isW=d.getDay()===0||d.getDay()===6;const inB=sMs!==null&&eMs!==null&&dMs>=sMs&&dMs<=eMs;const isS=sMs!==null&&dMs===sMs,isE=eMs!==null&&dMs===eMs;let cls='gantt-cell';if(isW)cls+=' wknd';if(isT)cls+=' today-col';if(inB){if(isS&&isE)cls+=` bar-${lc} bar-start-${lc} bar-end-${lc}`;else if(isS)cls+=` bar-start-${lc}`;else if(isE)cls+=` bar-end-${lc}`;else cls+=` bar-${lc}`;}h+=`<td class="${cls}"></td>`;});
+      h+=`</tr>`;
+    });
+  });
+  h+=`</tbody></table>`;document.getElementById('totalGanttWrap').innerHTML=h;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RENDER: Summary + Meta + Reminders
+   ═══════════════════════════════════════════════════════════ */
+function renderSummary(){
+  const state=getPhases(),p=getProject(),wp=getWP();
+  const total=state.length,done=state.filter(r=>r.status===2).length,inP=state.filter(r=>r.status===1).length;
+  const onH=state.filter(r=>r.status===3).length,notS=state.filter(r=>r.status===0).length;
+  const rdyC=state.filter(r=>calcReadiness(r).ready).length,notR=total-rdyC-done;
+  const noD=state.filter(r=>!r.start||!r.end).length,wRk=state.filter(r=>calcRisk(r).level!=='none').length;
+  const avg=total>0?Math.round(state.reduce((a,r)=>a+r.pct,0)/total):0;
+  const kpi=(l,v,s,c)=>`<div class="kpi-card ${c}"><div class="kpi-label">${l}</div><div class="kpi-value">${v}</div>${s?`<div class="kpi-sub">${s}</div>`:''}</div>`;
+  /* Meta bar */
+  const mb=document.getElementById('projectMetaBar');
+  if(mb&&p){
+    const wn=wp?wp.name:'—';const wc=wp?wp.rnCode:'';
+    mb.innerHTML=`<span>📌 <strong style="color:var(--text)">${escHtml(p.code)}</strong> ${escHtml(p.name)}</span>
+      <span>PM: ${escHtml(p.projectM)||'—'}</span><span>Rok: ${escHtml(p.deadline)||'—'}</span>
+      <span>Pozicija: <strong style="color:var(--accent)">${escHtml(wn)}</strong> ${escHtml(wc)}</span>
+      <span>Lok: ${wp?wp.location:'—'}</span>`;
+  }
+  document.getElementById('summaryBar').innerHTML=
+    kpi('Ukupno',total,'','kpi-neutral')+kpi('Završeno',done,`od ${total}`,'kpi-ok')+kpi('U toku',inP,'','kpi-info')+
+    kpi('Na čekanju',onH,'',onH>0?'kpi-warn':'kpi-neutral')+kpi('Spremne',rdyC,'',rdyC>0?'kpi-ok':'kpi-neutral')+
+    kpi('Nespremne',notR,'',notR>0?'kpi-warn':'kpi-neutral')+kpi('Bez datuma',noD,'',noD>0?'kpi-warn':'kpi-neutral')+
+    kpi('Rizik',wRk,'',wRk>0?'kpi-danger':'kpi-neutral')+kpi('Prosek',avg+'%','','kpi-info');
+}
+function renderReminders(){
+  const z=document.getElementById('reminderZone');if(!z)return;z.innerHTML='';
+  const p=getProject();if(!p)return;
+  p.workPackages.forEach(wp=>{
+    wp.phases.forEach(row=>{
+      if(row.status===2||!row.start)return;
+      const d=Math.round((new Date(row.start)-today)/864e5);if(d<0||d>7)return;
+      const rd=calcReadiness(row);if(rd.ready)return;
+      const urg=d<=3;const c=document.createElement('div');c.className='reminder-card '+(urg?'rc-red':'rc-yellow');
+      c.innerHTML=`<div class="rc-title">${urg?'🔴':'🟡'} ${escHtml(row.name)}</div><div class="rc-sub">${escHtml(p.code)} / ${escHtml(wp.name)} · Početak: ${formatDate(row.start)} · Za ${d} ${d===1?'dan':'dana'}</div><div class="rc-sub">Razlog: ${rd.reasons.slice(0,3).join(', ')}</div>`;
+      z.appendChild(c);
+    });
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PHASE MANAGEMENT
+   ═══════════════════════════════════════════════════════════ */
+function addPhase(){const inp=document.getElementById('newPhaseInput'),n=inp.value.trim();if(!n){showToast('⚠ Unesi naziv');inp.focus();return;}getPhases().push(createBlankPhase(n));saveState();render();inp.value='';showToast('✅ Faza dodana');}
+function deleteRow(i){const s=getPhases(),n=s[i].name;if(!confirm('Obriši "'+n+'"?'))return;s.splice(i,1);filteredIndices=null;saveState();render();showToast('🗑 Obrisano');}
+function moveRow(i,dir){const s=getPhases(),j=i+dir;if(j<0||j>=s.length)return;[s[i],s[j]]=[s[j],s[i]];filteredIndices=null;saveState();render();}
+
+/* ═══════════════════════════════════════════════════════════
+   EXPORT / IMPORT / RESET
+   ═══════════════════════════════════════════════════════════ */
+function exportData(){
+  const blob=new Blob([JSON.stringify(allData,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`plan_montaze_${getProject()?.code||'export'}_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();showToast('💾 Sačuvano!');
+}
+function importData(event){
+  const file=event.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const parsed=JSON.parse(e.target.result);
+      if(parsed.projects&&Array.isArray(parsed.projects)){
+        allData=parsed;
+        if(allData.projects.length>0){activeProjectId=allData.projects[0].id;const p=allData.projects[0];if(p.workPackages.length>0)activeWpId=p.workPackages[0].id;}
+        saveState();buildProjectSelector();buildWpTabs();render();showToast('📂 Učitano!');
+      }else{showToast('❌ Neispravan format');}
+    }catch{showToast('❌ Greška u JSON-u');}
+  };
+  reader.readAsText(file);event.target.value='';
+}
+function resetData(){
+  if(!confirm('Resetovati sve?'))return;
+  allData={projects:[createBlankProject('RN 9000','Kovačka linija')]};
+  activeProjectId=allData.projects[0].id;activeWpId=allData.projects[0].workPackages[0].id;
+  filteredIndices=null;saveState();buildProjectSelector();buildWpTabs();render();showToast('🗑 Reset');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   TOAST + RENDER + INIT
+   ═══════════════════════════════════════════════════════════ */
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
+
+function render(){
+  renderPlan();renderReminders();renderSummary();buildPersonFilter();
+  if(activeView==='gantt')renderGantt();
+  if(activeView==='total'){renderGanttWpFilter();renderTotalGantt();}
+}
+
+buildProjectSelector();buildWpTabs();render();
+
+let resizeTimer;
+window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>render(),150);});
+</script>
+</body>
+</html>
