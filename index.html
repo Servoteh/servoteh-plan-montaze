@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Plan Montaže Kovačke Linije v5.0</title>
+<title>Plan Montaže Kovačke Linije v5.1</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap');
 
@@ -578,6 +578,25 @@ tr.row-finished td { color: var(--text3); }
   .wp-tab { padding: 8px 14px; font-size: 10px; }
 }
 
+
+/* ═══ AUTH ═══ */
+.auth-overlay { display:flex; position:fixed; inset:0; z-index:2000; background:rgba(0,0,0,0.7); backdrop-filter:blur(6px); align-items:center; justify-content:center; }
+.auth-overlay.hidden { display:none; }
+.auth-box { background:var(--surface); border:1px solid var(--border3); border-radius:var(--radius-lg); padding:28px 24px; width:320px; box-shadow:var(--shadow-lg); }
+.auth-box h2 { font-size:15px; color:var(--text); margin-bottom:14px; font-weight:600; }
+.auth-box input { width:100%; padding:10px 12px; font-size:13px; margin-bottom:10px; background:var(--surface3); border:1px solid var(--border2); color:var(--text); border-radius:var(--radius); font-family:var(--font); outline:none; }
+.auth-box input:focus { border-color:var(--accent); }
+.auth-box .auth-btn { width:100%; padding:10px; font-size:12px; font-weight:600; cursor:pointer; border:1px solid var(--accent); background:var(--accent-dim); color:var(--accent); border-radius:var(--radius); font-family:var(--font); transition:all 0.15s; text-transform:uppercase; letter-spacing:0.5px; }
+.auth-box .auth-btn:hover { background:var(--accent); color:#000; }
+.auth-box .auth-msg { font-size:11px; color:var(--text3); margin-top:8px; text-align:center; }
+.auth-box .auth-err { color:var(--red); }
+.user-bar { display:flex; align-items:center; gap:6px; font-size:10px; color:var(--text3); }
+.user-bar .user-email { font-family:var(--mono); color:var(--text2); max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.user-bar .btn-logout { padding:3px 8px; font-size:9px; border-radius:4px; cursor:pointer; border:1px solid var(--border2); background:var(--surface3); color:var(--text3); font-family:var(--font); }
+.user-bar .btn-logout:hover { background:var(--surface4); color:var(--text); }
+.offline-badge { font-size:9px; padding:2px 8px; border-radius:10px; font-family:var(--mono); background:var(--yellow-bg); color:var(--yellow); border:1px solid var(--yellow); letter-spacing:0.3px; }
+.online-badge { font-size:9px; padding:2px 8px; border-radius:10px; font-family:var(--mono); background:#0e2216; color:var(--green-light); border:1px solid #1e4a26; letter-spacing:0.3px; }
+
 </style>
 </head>
 <body>
@@ -585,20 +604,23 @@ tr.row-finished td { color: var(--text3); }
 <div class="header">
   <div class="header-top">
     <div>
-      <h1>⚙ Plan Montaže <span class="tag">v5.0</span></h1>
+      <h1>⚙ Plan Montaže <span class="tag">v5.1</span></h1>
       <div class="header-sub">
         <span><span class="dot dot-blue"></span> Dobanovci</span>
         <span><span class="dot dot-green"></span> Kruševac</span>
       </div>
     </div>
     <div class="toolbar">
-      <button class="btn btn-save" onclick="exportData()">💾 Sačuvaj</button>
-      <button class="btn btn-load" onclick="document.getElementById('fileInput').click()">📂 Učitaj</button>
+      <button class="btn btn-save" onclick="exportData()">💾 Export</button>
+      <button class="btn btn-load" onclick="document.getElementById('fileInput').click()">📂 Import</button>
       <button class="btn btn-reset" onclick="resetData()">🗑 Reset</button>
       <input type="file" id="fileInput" accept=".json" style="display:none" onchange="importData(event)">
-      <select id="roleSelector" onchange="setRole(this.value)" style="font-size:10px;padding:4px 8px;border-radius:6px;background:var(--surface3);border:1px solid var(--border2);color:var(--text);font-family:var(--font)"><option value="pm">PM</option><option value="leadpm">Lead PM</option><option value="viewer">Viewer</option></select>
-      <span class="role-indicator role-pm" id="roleLabel">PM</span>
-      <button class="btn" style="background:var(--surface3);border-color:var(--border2);color:var(--text3)" onclick="promptSupabaseConnect()" title="Poveži sa Supabase">🌐 DB</button>
+      <span class="role-indicator role-pm" id="roleLabel">—</span>
+      <span id="connBadge" class="offline-badge">OFFLINE</span>
+      <div class="user-bar" id="userBar">
+        <span class="user-email" id="userEmail"></span>
+        <button class="btn-logout" onclick="doLogout()">Logout</button>
+      </div>
     </div>
   </div>
   <div class="kpi-zone">
@@ -739,342 +761,459 @@ tr.row-finished td { color: var(--text3); }
   </div>
 </div>
 
+<!-- Auth login overlay -->
+<div class="auth-overlay" id="authOverlay">
+  <div class="auth-box">
+    <h2>⚙ Plan Montaže — Prijava</h2>
+    <input type="email" id="loginEmail" placeholder="Email adresa">
+    <input type="password" id="loginPassword" placeholder="Lozinka">
+    <button class="auth-btn" onclick="doLogin()">Prijavi se</button>
+    <button class="auth-btn" style="margin-top:6px;background:transparent;border-color:var(--border2);color:var(--text3)" onclick="doOfflineMode()">Nastavi offline</button>
+    <div class="auth-msg" id="authMsg"></div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 <script>
 /* ═══════════════════════════════════════════════════════════
-   CONSTANTS
+   V5.1 — SUPABASE-FIRST ARCHITECTURE
+   localStorage = offline fallback only
    ═══════════════════════════════════════════════════════════ */
-const DEFAULT_PHASES = [
-  "Montaža agregata","Elektro montaža agregata","Montaža postolja prese sa cilindrima",
-  "Montaža agregata na lokaciji naručioca","Povezivanje agregata sa cilindrima",
-  "Montaža na batu","Elektro montaža bata","Kompletiranje tela prese",
-  "Montaža ruke podmazivanja","Elektro montaža ruke podmazivanja",
-  "Montaža ruke podmazivanja (2)","Postavljanje robota",
-  "Postavljanje agregata podmazivanja","Postavljanje kanalica",
-  "Elektro povezivanje kompletne prese"
-];
-const STATUSES = ["Nije počelo", "U toku", "Završeno", "Na čekanju"];
-const VODJA = ["", "Miloš Oreščanin", "Vladan Radivojević", "Stefan Mirić", "Slaviša Babić", "Goran Mlađenović"];
-const ENGINEERS = [
-  "", "Dejan Ćirković", "Đorđe Arsić", "Igor Voštić", "Jovan Papić",
-  "Luka Talović", "Marko Stojanović", "Milan Milovanović", "Milan Stojadinović",
-  "Milorad Jerotić", "Nebojša Milošević", "Nikola Aksentijević", "Pavle Ilić",
-  "Slaviša Radosavljević", "Tatjana Gnjidić", "Vladan Pavlović", "Vuk Radivojević"
-];
-const CHECK_LABELS = ["Montažni crteži","Mašinske komponente","Gotova roba","Vijčana roba","Električni materijal","Alati / oprema","Termin potvrđen","Dostupna ekipa"];
-const CHECK_SHORT = ['Crteži','Mašin.','Got.rob','Vijci','Elektro','Alati','Termin','Ekipa'];
-const NUM_CHECKS = CHECK_LABELS.length;
-const MONTHS_SR = ["Januar","Februar","Mart","April","Maj","Jun","Jul","Avgust","Septembar","Oktobar","Novembar","Decembar"];
-const KEY = 'plan_montaze_v5';
 
-/* ═══════════════════════════════════════════════════════════
-   DATA MODEL: project → work_packages → phases
-   ═══════════════════════════════════════════════════════════ */
-function createBlankPhase(name) {
-  return { name: name||'', loc:'Dobanovci', start:null, end:null, engineer:'', person:'', status:0, pct:0, checks:new Array(NUM_CHECKS).fill(false), note:'', blocker:'' };
-}
-function createBlankWP(name, rnCode, order) {
-  return { id:'wp_'+Date.now()+'_'+Math.random().toString(36).slice(2,6), rnCode:rnCode||'', rnOrder:order||1, name:name||'Nova pozicija', location:'Dobanovci', defaultEngineer:'', defaultLead:'', deadline:'', isActive:true, phases: DEFAULT_PHASES.map(n=>createBlankPhase(n)) };
-}
-function createBlankProject(code, name) {
-  return { id:'proj_'+Date.now()+'_'+Math.random().toString(36).slice(2,6), code:code||'', name:name||'Novi projekat', projectM:'', deadline:'', pmEmail:'', leadPmEmail:'', reminderEnabled:false, status:'active', workPackages:[createBlankWP('Presa 350t', code?code+'/1':'', 1)] };
-}
+/* ── CONSTANTS ── */
+const DEFAULT_PHASES=["Montaža agregata","Elektro montaža agregata","Montaža postolja prese sa cilindrima","Montaža agregata na lokaciji naručioca","Povezivanje agregata sa cilindrima","Montaža na batu","Elektro montaža bata","Kompletiranje tela prese","Montaža ruke podmazivanja","Elektro montaža ruke podmazivanja","Montaža ruke podmazivanja (2)","Postavljanje robota","Postavljanje agregata podmazivanja","Postavljanje kanalica","Elektro povezivanje kompletne prese"];
+const STATUSES=["Nije počelo","U toku","Završeno","Na čekanju"];
+const VODJA=["","Miloš Oreščanin","Vladan Radivojević","Stefan Mirić","Slaviša Babić","Goran Mlađenović"];
+const ENGINEERS=["","Dejan Ćirković","Đorđe Arsić","Igor Voštić","Jovan Papić","Luka Talović","Marko Stojanović","Milan Milovanović","Milan Stojadinović","Milorad Jerotić","Nebojša Milošević","Nikola Aksentijević","Pavle Ilić","Slaviša Radosavljević","Tatjana Gnjidić","Vladan Pavlović","Vuk Radivojević"];
+const CHECK_LABELS=["Montažni crteži","Mašinske komponente","Gotova roba","Vijčana roba","Električni materijal","Alati / oprema","Termin potvrđen","Dostupna ekipa"];
+const CHECK_SHORT=['Crteži','Mašin.','Got.rob','Vijci','Elektro','Alati','Termin','Ekipa'];
+const NUM_CHECKS=CHECK_LABELS.length;
+const MONTHS_SR=["Januar","Februar","Mart","April","Maj","Jun","Jul","Avgust","Septembar","Oktobar","Novembar","Decembar"];
+const LOCAL_KEY='plan_montaze_v5_cache';
+const AUTH_STORAGE_KEY='plan_montaze_v51_auth';
+const SAVE_DEBOUNCE_MS=700;
+const SUPABASE_CONFIG={
+  url:'https://YOUR_PROJECT.supabase.co',
+  anonKey:'YOUR_SUPABASE_ANON_KEY',
+  reminderEndpoint:'/functions/v1/send-reminders'
+};
 
-/* ═══════════════════════════════════════════════════════════
-   ROLE SYSTEM
-   ═══════════════════════════════════════════════════════════ */
-let currentRole = 'pm';
-function canEdit() { return currentRole==='pm'||currentRole==='leadpm'; }
-function setRole(role) { currentRole=role; document.getElementById('roleLabel').textContent=role.toUpperCase(); document.getElementById('roleLabel').className='role-indicator '+(role==='viewer'?'role-viewer':'role-pm'); render(); showToast('🔐 Uloga: '+role.toUpperCase()); }
-function disabledAttr() { return canEdit()?'':'disabled'; }
+/* ── STATE ── */
+const today=new Date();today.setHours(0,0,0,0);
+let supaUrl=SUPABASE_CONFIG.url,supaKey=SUPABASE_CONFIG.anonKey,isOnline=false;
+let currentUser=null; // { email, id }
+let currentRole='viewer'; // 'pm'|'leadpm'|'viewer'
+let allData={projects:[]};
+let activeProjectId=null,activeWpId=null,activeView='plan',filteredIndices=null;
+let projectSaveTimer=null;
+let wpSyncTimer=null;
+const phaseSaveTimers=new Map();
 
-/* ═══════════════════════════════════════════════════════════
-   HELPERS
-   ═══════════════════════════════════════════════════════════ */
+/* ── HELPERS ── */
 function escHtml(s){if(s==null)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 function formatDate(d){if(!d)return'';const dt=new Date(d);if(isNaN(dt))return'';return`${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}.${dt.getFullYear()}`;}
+function toIsoDate(d){if(!d)return null;const dt=new Date(d);return isNaN(dt)?null:dt.toISOString().split('T')[0];}
 function calcDuration(s,e){if(!s||!e)return null;const a=new Date(s),b=new Date(e);if(isNaN(a)||isNaN(b))return null;const d=Math.round((b-a)/864e5);return d<0?-1:d+1;}
 function statusClass(s){return['st-0','st-1','st-2','st-3'][s]||'st-0';}
+function canEdit(){return currentRole==='pm'||currentRole==='leadpm';}
+function disabledAttr(){return canEdit()?'':'disabled';}
+function getProject(){return allData.projects.find(p=>p.id===activeProjectId)||null;}
+function getWP(){const p=getProject();return p?p.workPackages.find(w=>w.id===activeWpId):null;}
+function getPhases(){const wp=getWP();return wp?wp.phases:[];}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
+function hasSupabaseConfig(){return !!(supaUrl&&supaKey&&supaUrl!=='https://YOUR_PROJECT.supabase.co'&&supaKey!=='YOUR_SUPABASE_ANON_KEY');}
+function persistAuthSession(session){try{localStorage.setItem(AUTH_STORAGE_KEY,JSON.stringify(session));}catch(e){}}
+function getStoredAuthSession(){try{const raw=localStorage.getItem(AUTH_STORAGE_KEY);return raw?JSON.parse(raw):null;}catch(e){return null;}}
+function clearStoredAuthSession(){try{localStorage.removeItem(AUTH_STORAGE_KEY);}catch(e){}}
 
-function calcReadiness(row) {
-  const reasons=[];
-  if(row.status===2) return{ready:false,reasons:['Status: Završeno'],done:true};
+function calcReadiness(row){
+  const reasons=[];if(row.status===2)return{ready:false,reasons:['Završeno'],done:true};
   for(let ci=0;ci<NUM_CHECKS;ci++){if(!row.checks[ci])reasons.push(CHECK_LABELS[ci]+': NE');}
-  if(!row.person)reasons.push('Nema vođe montaže');
-  if(!row.start)reasons.push('Nema datuma početka');
+  if(!row.person)reasons.push('Nema vođe');if(!row.start)reasons.push('Nema datuma početka');
   return{ready:reasons.length===0,reasons,done:false};
 }
-
-function calcRisk(row) {
-  const reasons=[]; const dur=calcDuration(row.start,row.end);
-  if(dur===-1)reasons.push('🔴 Kraj je pre početka');
-  if(row.status===2&&!row.checks.every(c=>c))reasons.push('🔴 Završeno ali spremnost nepotpuna');
-  if(row.start&&row.status!==2){const d=Math.round((new Date(row.start)-today)/864e5);if(d>=0&&d<=7&&!calcReadiness(row).ready)reasons.push('🟠 Početak uskoro, faza nije spremna');}
-  if(!row.person&&row.status!==2)reasons.push('🟡 Nema dodeljenog vođe');
+function calcRisk(row){
+  const reasons=[],dur=calcDuration(row.start,row.end);
+  if(dur===-1)reasons.push('🔴 Kraj pre početka');
+  if(row.status===2&&!row.checks.every(c=>c))reasons.push('🔴 Završeno ali nepotpuno');
+  if(row.start&&row.status!==2){const d=Math.round((new Date(row.start)-today)/864e5);if(d>=0&&d<=7&&!calcReadiness(row).ready)reasons.push('🟠 Počinje uskoro, nije spremno');}
+  if(!row.person&&row.status!==2)reasons.push('🟡 Nema vođe');
   if((!row.start||!row.end)&&row.status!==2)reasons.push('⚪ Nedostaju datumi');
   if(row.status===3&&!row.blocker.trim())reasons.push('🟠 Na čekanju bez blokatora');
   let level='none';
-  if(reasons.some(r=>r.startsWith('🔴')))level='high';
-  else if(reasons.some(r=>r.startsWith('🟠')))level='med';
-  else if(reasons.some(r=>r.startsWith('🟡')||r.startsWith('⚪')))level='low';
+  if(reasons.some(r=>r.startsWith('🔴')))level='high';else if(reasons.some(r=>r.startsWith('🟠')))level='med';else if(reasons.some(r=>r.startsWith('🟡')||r.startsWith('⚪')))level='low';
   return{level,reasons};
 }
-
-function applyBusinessRules(row) {
-  if(row.status===2)row.pct=100;
-  if(row.status===0)row.pct=0;
-  if(row.pct>0&&row.status===0)row.status=1;
-  if(row.pct===100&&row.status!==2)row.status=2;
-  if(row.start&&row.end){if(new Date(row.end)<new Date(row.start))row.end=row.start;}
+function applyBusinessRules(row){
+  if(row.status===2)row.pct=100;if(row.status===0)row.pct=0;
+  if(row.pct>0&&row.status===0)row.status=1;if(row.pct===100&&row.status!==2)row.status=2;
+  if(row.start&&row.end&&new Date(row.end)<new Date(row.start))row.end=row.start;
 }
 
-function normalizePhase(p){if(!p||typeof p!=='object')return createBlankPhase('?');const r={...createBlankPhase(p.name||'?')};['loc','start','end','engineer','person','note','blocker'].forEach(k=>{if(typeof p[k]==='string')r[k]=p[k];});if(typeof p.status==='number'&&p.status>=0&&p.status<=3)r.status=p.status;if(typeof p.pct==='number')r.pct=Math.max(0,Math.min(100,p.pct));if(Array.isArray(p.checks)){for(let i=0;i<NUM_CHECKS;i++)r.checks[i]=i<p.checks.length?!!p.checks[i]:false;}return r;}
-
 /* ═══════════════════════════════════════════════════════════
-   STATE
+   SUPABASE HTTP LAYER
    ═══════════════════════════════════════════════════════════ */
-const today=new Date();today.setHours(0,0,0,0);
-let allData={projects:[]};
-let activeProjectId=null;
-let activeWpId=null;
-let activeView='plan';
-let filteredIndices=null;
-
-function getProject(){return allData.projects.find(p=>p.id===activeProjectId)||null;}
-function getWP(){const p=getProject();if(!p)return null;return p.workPackages.find(w=>w.id===activeWpId)||null;}
-function getPhases(){const wp=getWP();return wp?wp.phases:[];}
-
-function loadState(){
+async function sbReq(path,method='GET',body=null){
+  if(!hasSupabaseConfig())return null;
   try{
-    const s=localStorage.getItem(KEY);if(s){allData=JSON.parse(s);if(allData.projects&&allData.projects.length>0)return;}
-    /* Migrate from v4 */
-    const s4=localStorage.getItem('plan_kovacka_linija_v4');
-    if(s4){
-      const old=JSON.parse(s4);
-      const proj=createBlankProject('RN-migrated','Migrirani projekat');
-      proj.workPackages=[];
-      const machines=[{id:'presa350',label:'Presa 350t'},{id:'presa1000',label:'Presa 1000t'},{id:'presa400',label:'Presa 400t'},{id:'decunder',label:'Decunderisanje sa manipulacijom'},{id:'rashladni',label:'Rashladni tunel'}];
-      machines.forEach((m,i)=>{
-        if(old[m.id]&&Array.isArray(old[m.id])){
-          const wp=createBlankWP(m.label,'migr/'+(i+1),i+1);
-          wp.phases=old[m.id].map(r=>normalizePhase(r));
-          proj.workPackages.push(wp);
-        }
-      });
-      if(proj.workPackages.length===0)proj.workPackages.push(createBlankWP('Presa 350t','1/1',1));
-      allData={projects:[proj]};
-      showToast('📦 Podaci migrirani sa v4 formata');
-      return;
-    }
-  }catch(e){console.error('loadState error:',e);}
-  allData={projects:[createBlankProject('RN 9000','Kovačka linija')]};
+    const headers={'Content-Type':'application/json','apikey':supaKey,'Authorization':'Bearer '+(currentUser?._token||supaKey)};
+    if(method==='POST')headers['Prefer']='return=representation,resolution=merge-duplicates';
+    if(method==='PATCH')headers['Prefer']='return=representation';
+    const r=await fetch(supaUrl+'/rest/v1/'+path,{method,headers,body:body?JSON.stringify(body):undefined});
+    if(!r.ok){console.error('SB err:',r.status);return null;}
+    const txt=await r.text();return txt?JSON.parse(txt):null;
+  }catch(e){console.error('SB:',e);return null;}
 }
-loadState();
-if(allData.projects.length>0){activeProjectId=allData.projects[0].id;const p=allData.projects[0];if(p.workPackages.length>0)activeWpId=p.workPackages[0].id;}
-
-function saveState(){try{localStorage.setItem(KEY,JSON.stringify(allData));}catch(e){}}
 
 /* ═══════════════════════════════════════════════════════════
-   SUPABASE LAYER
+   DB ↔ STATE MAPPERS
    ═══════════════════════════════════════════════════════════ */
-const SUPABASE_CONFIG={url:'',anonKey:'',reminderEndpoint:'/functions/v1/send-reminders'};
-let useOnlineDb=false;
-async function supabaseReq(path,method,body){
-  if(!SUPABASE_CONFIG.url)return null;
-  try{const r=await fetch(SUPABASE_CONFIG.url+'/rest/v1/'+path,{method,headers:{'Content-Type':'application/json','apikey':SUPABASE_CONFIG.anonKey,'Authorization':'Bearer '+SUPABASE_CONFIG.anonKey},body:body?JSON.stringify(body):undefined});return r.ok?await r.json():null;}catch(e){return null;}
+function mapDbProject(d){
+  return{id:d.id,code:d.project_code||'',name:d.project_name||'',projectM:d.projectm||'',deadline:d.project_deadline||'',pmEmail:d.pm_email||'',leadPmEmail:d.leadpm_email||'',reminderEnabled:!!d.reminder_enabled,status:d.status||'active',workPackages:[]};
 }
-async function loadProjects(){if(!useOnlineDb)return null;return await supabaseReq('projects?select=*','GET');}
-async function loadWorkPackages(projId){if(!useOnlineDb)return null;return await supabaseReq('work_packages?project_id=eq.'+projId+'&select=*','GET');}
-async function loadPhasesFromDb(projId,wpId){if(!useOnlineDb)return null;return await supabaseReq('phases?work_package_id=eq.'+wpId+'&select=*','GET');}
-async function saveProject(proj){if(!useOnlineDb)return;await supabaseReq('projects','POST',proj);}
-async function saveWorkPackage(wp){if(!useOnlineDb)return;await supabaseReq('work_packages','POST',wp);}
-async function savePhase(phase){if(!useOnlineDb)return;await supabaseReq('phases','POST',phase);}
-async function loadUserRole(){if(!useOnlineDb)return;}
-async function callReminderEndpoint(){
-  const payload=buildReminderPayload();
-  if(payload.length===0){showToast('✅ Nema faza za podsetnik');return;}
-  if(!useOnlineDb){console.log('Reminder payload:',payload);showToast('📧 Payload: '+payload.length+' podsetnika (offline)');return;}
-  try{const r=await fetch(SUPABASE_CONFIG.url+SUPABASE_CONFIG.reminderEndpoint,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+SUPABASE_CONFIG.anonKey},body:JSON.stringify({alerts:payload})});const d=await r.json();showToast('📧 Poslato: '+(d.sent||0));}catch(e){showToast('❌ Greška');}
+function mapDbWP(d){
+  return{id:d.id,projectId:d.project_id,rnCode:d.rn_code||'',rnOrder:d.rn_order||1,name:d.name||'',location:d.location||'Dobanovci',defaultEngineer:d.responsible_engineer_default||'',defaultLead:d.montage_lead_default||'',deadline:d.deadline||'',isActive:d.is_active!==false,phases:[]};
 }
-function promptSupabaseConnect(){
-  if(useOnlineDb){if(confirm('Prebaciti na offline?')){useOnlineDb=false;showToast('💾 Offline');}return;}
-  const url=prompt('Supabase URL:','');if(!url)return;
-  const key=prompt('Anon Key:','');if(!key)return;
-  SUPABASE_CONFIG.url=url.trim();SUPABASE_CONFIG.anonKey=key.trim();useOnlineDb=true;showToast('🌐 Online');
+function mapDbPhase(d){
+  return{id:d.id,projectId:d.project_id,wpId:d.work_package_id,name:d.phase_name||'',loc:d.location||'Dobanovci',start:d.start_date,end:d.end_date,engineer:d.responsible_engineer||'',person:d.montage_lead||'',status:d.status||0,pct:d.pct||0,checks:d.checks||new Array(NUM_CHECKS).fill(false),note:d.note||'',blocker:d.blocker||''};
 }
+function buildProjectPayload(p){
+  return{id:p.id,project_code:p.code,project_name:p.name,projectm:p.projectM,project_deadline:p.deadline||null,pm_email:p.pmEmail,leadpm_email:p.leadPmEmail,reminder_enabled:p.reminderEnabled,status:p.status,updated_at:new Date().toISOString()};
+}
+function buildWPPayload(wp,projectId){
+  return{id:wp.id,project_id:projectId,rn_code:wp.rnCode,rn_order:wp.rnOrder,name:wp.name,location:wp.location,responsible_engineer_default:wp.defaultEngineer,montage_lead_default:wp.defaultLead,deadline:wp.deadline||null,sort_order:wp.rnOrder,is_active:wp.isActive,updated_at:new Date().toISOString()};
+}
+function buildPhasePayload(ph,projectId,wpId,sortOrder){
+  return{id:ph.id,project_id:projectId,work_package_id:wpId,phase_name:ph.name,location:ph.loc,start_date:ph.start||null,end_date:ph.end||null,responsible_engineer:ph.engineer,montage_lead:ph.person,status:ph.status,pct:ph.pct,checks:ph.checks,blocker:ph.blocker,note:ph.note,sort_order:sortOrder,updated_at:new Date().toISOString(),updated_by:currentUser?.email||''};
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DB LOAD FUNCTIONS
+   ═══════════════════════════════════════════════════════════ */
+async function loadProjectsFromDb(){
+  const data=await sbReq('projects?select=*&order=created_at');
+  return data?data.map(mapDbProject):null;
+}
+async function loadWorkPackagesFromDb(projectId){
+  const data=await sbReq('work_packages?project_id=eq.'+projectId+'&order=sort_order');
+  return data?data.map(mapDbWP):null;
+}
+async function loadPhasesFromDb(projectId,wpId){
+  const data=await sbReq('phases?work_package_id=eq.'+wpId+'&order=sort_order');
+  return data?data.map(mapDbPhase):null;
+}
+async function loadAllProjectData(projectId){
+  const wps=await loadWorkPackagesFromDb(projectId);
+  if(!wps)return null;
+  for(const wp of wps){
+    const phases=await loadPhasesFromDb(projectId,wp.id);
+    wp.phases=phases||[];
+  }
+  return wps;
+}
+async function loadUserRoleFromDb(){
+  if(!currentUser)return 'viewer';
+  const email=encodeURIComponent(currentUser.email);
+  let data=await sbReq(`user_roles?email=eq.${email}&project_id=is.null&is_active=eq.true&select=role&limit=1`);
+  if(data&&data[0])return data[0].role;
+  if(activeProjectId){
+    data=await sbReq(`user_roles?email=eq.${email}&project_id=eq.${activeProjectId}&is_active=eq.true&select=role&limit=1`);
+    if(data&&data[0])return data[0].role;
+  }
+  return 'viewer';
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DB SAVE FUNCTIONS (UPSERT via POST + merge-duplicates)
+   ═══════════════════════════════════════════════════════════ */
+async function saveProjectToDb(proj){
+  return await sbReq('projects','POST',buildProjectPayload(proj));
+}
+async function saveWorkPackageToDb(wp,projectId){
+  return await sbReq('work_packages','POST',buildWPPayload(wp,projectId));
+}
+async function savePhaseToDb(ph,projectId,wpId,sortOrder){
+  return await sbReq('phases','POST',buildPhasePayload(ph,projectId,wpId,sortOrder));
+}
+async function deletePhaseFromDb(phaseId){
+  if(!isOnline||!phaseId)return;
+  await sbReq(`phases?id=eq.${phaseId}`,'DELETE');
+}
+async function saveAllCurrentPhases(){
+  if(!isOnline||!canEdit())return;
+  const p=getProject(),wp=getWP();if(!p||!wp)return;
+  for(let i=0;i<wp.phases.length;i++){
+    await savePhaseToDb(wp.phases[i],p.id,wp.id,i);
+  }
+}
+function queueProjectSave(){
+  if(!isOnline||!canEdit())return;
+  clearTimeout(projectSaveTimer);
+  projectSaveTimer=setTimeout(async()=>{
+    const proj=getProject();
+    if(proj)await saveProjectToDb(proj);
+  },SAVE_DEBOUNCE_MS);
+}
+function queuePhaseSaveByIndex(i){
+  if(!isOnline||!canEdit())return;
+  const proj=getProject(),wp=getWP(),ph=getPhases()[i];
+  if(!proj||!wp||!ph?.id)return;
+  const existing=phaseSaveTimers.get(ph.id);
+  if(existing)clearTimeout(existing);
+  const timer=setTimeout(async()=>{
+    const liveProj=getProject(),liveWp=getWP();
+    if(!liveProj||!liveWp)return;
+    const liveIndex=liveWp.phases.findIndex(x=>x.id===ph.id);
+    if(liveIndex===-1)return;
+    await savePhaseToDb(liveWp.phases[liveIndex],liveProj.id,liveWp.id,liveIndex);
+    phaseSaveTimers.delete(ph.id);
+  },SAVE_DEBOUNCE_MS);
+  phaseSaveTimers.set(ph.id,timer);
+}
+function queueCurrentWpSync(){
+  if(!isOnline||!canEdit())return;
+  clearTimeout(wpSyncTimer);
+  wpSyncTimer=setTimeout(async()=>{await saveAllCurrentPhases();},SAVE_DEBOUNCE_MS);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   AUTH
+   ═══════════════════════════════════════════════════════════ */
+async function doLogin(){
+  const email=document.getElementById('loginEmail').value.trim();
+  const pass=document.getElementById('loginPassword').value.trim();
+  const msg=document.getElementById('authMsg');
+  if(!hasSupabaseConfig()){msg.innerHTML='<span class="auth-err">Supabase konfiguracija nije upisana u kodu</span>';return;}
+  if(!email||!pass){msg.innerHTML='<span class="auth-err">Unesi email i lozinku</span>';return;}
+  msg.textContent='Prijavljivanje...';
+  try{
+    const r=await fetch(supaUrl+'/auth/v1/token?grant_type=password',{method:'POST',headers:{'Content-Type':'application/json','apikey':supaKey},body:JSON.stringify({email,password:pass})});
+    const d=await r.json();
+    if(d.error){msg.innerHTML='<span class="auth-err">'+escHtml(d.error_description||d.error)+'</span>';return;}
+    currentUser={email:d.user.email,id:d.user.id,_token:d.access_token};
+    isOnline=true;
+    persistAuthSession({access_token:d.access_token,refresh_token:d.refresh_token,user:d.user});
+    await initAfterAuth();
+  }catch(e){msg.innerHTML='<span class="auth-err">Greška pri prijavi</span>';console.error(e);}
+}
+function doOfflineMode(){
+  isOnline=false;currentUser={email:'offline@local',id:'local'};currentRole='pm';
+  loadLocalFallback();
+  document.getElementById('authOverlay').classList.add('hidden');
+  updateAuthUI();render();showToast('💾 Offline režim — localStorage');
+}
+async function doLogout(){
+  if(isOnline&&supaUrl){
+    try{await fetch(supaUrl+'/auth/v1/logout',{method:'POST',headers:{'Authorization':'Bearer '+(currentUser?._token||'')}});}catch(e){}
+  }
+  currentUser=null;currentRole='viewer';isOnline=false;
+  clearStoredAuthSession();
+  document.getElementById('authOverlay').classList.remove('hidden');
+  updateAuthUI();
+}
+async function restoreSession(){
+  if(!hasSupabaseConfig())return false;
+  const session=getStoredAuthSession();
+  if(!session?.refresh_token&&!session?.access_token)return false;
+  try{
+    let accessToken=session.access_token;
+    let user=session.user||null;
+    if(session.refresh_token){
+      const refreshRes=await fetch(supaUrl+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{'Content-Type':'application/json','apikey':supaKey},body:JSON.stringify({refresh_token:session.refresh_token})});
+      const refreshData=await refreshRes.json();
+      if(!refreshRes.ok||refreshData.error)throw new Error(refreshData.error||'refresh_failed');
+      accessToken=refreshData.access_token;
+      user=refreshData.user;
+      persistAuthSession({access_token:refreshData.access_token,refresh_token:refreshData.refresh_token||session.refresh_token,user:refreshData.user});
+    }else if(accessToken){
+      const userRes=await fetch(supaUrl+'/auth/v1/user',{headers:{'apikey':supaKey,'Authorization':'Bearer '+accessToken}});
+      if(!userRes.ok)throw new Error('user_restore_failed');
+      user=await userRes.json();
+    }
+    if(!user?.email||!accessToken)throw new Error('invalid_session');
+    currentUser={email:user.email,id:user.id,_token:accessToken};
+    isOnline=true;
+    await initAfterAuth();
+    return true;
+  }catch(e){
+    clearStoredAuthSession();
+    currentUser=null;
+    currentRole='viewer';
+    isOnline=false;
+    return false;
+  }
+}
+async function initAfterAuth(){
+  document.getElementById('authOverlay').classList.add('hidden');
+  /* Load role */
+  currentRole=await loadUserRoleFromDb();
+  updateAuthUI();
+  /* Load projects */
+  const projects=await loadProjectsFromDb();
+  if(projects&&projects.length>0){
+    allData.projects=projects;
+    activeProjectId=projects[0].id;
+    const wps=await loadAllProjectData(projects[0].id);
+    if(wps)projects[0].workPackages=wps;
+    activeWpId=projects[0].workPackages[0]?.id||null;
+  }else{
+    /* No projects in DB - create sample */
+    allData={projects:[createBlankProject('RN 9000','Kovačka linija')]};
+    activeProjectId=allData.projects[0].id;activeWpId=allData.projects[0].workPackages[0].id;
+    if(canEdit()){await saveProjectToDb(allData.projects[0]);for(const wp of allData.projects[0].workPackages)await saveWorkPackageToDb(wp,allData.projects[0].id);}
+  }
+  cacheToLocal();buildProjectSelector();buildWpTabs();render();
+  showToast('🌐 Online — '+currentUser.email);
+}
+function updateAuthUI(){
+  document.getElementById('userEmail').textContent=currentUser?currentUser.email:'';
+  document.getElementById('userBar').style.display=currentUser?'flex':'none';
+  document.getElementById('roleLabel').textContent=currentRole.toUpperCase();
+  document.getElementById('roleLabel').className='role-indicator '+(currentRole==='viewer'?'role-viewer':'role-pm');
+  document.getElementById('connBadge').className=isOnline?'online-badge':'offline-badge';
+  document.getElementById('connBadge').textContent=isOnline?'ONLINE':'OFFLINE';
+}
+
+/* ═══════════════════════════════════════════════════════════
+   LOCAL FALLBACK
+   ═══════════════════════════════════════════════════════════ */
+function cacheToLocal(){try{localStorage.setItem(LOCAL_KEY,JSON.stringify(allData));}catch(e){}}
+function loadLocalFallback(){
+  try{const s=localStorage.getItem(LOCAL_KEY);if(s){allData=JSON.parse(s);if(allData.projects?.length>0){activeProjectId=allData.projects[0].id;activeWpId=allData.projects[0].workPackages?.[0]?.id;return;}}}catch(e){}
+  /* Migrate from v5 key */
+  try{const s=localStorage.getItem('plan_montaze_v5');if(s){allData=JSON.parse(s);if(allData.projects?.length>0){activeProjectId=allData.projects[0].id;activeWpId=allData.projects[0].workPackages?.[0]?.id;return;}}}catch(e){}
+  /* Brand new */
+  allData={projects:[createBlankProject('RN 9000','Kovačka linija')]};
+  activeProjectId=allData.projects[0].id;activeWpId=allData.projects[0].workPackages[0].id;
+}
+function saveState(){
+  cacheToLocal();
+}
+function saveProjectState(){saveState();queueProjectSave();}
+function savePhaseState(i){saveState();queuePhaseSaveByIndex(i);}
+function saveWpStructureState(){saveState();queueCurrentWpSync();}
+function saveDateState(i){saveState();queuePhaseSaveByIndex(i);}
+function saveCheckState(i){saveState();queuePhaseSaveByIndex(i);}
+function saveAfterDelete(deletedPhaseId){saveState();if(deletedPhaseId)deletePhaseFromDb(deletedPhaseId);queueCurrentWpSync();}
+
+/* ═══════════════════════════════════════════════════════════
+   DATA MODEL
+   ═══════════════════════════════════════════════════════════ */
+function createBlankPhase(name){return{id:crypto.randomUUID(),name:name||'',loc:'Dobanovci',start:null,end:null,engineer:'',person:'',status:0,pct:0,checks:new Array(NUM_CHECKS).fill(false),note:'',blocker:''};}
+function createBlankWP(name,rnCode,order){return{id:crypto.randomUUID(),rnCode:rnCode||'',rnOrder:order||1,name:name||'Nova pozicija',location:'Dobanovci',defaultEngineer:'',defaultLead:'',deadline:'',isActive:true,phases:DEFAULT_PHASES.map(n=>createBlankPhase(n))};}
+function createBlankProject(code,name){return{id:crypto.randomUUID(),code:code||'',name:name||'Novi projekat',projectM:'',deadline:'',pmEmail:'',leadPmEmail:'',reminderEnabled:false,status:'active',workPackages:[createBlankWP('Presa 350t',code?code+'/1':'',1)]};}
+
+/* ═══════════════════════════════════════════════════════════
+   REMINDER
+   ═══════════════════════════════════════════════════════════ */
 function buildReminderPayload(){
   const alerts=[];
-  allData.projects.forEach(proj=>{
-    if(!proj.reminderEnabled)return;
-    proj.workPackages.forEach(wp=>{
-      wp.phases.forEach(row=>{
-        if(row.status===2||!row.start)return;
-        const d=Math.round((new Date(row.start)-today)/864e5);
-        if(d<0||d>7)return;
-        const rd=calcReadiness(row);if(rd.ready)return;
-        alerts.push({project_code:proj.code,project_id:proj.id,work_package:wp.name,work_package_id:wp.id,rn_code:wp.rnCode,phase:row.name,start_date:row.start,days_until:d,urgency:d<=3?'critical':'warning',reasons:rd.reasons,engineer:row.engineer,lead:row.person,pm_email:proj.pmEmail,leadpm_email:proj.leadPmEmail});
-      });
-    });
-  });
-  return alerts;
+  allData.projects.forEach(proj=>{if(!proj.reminderEnabled)return;
+    proj.workPackages.forEach(wp=>{wp.phases.forEach(row=>{
+      if(row.status===2||!row.start)return;const d=Math.round((new Date(row.start)-today)/864e5);
+      if(d<0||d>7)return;const rd=calcReadiness(row);if(rd.ready)return;
+      alerts.push({project_code:proj.code,project_id:proj.id,work_package:wp.name,work_package_id:wp.id,rn_code:wp.rnCode,phase:row.name,phase_id:row.id,start_date:row.start,days_until:d,urgency:d<=3?'critical':'warning',reasons:rd.reasons,engineer:row.engineer,lead:row.person,pm_email:proj.pmEmail,leadpm_email:proj.leadPmEmail});
+    });});
+  });return alerts;
+}
+async function callReminderEndpoint(){
+  const p=buildReminderPayload();if(p.length===0){showToast('✅ Nema podsetnika');return;}
+  if(!isOnline){console.log('Reminder payload:',p);showToast('📧 '+p.length+' podsetnika (offline)');return;}
+  try{const r=await fetch(supaUrl+'/functions/v1/send-reminders',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(currentUser?._token||supaKey)},body:JSON.stringify({alerts:p})});const d=await r.json();showToast('📧 Poslato: '+(d.sent||0));}catch(e){showToast('❌ Greška');}
 }
 
 /* ═══════════════════════════════════════════════════════════
-   PROJECT & WP MANAGEMENT
+   PROJECT/WP MANAGEMENT
    ═══════════════════════════════════════════════════════════ */
-function addProject(){
-  const code=prompt('Kod projekta (npr RN 9000):','');if(!code)return;
-  const name=prompt('Naziv projekta:','');if(!name)return;
-  const p=createBlankProject(code,name);allData.projects.push(p);
-  activeProjectId=p.id;activeWpId=p.workPackages[0]?.id||null;
-  saveState();buildProjectSelector();render();showToast('✅ Projekat "'+name+'" kreiran');
+async function addProject(){
+  const code=prompt('Kod projekta:','');if(!code)return;const name=prompt('Naziv:','');if(!name)return;
+  const p=createBlankProject(code,name);allData.projects.push(p);activeProjectId=p.id;activeWpId=p.workPackages[0]?.id;
+  if(isOnline){await saveProjectToDb(p);for(const wp of p.workPackages)await saveWorkPackageToDb(wp,p.id);}
+  cacheToLocal();buildProjectSelector();buildWpTabs();render();showToast('✅ Projekat kreiran');
 }
-function addWorkPackage(){
-  const p=getProject();if(!p)return;
-  const name=prompt('Naziv pozicije/mašine:','');if(!name)return;
-  const order=p.workPackages.length+1;
-  const wp=createBlankWP(name,p.code+'/'+ order,order);
+async function addWorkPackage(){
+  const p=getProject();if(!p)return;const name=prompt('Naziv pozicije:','');if(!name)return;
+  const o=p.workPackages.length+1;const wp=createBlankWP(name,p.code+'/'+o,o);
   p.workPackages.push(wp);activeWpId=wp.id;
-  saveState();buildWpTabs();render();showToast('✅ Pozicija "'+name+'" dodata');
+  if(isOnline)await saveWorkPackageToDb(wp,p.id);
+  cacheToLocal();buildWpTabs();render();showToast('✅ Pozicija dodata');
 }
-function switchProject(id){activeProjectId=id;const p=getProject();activeWpId=p&&p.workPackages.length>0?p.workPackages[0].id:null;filteredIndices=null;buildWpTabs();render();}
+function switchProject(id){
+  activeProjectId=id;const p=getProject();activeWpId=p?.workPackages?.[0]?.id||null;filteredIndices=null;
+  /* If online, load WPs from DB */
+  if(isOnline&&p){loadAllProjectData(p.id).then(wps=>{if(wps){p.workPackages=wps;activeWpId=wps[0]?.id||null;cacheToLocal();buildWpTabs();render();}});}
+  else{buildWpTabs();render();}
+  /* Reload role for this project */
+  if(isOnline)loadUserRoleFromDb().then(r=>{currentRole=r;updateAuthUI();render();});
+}
 function switchWP(id){activeWpId=id;filteredIndices=null;render();}
-
 function editProjectMeta(){
   const p=getProject();if(!p)return;const _d=disabledAttr();
   document.getElementById('metaForm').innerHTML=`
-    <label style="font-size:10px;color:var(--text3)">Kod projekta</label><input type="text" value="${escHtml(p.code)}" onchange="getProject().code=this.value;saveState();render()" ${_d}>
-    <label style="font-size:10px;color:var(--text3)">Naziv</label><input type="text" value="${escHtml(p.name)}" onchange="getProject().name=this.value;saveState();render()" ${_d}>
-    <label style="font-size:10px;color:var(--text3)">Project Manager</label><input type="text" value="${escHtml(p.projectM)}" onchange="getProject().projectM=this.value;saveState();render()" ${_d}>
-    <label style="font-size:10px;color:var(--text3)">Rok</label><input type="text" value="${escHtml(p.deadline)}" onchange="getProject().deadline=this.value;saveState();render()" placeholder="dd.mm.yyyy" ${_d}>
-    <label style="font-size:10px;color:var(--text3)">PM Email</label><input type="text" value="${escHtml(p.pmEmail)}" onchange="getProject().pmEmail=this.value;saveState()" ${_d}>
-    <label style="font-size:10px;color:var(--text3)">LeadPM Email</label><input type="text" value="${escHtml(p.leadPmEmail)}" onchange="getProject().leadPmEmail=this.value;saveState()" ${_d}>
-    <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" ${p.reminderEnabled?'checked':''} onchange="getProject().reminderEnabled=this.checked;saveState()" ${_d} style="accent-color:var(--accent)"> <span style="font-size:11px;color:var(--text2)">Reminder aktivan</span></label>
-  `;
+    <label style="font-size:10px;color:var(--text3)">Kod</label><input type="text" value="${escHtml(p.code)}" onchange="getProject().code=this.value;saveProjectState();render()" ${_d}>
+    <label style="font-size:10px;color:var(--text3)">Naziv</label><input type="text" value="${escHtml(p.name)}" onchange="getProject().name=this.value;saveProjectState();render()" ${_d}>
+    <label style="font-size:10px;color:var(--text3)">Project Manager</label><input type="text" value="${escHtml(p.projectM)}" onchange="getProject().projectM=this.value;saveProjectState()" ${_d}>
+    <label style="font-size:10px;color:var(--text3)">Rok (YYYY-MM-DD)</label><input type="date" value="${p.deadline||''}" onchange="getProject().deadline=this.value;saveProjectState();render()" ${_d}>
+    <label style="font-size:10px;color:var(--text3)">PM Email</label><input type="text" value="${escHtml(p.pmEmail)}" onchange="getProject().pmEmail=this.value;saveProjectState()" ${_d}>
+    <label style="font-size:10px;color:var(--text3)">LeadPM Email</label><input type="text" value="${escHtml(p.leadPmEmail)}" onchange="getProject().leadPmEmail=this.value;saveProjectState()" ${_d}>
+    <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" ${p.reminderEnabled?'checked':''} onchange="getProject().reminderEnabled=this.checked;saveProjectState()" ${_d} style="accent-color:var(--accent)"> <span style="font-size:11px;color:var(--text2)">Reminder</span></label>`;
   document.getElementById('metaOverlay').classList.add('open');
 }
-
-function buildProjectSelector(){
-  const sel=document.getElementById('projectSelect');
-  sel.innerHTML=allData.projects.map(p=>`<option value="${p.id}" ${p.id===activeProjectId?'selected':''}>${escHtml(p.code)} — ${escHtml(p.name)}</option>`).join('');
-}
-function buildWpTabs(){
-  const p=getProject();if(!p){document.getElementById('wpTabs').innerHTML='';return;}
-  document.getElementById('wpTabs').innerHTML=p.workPackages.map(w=>
-    `<div class="wp-tab ${w.id===activeWpId?'active':''}" onclick="switchWP('${w.id}')">${escHtml(w.name)} <span class="wp-code">${escHtml(w.rnCode)}</span></div>`
-  ).join('');
-}
+function buildProjectSelector(){const s=document.getElementById('projectSelect');s.innerHTML=allData.projects.map(p=>`<option value="${p.id}" ${p.id===activeProjectId?'selected':''}>${escHtml(p.code)} — ${escHtml(p.name)}</option>`).join('');}
+function buildWpTabs(){const p=getProject();if(!p){document.getElementById('wpTabs').innerHTML='';return;}document.getElementById('wpTabs').innerHTML=p.workPackages.map(w=>`<div class="wp-tab ${w.id===activeWpId?'active':''}" onclick="switchWP('${w.id}')">${escHtml(w.name)} <span class="wp-code">${escHtml(w.rnCode)}</span></div>`).join('');}
 
 /* ═══════════════════════════════════════════════════════════
-   VIEW TABS & FILTERS
+   VIEW/FILTER/CALENDAR (same as V5.0)
    ═══════════════════════════════════════════════════════════ */
-function switchView(v){
-  activeView=v;
-  document.querySelectorAll('.view-tab').forEach((el,i)=>el.classList.toggle('active',['plan','gantt','total'][i]===v));
-  document.querySelectorAll('.view-section').forEach((el,i)=>el.classList.toggle('active',['plan','gantt','total'][i]===v));
-  const isPlan=v==='plan';
-  if(isMobile()){document.getElementById('filterToggleBtn').style.display=isPlan?'':'none';if(!isPlan)document.getElementById('filterBar').classList.remove('filter-open');}
-  else{document.getElementById('filterBar').style.display=isPlan?'flex':'none';document.getElementById('filterToggleBtn').style.display='none';}
-  if(v==='gantt')renderGantt();if(v==='total'){renderGanttWpFilter();renderTotalGantt();}
-}
+function switchView(v){activeView=v;document.querySelectorAll('.view-tab').forEach((el,i)=>el.classList.toggle('active',['plan','gantt','total'][i]===v));document.querySelectorAll('.view-section').forEach((el,i)=>el.classList.toggle('active',['plan','gantt','total'][i]===v));const ip=v==='plan';if(isMobile()){document.getElementById('filterToggleBtn').style.display=ip?'':'none';if(!ip)document.getElementById('filterBar').classList.remove('filter-open');}else{document.getElementById('filterBar').style.display=ip?'flex':'none';document.getElementById('filterToggleBtn').style.display='none';}if(v==='gantt')renderGantt();if(v==='total'){renderGanttWpFilter();renderTotalGantt();}}
 function isMobile(){return window.innerWidth<768;}
 function toggleMobileFilters(){document.getElementById('filterBar').classList.toggle('filter-open');document.getElementById('filterToggleBtn').classList.toggle('open');}
 function getFilterValues(){return{search:(document.getElementById('fSearch')?.value||'').toLowerCase().trim(),loc:document.getElementById('fLoc')?.value||'',status:document.getElementById('fStatus')?.value||'',person:document.getElementById('fPerson')?.value||'',ready:document.getElementById('fReady')?.value||'',dates:document.getElementById('fDates')?.value||'',risk:document.getElementById('fRisk')?.value||''};}
-function applyFilters(){
-  const f=getFilterValues(),state=getPhases(),indices=[];
-  state.forEach((row,i)=>{
-    if(f.search&&!row.name.toLowerCase().includes(f.search))return;if(f.loc&&row.loc!==f.loc)return;
-    if(f.status!==''&&row.status!==parseInt(f.status))return;
-    if(f.person==='__none__'&&row.person!=='')return;if(f.person&&f.person!=='__none__'&&row.person!==f.person)return;
-    const rd=calcReadiness(row);if(f.ready==='ready'&&!rd.ready)return;if(f.ready==='notready'&&rd.ready)return;
-    if(f.dates==='nodate'&&row.start&&row.end)return;if(f.dates==='hasdate'&&(!row.start||!row.end))return;
-    if(f.risk==='hasrisk'&&calcRisk(row).level==='none')return;
-    indices.push(i);
-  });
-  const any=f.search||f.loc||f.status!==''||f.person||f.ready||f.dates||f.risk;
-  filteredIndices=any?indices:null;
-  const ce=document.getElementById('filterCount');if(any)ce.textContent=`Prikazano: ${indices.length}/${state.length}`;else ce.textContent='';
-  renderPlan();
-}
+function applyFilters(){const f=getFilterValues(),state=getPhases(),indices=[];state.forEach((row,i)=>{if(f.search&&!row.name.toLowerCase().includes(f.search))return;if(f.loc&&row.loc!==f.loc)return;if(f.status!==''&&row.status!==parseInt(f.status))return;if(f.person==='__none__'&&row.person!=='')return;if(f.person&&f.person!=='__none__'&&row.person!==f.person)return;const rd=calcReadiness(row);if(f.ready==='ready'&&!rd.ready)return;if(f.ready==='notready'&&rd.ready)return;if(f.dates==='nodate'&&row.start&&row.end)return;if(f.dates==='hasdate'&&(!row.start||!row.end))return;if(f.risk==='hasrisk'&&calcRisk(row).level==='none')return;indices.push(i);});const any=f.search||f.loc||f.status!==''||f.person||f.ready||f.dates||f.risk;filteredIndices=any?indices:null;const ce=document.getElementById('filterCount');ce.textContent=any?`${indices.length}/${state.length}`:'';renderPlan();}
 function resetFilters(){['fSearch','fLoc','fStatus','fPerson','fReady','fDates','fRisk'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});filteredIndices=null;document.getElementById('filterCount').textContent='';renderPlan();}
 function buildPersonFilter(){const sel=document.getElementById('fPerson');if(!sel)return;const v=sel.value;sel.innerHTML='<option value="">Svi</option><option value="__none__">— Bez vođe —</option>'+VODJA.filter(v=>v).map(v=>`<option value="${v}">${v}</option>`).join('');sel.value=v;}
 
-/* ═══════════════════════════════════════════════════════════
-   CALENDAR
-   ═══════════════════════════════════════════════════════════ */
 let calTarget=null,calYear,calMonth;
 function openCalendar(ri,field){calTarget={ri,field};const d=getPhases()[ri][field]?new Date(getPhases()[ri][field]):new Date(today);calYear=d.getFullYear();calMonth=d.getMonth();renderCalendar();document.getElementById('calOverlay').classList.add('open');}
 function closeCalendar(){document.getElementById('calOverlay').classList.remove('open');calTarget=null;}
 function closeCalIfOutside(e){if(e.target===document.getElementById('calOverlay'))closeCalendar();}
-function clearDate(){if(!calTarget)return;getPhases()[calTarget.ri][calTarget.field]=null;saveState();render();closeCalendar();}
+function clearDate(){if(!calTarget)return;const ri=calTarget.ri;getPhases()[ri][calTarget.field]=null;saveDateState(ri);render();closeCalendar();}
 function calNav(dir){calMonth+=dir;if(calMonth<0){calMonth=11;calYear--;}if(calMonth>11){calMonth=0;calYear++;}renderCalendar();}
-function selectDay(y,m,d){
-  if(!calTarget)return;const row=getPhases()[calTarget.ri];const f=calTarget.field;
-  row[f]=new Date(y,m,d).toISOString().split('T')[0];
-  if(row.start&&row.end&&new Date(row.end)<new Date(row.start)){row.end=row.start;showToast('📅 Kraj pomeren na datum početka');}else{showToast(`📅 Datum: ${d}.${m+1}.${y}`);}
-  applyBusinessRules(row);saveState();render();closeCalendar();
-}
-function renderCalendar(){
-  document.getElementById('calTitle').textContent=`${MONTHS_SR[calMonth]} ${calYear}`;
-  const grid=document.getElementById('calGrid');grid.innerHTML='';
-  const fd=new Date(calYear,calMonth,1),ld=new Date(calYear,calMonth+1,0),off=(fd.getDay()+6)%7;
-  const sel=calTarget&&getPhases()[calTarget.ri][calTarget.field]?new Date(getPhases()[calTarget.ri][calTarget.field]):null;
-  for(let i=0;i<off;i++){const el=document.createElement('div');el.className='cal-day empty';grid.appendChild(el);}
-  for(let d=1;d<=ld.getDate();d++){
-    const dt=new Date(calYear,calMonth,d),dow=(dt.getDay()+6)%7,el=document.createElement('div');el.className='cal-day';el.textContent=d;
-    if(dow>=5)el.classList.add('weekend');if(dt.getTime()===today.getTime())el.classList.add('today');
-    if(sel&&dt.getTime()===sel.getTime())el.classList.add('selected');el.onclick=()=>selectDay(calYear,calMonth,d);grid.appendChild(el);
-  }
-}
+function selectDay(y,m,d){if(!calTarget)return;const row=getPhases()[calTarget.ri],f=calTarget.field,ri=calTarget.ri;row[f]=new Date(y,m,d).toISOString().split('T')[0];if(row.start&&row.end&&new Date(row.end)<new Date(row.start)){row.end=row.start;showToast('📅 Kraj pomeren');}else showToast(`📅 ${d}.${m+1}.${y}`);applyBusinessRules(row);saveDateState(ri);render();closeCalendar();}
+function renderCalendar(){document.getElementById('calTitle').textContent=`${MONTHS_SR[calMonth]} ${calYear}`;const grid=document.getElementById('calGrid');grid.innerHTML='';const fd=new Date(calYear,calMonth,1),ld=new Date(calYear,calMonth+1,0),off=(fd.getDay()+6)%7;const sel=calTarget&&getPhases()[calTarget.ri][calTarget.field]?new Date(getPhases()[calTarget.ri][calTarget.field]):null;for(let i=0;i<off;i++){const el=document.createElement('div');el.className='cal-day empty';grid.appendChild(el);}for(let d=1;d<=ld.getDate();d++){const dt=new Date(calYear,calMonth,d),dow=(dt.getDay()+6)%7,el=document.createElement('div');el.className='cal-day';el.textContent=d;if(dow>=5)el.classList.add('weekend');if(dt.getTime()===today.getTime())el.classList.add('today');if(sel&&dt.getTime()===sel.getTime())el.classList.add('selected');el.onclick=()=>selectDay(calYear,calMonth,d);grid.appendChild(el);}}
 
 /* ═══════════════════════════════════════════════════════════
-   UPDATE FUNCTIONS
+   UPDATE + PHASE MGMT
    ═══════════════════════════════════════════════════════════ */
-function update(i,field,value){
-  const row=getPhases()[i];
-  if(field==='status'&&value===3&&!row.blocker.trim()){showToast('⚠ Upiši blokator pre "Na čekanju"');render();return;}
-  row[field]=value;applyBusinessRules(row);saveState();render();
-}
-function updateCheck(i,ci,value){getPhases()[i].checks[ci]=value;saveState();render();}
+function update(i,field,value){const row=getPhases()[i];if(field==='status'&&value===3&&!row.blocker.trim()){showToast('⚠ Upiši blokator pre "Na čekanju"');render();return;}row[field]=value;applyBusinessRules(row);savePhaseState(i);render();}
+function updateCheck(i,ci,value){getPhases()[i].checks[ci]=value;saveCheckState(i);render();}
+function addPhase(){const inp=document.getElementById('newPhaseInput'),n=inp.value.trim();if(!n){showToast('⚠ Unesi naziv');inp.focus();return;}getPhases().push(createBlankPhase(n));saveWpStructureState();render();inp.value='';showToast('✅ Dodano');}
+function deleteRow(i){const s=getPhases(),n=s[i].name,deletedId=s[i]?.id;if(!confirm('Obriši "'+n+'"?'))return;s.splice(i,1);filteredIndices=null;saveAfterDelete(deletedId);render();}
+function moveRow(i,dir){const s=getPhases(),j=i+dir;if(j<0||j>=s.length)return;[s[i],s[j]]=[s[j],s[i]];filteredIndices=null;saveWpStructureState();render();}
 
 /* ═══════════════════════════════════════════════════════════
-   RENDER: Mobile Cards
+   RENDER: Mobile Cards (same pattern as V5.0)
    ═══════════════════════════════════════════════════════════ */
 function renderMobileCards(){
   const c=document.getElementById('mobileCards');if(!c)return;c.innerHTML='';
-  const state=getPhases(),indices=filteredIndices!==null?filteredIndices:state.map((_,i)=>i);
+  const state=getPhases(),indices=filteredIndices!==null?filteredIndices:state.map((_,i)=>i),_dis=disabledAttr();
   indices.forEach(i=>{
     const row=state[i],dur=calcDuration(row.start,row.end),rd=calcReadiness(row),rk=calcRisk(row);
-    const eName=escHtml(row.name),eNote=escHtml(row.note),eBlk=escHtml(row.blocker);
-    let durT='—';if(dur===-1)durT='⚠ERR';else if(dur!==null)durT=dur+'d';
+    const eN=escHtml(row.name),eNo=escHtml(row.note),eBl=escHtml(row.blocker);
+    let durT='—';if(dur===-1)durT='⚠';else if(dur!==null)durT=dur+'d';
     let rI='✅';if(rk.level==='high')rI='🔴';else if(rk.level==='med')rI='🟠';else if(rk.level==='low')rI='🟡';
     let rB;if(rd.done)rB='<span class="badge-ready badge-done">DONE</span>';else if(rd.ready)rB='<span class="badge-ready badge-yes">✔</span>';else rB='<span class="badge-ready badge-no">✘</span>';
-    const stN=STATUSES[row.status],stC=['st-0','st-1','st-2','st-3'][row.status],rkC=rk.level!=='none'?`m-risk-${rk.level}`:'',mF=row.status===2?' m-finished':'';
+    const stC=['st-0','st-1','st-2','st-3'][row.status],rkC=rk.level!=='none'?`m-risk-${rk.level}`:'',mF=row.status===2?' m-finished':'';
     const pC=row.status===2?'pct-fill-done':row.status===3?'pct-fill-hold':'pct-fill-normal';
     const chH=row.checks.map((c,ci)=>`<span class="m-card-check ${c?'ck-y':'ck-n'}" onclick="updateCheck(${i},${ci},${!c});event.stopPropagation()" style="cursor:pointer;user-select:none;padding:4px 8px;font-size:10px">${CHECK_SHORT[ci]}${c?' ✔':' ✘'}</span>`).join('');
-    const cId='mc-'+i;const card=document.createElement('div');card.className=`m-card ${rkC}${mF}`;
-    card.innerHTML=`<div class="m-card-top" onclick="document.getElementById('${cId}').classList.toggle('open')"><div><div class="m-card-name">${eName}</div><div style="font-size:10px;color:var(--text3);margin-top:2px"><span class="${row.loc==='Dobanovci'?'loc-dob':'loc-kru'}" style="background:none;border:none;padding:0;width:auto;font-size:10px">${row.loc}</span> · ${stN} · ${row.pct}%</div></div><div class="m-card-badges">${rI} ${rB}</div></div>
-    <div class="m-card-row"><div class="m-card-field"><span class="m-lbl">Poč:</span> ${formatDate(row.start)||'—'}</div><div class="m-card-field"><span class="m-lbl">Kraj:</span> ${formatDate(row.end)||'—'}</div><div class="m-card-field"><span class="m-lbl">Dani:</span> ${durT}</div><div class="m-card-field"><span class="m-lbl">Ing:</span> ${row.engineer||'—'}</div><div class="m-card-field"><span class="m-lbl">Vođa:</span> ${row.person||'—'}</div></div>
+    const cId='mc-'+i,card=document.createElement('div');card.className=`m-card ${rkC}${mF}`;
+    card.innerHTML=`<div class="m-card-top" onclick="document.getElementById('${cId}').classList.toggle('open')"><div><div class="m-card-name">${eN}</div><div style="font-size:10px;color:var(--text3);margin-top:2px"><span class="${row.loc==='Dobanovci'?'loc-dob':'loc-kru'}" style="background:none;border:none;padding:0;width:auto;font-size:10px">${row.loc}</span> · ${STATUSES[row.status]} · ${row.pct}%</div></div><div class="m-card-badges">${rI} ${rB}</div></div>
+    <div class="m-card-row"><div class="m-card-field"><span class="m-lbl">Poč:</span> ${formatDate(row.start)||'—'}</div><div class="m-card-field"><span class="m-lbl">Kraj:</span> ${formatDate(row.end)||'—'}</div><div class="m-card-field"><span class="m-lbl">Ing:</span> ${row.engineer||'—'}</div><div class="m-card-field"><span class="m-lbl">Vođa:</span> ${row.person||'—'}</div></div>
     <div class="m-card-pct"><div class="pct-bar"><div class="pct-bar-fill ${pC}" style="width:${row.pct}%"></div></div><span>${row.pct}%</span></div>
-    <div class="m-card-details" id="${cId}">
-      <div style="margin-bottom:6px;font-weight:600;color:var(--text3);font-size:9px;text-transform:uppercase;letter-spacing:0.5px">Spremnost</div>
-      <div class="m-card-checks">${chH}</div>
-      <div class="m-card-detail-grid">
-        <div class="m-card-detail-item"><span class="m-lbl">Status</span><select class="${stC}" onchange="update(${i},'status',parseInt(this.value))" style="font-size:13px;padding:6px 8px" ${disabledAttr()}>${STATUSES.map((s,si)=>`<option value="${si}" ${row.status===si?'selected':''}>${s}</option>`).join('')}</select></div>
-        <div class="m-card-detail-item"><span class="m-lbl">Odg.ing.</span><select onchange="update(${i},'engineer',this.value)" style="font-size:13px;padding:6px 8px" ${disabledAttr()}>${ENGINEERS.map(v=>`<option value="${v}" ${row.engineer===v?'selected':''}>${v||'— —'}</option>`).join('')}</select></div>
-        <div class="m-card-detail-item"><span class="m-lbl">Vođa</span><select onchange="update(${i},'person',this.value)" style="font-size:13px;padding:6px 8px" ${disabledAttr()}>${VODJA.map(v=>`<option value="${v}" ${row.person===v?'selected':''}>${v||'— —'}</option>`).join('')}</select></div>
-        <div class="m-card-detail-item"><span class="m-lbl">%</span><input type="range" min="0" max="100" step="5" value="${row.pct}" style="width:100%;accent-color:var(--accent)" oninput="update(${i},'pct',parseInt(this.value))" ${disabledAttr()}></div>
-      </div>
-      ${row.blocker||row.status===3?`<div class="m-card-detail-item" style="margin-top:6px"><span class="m-lbl">Blokator</span><textarea class="note-area" rows="2" style="font-size:13px;padding:8px" onchange="update(${i},'blocker',this.value)" ${disabledAttr()}>${eBlk}</textarea></div>`:''}
-      <div class="m-card-detail-item" style="margin-top:6px"><span class="m-lbl">Napomena</span><textarea class="note-area" rows="2" style="font-size:13px;padding:8px" onchange="update(${i},'note',this.value)" ${disabledAttr()}>${eNote}</textarea></div>
-      <div style="display:flex;gap:6px;margin-top:8px;padding-top:6px;border-top:1px solid var(--border)">
-        <button class="row-btn" onclick="openCalendar(${i},'start')" style="padding:6px 10px;font-size:12px">📅 Poč</button>
-        <button class="row-btn" onclick="openCalendar(${i},'end')" style="padding:6px 10px;font-size:12px">📅 Kraj</button>
-        <button class="row-btn btn-up" onclick="moveRow(${i},-1)" style="padding:6px 10px">▲</button>
-        <button class="row-btn btn-dn" onclick="moveRow(${i},1)" style="padding:6px 10px">▼</button>
-        <button class="row-btn btn-del" onclick="deleteRow(${i})" style="padding:6px 10px">✕</button>
-      </div>
-    </div>`;
+    <div class="m-card-details" id="${cId}"><div style="margin-bottom:6px;font-weight:600;color:var(--text3);font-size:9px;text-transform:uppercase">Spremnost</div><div class="m-card-checks">${chH}</div>
+    <div class="m-card-detail-grid"><div class="m-card-detail-item"><span class="m-lbl">Status</span><select class="${stC}" onchange="update(${i},'status',parseInt(this.value))" style="font-size:13px;padding:6px 8px" ${_dis}>${STATUSES.map((s,si)=>`<option value="${si}" ${row.status===si?'selected':''}>${s}</option>`).join('')}</select></div><div class="m-card-detail-item"><span class="m-lbl">Ing.</span><select onchange="update(${i},'engineer',this.value)" style="font-size:13px;padding:6px 8px" ${_dis}>${ENGINEERS.map(v=>`<option value="${v}" ${row.engineer===v?'selected':''}>${v||'—'}</option>`).join('')}</select></div><div class="m-card-detail-item"><span class="m-lbl">Vođa</span><select onchange="update(${i},'person',this.value)" style="font-size:13px;padding:6px 8px" ${_dis}>${VODJA.map(v=>`<option value="${v}" ${row.person===v?'selected':''}>${v||'—'}</option>`).join('')}</select></div><div class="m-card-detail-item"><span class="m-lbl">%</span><input type="range" min="0" max="100" step="5" value="${row.pct}" style="width:100%;accent-color:var(--accent)" oninput="update(${i},'pct',parseInt(this.value))" ${_dis}></div></div>
+    ${row.blocker||row.status===3?`<div class="m-card-detail-item" style="margin-top:6px"><span class="m-lbl">Blokator</span><textarea class="note-area" rows="2" style="font-size:13px;padding:8px" onchange="update(${i},'blocker',this.value)" ${_dis}>${eBl}</textarea></div>`:''}
+    <div class="m-card-detail-item" style="margin-top:6px"><span class="m-lbl">Napomena</span><textarea class="note-area" rows="2" style="font-size:13px;padding:8px" onchange="update(${i},'note',this.value)" ${_dis}>${eNo}</textarea></div>
+    <div style="display:flex;gap:6px;margin-top:8px;padding-top:6px;border-top:1px solid var(--border)"><button class="row-btn" onclick="openCalendar(${i},'start')" style="padding:6px 10px;font-size:12px">📅 Poč</button><button class="row-btn" onclick="openCalendar(${i},'end')" style="padding:6px 10px;font-size:12px">📅 Kraj</button><button class="row-btn btn-up" onclick="moveRow(${i},-1)" style="padding:6px 10px">▲</button><button class="row-btn btn-dn" onclick="moveRow(${i},1)" style="padding:6px 10px">▼</button><button class="row-btn btn-del" onclick="deleteRow(${i})" style="padding:6px 10px">✕</button></div></div>`;
     c.appendChild(card);
   });
 }
@@ -1083,197 +1222,67 @@ function renderMobileCards(){
    RENDER: Plan Table
    ═══════════════════════════════════════════════════════════ */
 function renderPlan(){
-  renderMobileCards();
-  const tb=document.getElementById('planBody');tb.innerHTML='';
-  const state=getPhases(),indices=filteredIndices!==null?filteredIndices:state.map((_,i)=>i);
-  const _dis=disabledAttr();
+  renderMobileCards();const tb=document.getElementById('planBody');tb.innerHTML='';
+  const state=getPhases(),indices=filteredIndices!==null?filteredIndices:state.map((_,i)=>i),_dis=disabledAttr();
   indices.forEach(i=>{
     const row=state[i],dur=calcDuration(row.start,row.end),rd=calcReadiness(row),rk=calcRisk(row);
     let durT='—',durC='td-dur';if(dur===-1){durT='⚠ERR';durC='td-dur dur-error';}else if(dur!==null)durT=dur+' d';
-    const dateErr=dur===-1;
-    let pctC='pct-fill-normal';if(row.status===2)pctC='pct-fill-done';if(row.status===3)pctC='pct-fill-hold';
+    const dateErr=dur===-1;let pctC='pct-fill-normal';if(row.status===2)pctC='pct-fill-done';if(row.status===3)pctC='pct-fill-hold';
     let rI='✅';if(rk.level==='high')rI='🔴';else if(rk.level==='med')rI='🟠';else if(rk.level==='low')rI='🟡';
-    let rdH;if(rd.done)rdH='<span class="badge-ready badge-done">— DONE</span>';else if(rd.ready)rdH='<span class="badge-ready badge-yes">✔ DA</span>';else{const t=rd.reasons.map(r=>'• '+r).join('<br>');rdH=`<div class="ready-tooltip"><span class="badge-ready badge-no">✘ NE</span><div class="ready-tip-text">${t}</div></div>`;}
+    let rdH;if(rd.done)rdH='<span class="badge-ready badge-done">DONE</span>';else if(rd.ready)rdH='<span class="badge-ready badge-yes">✔ DA</span>';else{const t=rd.reasons.map(r=>'• '+r).join('<br>');rdH=`<div class="ready-tooltip"><span class="badge-ready badge-no">✘ NE</span><div class="ready-tip-text">${t}</div></div>`;}
     let rkH;if(rk.reasons.length>0){const t=rk.reasons.join('<br>');rkH=`<div class="risk-tooltip"><span class="risk-icon">${rI}</span><div class="risk-tip-text">${t}</div></div>`;}else rkH=`<span class="risk-icon">${rI}</span>`;
-    const blkH=(row.status===3&&!row.blocker.trim())?'blocker-highlight':'';
-    const rkC=rk.level!=='none'?`row-risk-${rk.level}`:'row-risk-none';
-    const finC=row.status===2?' row-finished':'';
+    const blkH=(row.status===3&&!row.blocker.trim())?'blocker-highlight':'',rkC=rk.level!=='none'?`row-risk-${rk.level}`:'row-risk-none',finC=row.status===2?' row-finished':'';
     let remDot='';if(row.start&&row.status!==2){const _du=Math.round((new Date(row.start)-today)/864e5);if(_du>=0&&_du<=3&&!rd.ready)remDot='<span class="reminder-dot rd-red"></span>';else if(_du>=4&&_du<=7&&!rd.ready)remDot='<span class="reminder-dot rd-yellow"></span>';}
     const eN=escHtml(row.name),eNo=escHtml(row.note),eBl=escHtml(row.blocker);
     const tr=document.createElement('tr');tr.className=rkC+finC;
-    tr.innerHTML=`<td class="td-num">${i+1}</td>
-      <td class="td-name">${remDot}<input class="phase-name-input" type="text" value="${eN}" onchange="update(${i},'name',this.value)" ${_dis}></td>
-      <td class="td-loc"><select onchange="update(${i},'loc',this.value)" class="${row.loc==='Dobanovci'?'loc-dob':'loc-kru'}" ${_dis}><option ${row.loc==='Dobanovci'?'selected':''}>Dobanovci</option><option ${row.loc==='Kruševac'?'selected':''}>Kruševac</option></select></td>
-      <td class="td-date ${dateErr?'date-error':''}"><div class="date-input-wrap"><input type="text" readonly value="${formatDate(row.start)}" placeholder="—" class="${row.start?'':'empty'}" onclick="openCalendar(${i},'start')"><button class="date-btn" onclick="openCalendar(${i},'start')">📅</button></div></td>
-      <td class="td-date ${dateErr?'date-error':''}"><div class="date-input-wrap"><input type="text" readonly value="${formatDate(row.end)}" placeholder="—" class="${row.end?'':'empty'}" onclick="openCalendar(${i},'end')"><button class="date-btn" onclick="openCalendar(${i},'end')">📅</button></div></td>
-      <td class="${durC}">${durT}</td>
-      <td class="td-eng"><select onchange="update(${i},'engineer',this.value)" ${_dis}>${ENGINEERS.map(v=>`<option value="${v}" ${row.engineer===v?'selected':''}>${v||'— —'}</option>`).join('')}</select></td>
-      <td class="td-person"><select onchange="update(${i},'person',this.value)" ${_dis}>${VODJA.map(v=>`<option value="${v}" ${row.person===v?'selected':''}>${v||'— —'}</option>`).join('')}</select></td>
-      <td class="td-status"><select class="${statusClass(row.status)}" onchange="update(${i},'status',parseInt(this.value))" ${_dis}>${STATUSES.map((s,si)=>`<option value="${si}" ${row.status===si?'selected':''}>${s}</option>`).join('')}</select></td>
-      <td class="td-pct"><div class="pct-bar-wrap"><div class="pct-bar"><div class="pct-bar-fill ${pctC}" style="width:${row.pct}%"></div></div><span style="font-family:var(--mono);font-size:10px;color:var(--text2);min-width:26px">${row.pct}%</span></div><input type="range" min="0" max="100" step="5" value="${row.pct}" style="width:100%;margin-top:2px;accent-color:var(--accent)" oninput="update(${i},'pct',parseInt(this.value))" ${_dis}></td>
-      ${row.checks.map((c,ci)=>`<td class="td-check"><select class="${c?'ck-da':'ck-ne'}" onchange="updateCheck(${i},${ci},this.value==='DA')" title="${CHECK_LABELS[ci]}" ${_dis}><option ${!c?'selected':''}>NE</option><option ${c?'selected':''}>DA</option></select></td>`).join('')}
-      <td class="td-ready">${rdH}</td><td class="td-risk">${rkH}</td>
-      <td class="td-blocker ${blkH}"><textarea class="note-area" rows="2" placeholder="${row.status===3?'⚠ Blokator!':''}" onchange="update(${i},'blocker',this.value)" ${_dis}>${eBl}</textarea></td>
-      <td class="td-note"><textarea class="note-area" rows="2" onchange="update(${i},'note',this.value)" ${_dis}>${eNo}</textarea></td>
-      <td class="td-actions"><button class="row-btn btn-up" onclick="moveRow(${i},-1)">▲</button><button class="row-btn btn-dn" onclick="moveRow(${i},1)">▼</button><button class="row-btn btn-del" onclick="deleteRow(${i})">✕</button></td>`;
+    tr.innerHTML=`<td class="td-num">${i+1}</td><td class="td-name">${remDot}<input class="phase-name-input" type="text" value="${eN}" onchange="update(${i},'name',this.value)" ${_dis}></td><td class="td-loc"><select onchange="update(${i},'loc',this.value)" class="${row.loc==='Dobanovci'?'loc-dob':'loc-kru'}" ${_dis}><option ${row.loc==='Dobanovci'?'selected':''}>Dobanovci</option><option ${row.loc==='Kruševac'?'selected':''}>Kruševac</option></select></td><td class="td-date ${dateErr?'date-error':''}"><div class="date-input-wrap"><input type="text" readonly value="${formatDate(row.start)}" placeholder="—" class="${row.start?'':'empty'}" onclick="openCalendar(${i},'start')"><button class="date-btn" onclick="openCalendar(${i},'start')">📅</button></div></td><td class="td-date ${dateErr?'date-error':''}"><div class="date-input-wrap"><input type="text" readonly value="${formatDate(row.end)}" placeholder="—" class="${row.end?'':'empty'}" onclick="openCalendar(${i},'end')"><button class="date-btn" onclick="openCalendar(${i},'end')">📅</button></div></td><td class="${durC}">${durT}</td><td class="td-eng"><select onchange="update(${i},'engineer',this.value)" ${_dis}>${ENGINEERS.map(v=>`<option value="${v}" ${row.engineer===v?'selected':''}>${v||'—'}</option>`).join('')}</select></td><td class="td-person"><select onchange="update(${i},'person',this.value)" ${_dis}>${VODJA.map(v=>`<option value="${v}" ${row.person===v?'selected':''}>${v||'—'}</option>`).join('')}</select></td><td class="td-status"><select class="${statusClass(row.status)}" onchange="update(${i},'status',parseInt(this.value))" ${_dis}>${STATUSES.map((s,si)=>`<option value="${si}" ${row.status===si?'selected':''}>${s}</option>`).join('')}</select></td><td class="td-pct"><div class="pct-bar-wrap"><div class="pct-bar"><div class="pct-bar-fill ${pctC}" style="width:${row.pct}%"></div></div><span style="font-family:var(--mono);font-size:10px;color:var(--text2);min-width:26px">${row.pct}%</span></div><input type="range" min="0" max="100" step="5" value="${row.pct}" style="width:100%;margin-top:2px;accent-color:var(--accent)" oninput="update(${i},'pct',parseInt(this.value))" ${_dis}></td>${row.checks.map((c,ci)=>`<td class="td-check"><select class="${c?'ck-da':'ck-ne'}" onchange="updateCheck(${i},${ci},this.value==='DA')" title="${CHECK_LABELS[ci]}" ${_dis}><option ${!c?'selected':''}>NE</option><option ${c?'selected':''}>DA</option></select></td>`).join('')}<td class="td-ready">${rdH}</td><td class="td-risk">${rkH}</td><td class="td-blocker ${blkH}"><textarea class="note-area" rows="2" placeholder="${row.status===3?'⚠!':''}" onchange="update(${i},'blocker',this.value)" ${_dis}>${eBl}</textarea></td><td class="td-note"><textarea class="note-area" rows="2" onchange="update(${i},'note',this.value)" ${_dis}>${eNo}</textarea></td><td class="td-actions"><button class="row-btn btn-up" onclick="moveRow(${i},-1)">▲</button><button class="row-btn btn-dn" onclick="moveRow(${i},1)">▼</button><button class="row-btn btn-del" onclick="deleteRow(${i})">✕</button></td>`;
     tb.appendChild(tr);
   });
 }
 
 /* ═══════════════════════════════════════════════════════════
-   RENDER: Gantt (single WP)
+   RENDER: Gantt (single WP, skip finished)
    ═══════════════════════════════════════════════════════════ */
-function renderGantt(){
-  const wrap=document.getElementById('ganttWrap'),state=getPhases().filter(r=>r.status!==2);
-  let min=new Date(today),max=new Date(today);max.setDate(max.getDate()+60);
-  state.forEach(r=>{if(r.start){const d=new Date(r.start);if(d<min)min=d;}if(r.end){const d=new Date(r.end);if(d>max)max=d;}});
-  min.setDate(min.getDate()-3);max.setDate(max.getDate()+5);
-  const days=[];let cur=new Date(min);while(cur<=max){days.push(new Date(cur));cur.setDate(cur.getDate()+1);}
-  const months={};days.forEach(d=>{const k=d.getFullYear()+'-'+d.getMonth();if(!months[k])months[k]={label:MONTHS_SR[d.getMonth()]+' '+d.getFullYear(),count:0};months[k].count++;});
-  let h=`<table class="gantt-table"><thead><tr><th class="gantt-label" rowspan="2">Faza</th>${Object.values(months).map(m=>`<th class="gantt-month-hdr" colspan="${m.count}">${m.label}</th>`).join('')}</tr><tr>${days.map(d=>{const isT=d.getTime()===today.getTime(),isW=d.getDay()===0||d.getDay()===6;return`<th class="gantt-day-hdr ${isT?'today-col':''} ${isW?'wknd':''}">${d.getDate()}</th>`;}).join('')}</tr></thead><tbody>`;
-  state.forEach(row=>{
-    const sMs=row.start?new Date(row.start).setHours(0,0,0,0):null,eMs=row.end?new Date(row.end).setHours(0,0,0,0):null;
-    const lc=row.loc==='Dobanovci'?'dob':'kru',rk=calcRisk(row),rkC=rk.level!=='none'?' gantt-row-risk':'';
-    const eng=row.engineer?row.engineer.split(' ').pop():'',ld=row.person?row.person.split(' ').pop():'';
-    h+=`<tr class="gantt-row${rkC}"><td class="gantt-label" style="background:var(--surface2);border-right:2px solid var(--border2)"><div class="gantt-label-name">${escHtml(row.name)}</div><div class="gantt-label-sub ${lc}">${row.loc} ${eng?'· '+eng:''} ${ld?'· '+ld:''} · <span class="gantt-label-status gs-${row.status}">${STATUSES[row.status]} ${row.pct}%</span></div></td>`;
-    days.forEach(d=>{const dMs=d.getTime(),isT=dMs===today.getTime(),isW=d.getDay()===0||d.getDay()===6;const inB=sMs!==null&&eMs!==null&&dMs>=sMs&&dMs<=eMs;const isS=sMs!==null&&dMs===sMs,isE=eMs!==null&&dMs===eMs;let cls='gantt-cell';if(isW)cls+=' wknd';if(isT)cls+=' today-col';if(inB){if(isS&&isE)cls+=` bar-${lc} bar-start-${lc} bar-end-${lc}`;else if(isS)cls+=` bar-start-${lc}`;else if(isE)cls+=` bar-end-${lc}`;else cls+=` bar-${lc}`;}h+=`<td class="${cls}"></td>`;});
-    h+=`</tr>`;
-  });
-  h+=`</tbody></table>`;wrap.innerHTML=h;
-}
+function renderGantt(){const wrap=document.getElementById('ganttWrap'),state=getPhases().filter(r=>r.status!==2);let min=new Date(today),max=new Date(today);max.setDate(max.getDate()+60);state.forEach(r=>{if(r.start){const d=new Date(r.start);if(d<min)min=d;}if(r.end){const d=new Date(r.end);if(d>max)max=d;}});min.setDate(min.getDate()-3);max.setDate(max.getDate()+5);const days=[];let cur=new Date(min);while(cur<=max){days.push(new Date(cur));cur.setDate(cur.getDate()+1);}const months={};days.forEach(d=>{const k=d.getFullYear()+'-'+d.getMonth();if(!months[k])months[k]={label:MONTHS_SR[d.getMonth()]+' '+d.getFullYear(),count:0};months[k].count++;});let h=`<table class="gantt-table"><thead><tr><th class="gantt-label" rowspan="2">Faza</th>${Object.values(months).map(m=>`<th class="gantt-month-hdr" colspan="${m.count}">${m.label}</th>`).join('')}</tr><tr>${days.map(d=>{const isT=d.getTime()===today.getTime(),isW=d.getDay()===0||d.getDay()===6;return`<th class="gantt-day-hdr ${isT?'today-col':''} ${isW?'wknd':''}">${d.getDate()}</th>`;}).join('')}</tr></thead><tbody>`;state.forEach(row=>{const sMs=row.start?new Date(row.start).setHours(0,0,0,0):null,eMs=row.end?new Date(row.end).setHours(0,0,0,0):null,lc=row.loc==='Dobanovci'?'dob':'kru',rk=calcRisk(row),rkC=rk.level!=='none'?' gantt-row-risk':'',eng=row.engineer?row.engineer.split(' ').pop():'',ld=row.person?row.person.split(' ').pop():'';h+=`<tr class="gantt-row${rkC}"><td class="gantt-label" style="background:var(--surface2);border-right:2px solid var(--border2)"><div class="gantt-label-name">${escHtml(row.name)}</div><div class="gantt-label-sub ${lc}">${row.loc} ${eng?'· '+eng:''} ${ld?'· '+ld:''} · <span class="gantt-label-status gs-${row.status}">${STATUSES[row.status]} ${row.pct}%</span></div></td>`;days.forEach(d=>{const dMs=d.getTime(),isT=dMs===today.getTime(),isW=d.getDay()===0||d.getDay()===6,inB=sMs!==null&&eMs!==null&&dMs>=sMs&&dMs<=eMs,isS=sMs!==null&&dMs===sMs,isE=eMs!==null&&dMs===eMs;let cls='gantt-cell';if(isW)cls+=' wknd';if(isT)cls+=' today-col';if(inB){if(isS&&isE)cls+=` bar-${lc} bar-start-${lc} bar-end-${lc}`;else if(isS)cls+=` bar-start-${lc}`;else if(isE)cls+=` bar-end-${lc}`;else cls+=` bar-${lc}`;}h+=`<td class="${cls}"></td>`;});h+=`</tr>`;});h+=`</tbody></table>`;wrap.innerHTML=h;}
 
 /* ═══════════════════════════════════════════════════════════
-   RENDER: Total Gantt (all WPs of current project)
+   RENDER: Total Gantt (all WPs of project, skip finished)
    ═══════════════════════════════════════════════════════════ */
-let totalGanttWPs={};
-function toggleGanttWP(id){totalGanttWPs[id]=!totalGanttWPs[id];renderTotalGantt();}
-function renderGanttWpFilter(){
-  const p=getProject();if(!p)return;
-  p.workPackages.forEach(w=>{if(totalGanttWPs[w.id]===undefined)totalGanttWPs[w.id]=true;});
-  const el=document.getElementById('ganttWpFilter');
-  el.innerHTML='<span style="font-size:9px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-right:6px">Pozicije:</span>'+
-    p.workPackages.map(w=>`<label><input type="checkbox" ${totalGanttWPs[w.id]?'checked':''} onchange="toggleGanttWP('${w.id}')">${escHtml(w.name)}</label>`).join('');
-}
-function renderTotalGantt(){
-  const p=getProject();if(!p){document.getElementById('totalGanttWrap').innerHTML='';return;}
-  let min=new Date(today),max=new Date(today);max.setDate(max.getDate()+60);
-  p.workPackages.forEach(w=>{if(!totalGanttWPs[w.id])return;w.phases.forEach(r=>{if(r.start){const d=new Date(r.start);if(d<min)min=d;}if(r.end){const d=new Date(r.end);if(d>max)max=d;}});});
-  min.setDate(min.getDate()-3);max.setDate(max.getDate()+5);
-  const days=[];let cur=new Date(min);while(cur<=max){days.push(new Date(cur));cur.setDate(cur.getDate()+1);}
-  const months={};days.forEach(d=>{const k=d.getFullYear()+'-'+d.getMonth();if(!months[k])months[k]={label:MONTHS_SR[d.getMonth()]+' '+d.getFullYear(),count:0};months[k].count++;});
-  const MC=['#1f3a6e','#1a3a1a','#3a2800','#2a0a2a','#002a2a'];
-  let h=`<table class="gantt-table"><thead><tr><th class="gantt-label" rowspan="2" style="min-width:220px">Pozicija / Faza</th>${Object.values(months).map(m=>`<th class="gantt-month-hdr" colspan="${m.count}">${m.label}</th>`).join('')}</tr><tr>${days.map(d=>{const isT=d.getTime()===today.getTime(),isW=d.getDay()===0||d.getDay()===6;return`<th class="gantt-day-hdr ${isT?'today-col':''} ${isW?'wknd':''}">${d.getDate()}</th>`;}).join('')}</tr></thead><tbody>`;
-  p.workPackages.forEach((wp,wi)=>{
-    if(!totalGanttWPs[wp.id])return;
-    const active=wp.phases.filter(r=>r.status!==2),tc=days.length;
-    h+=`<tr class="gantt-machine-hdr"><td colspan="${tc+1}" style="background:${MC[wi%5]};color:#aac8ff;font-weight:700;font-size:11px;padding:5px 10px;letter-spacing:0.5px;border-top:2px solid #2e75b6;">⚙ ${escHtml(wp.name)} <span style="font-size:9px;opacity:0.7">${escHtml(wp.rnCode)}</span></td></tr>`;
-    if(active.length===0){h+=`<tr><td colspan="${tc+1}" style="color:var(--text3);font-style:italic;padding:6px 10px;font-size:11px">Nema aktivnih faza</td></tr>`;}
-    else active.forEach(row=>{
-      const sMs=row.start?new Date(row.start).setHours(0,0,0,0):null,eMs=row.end?new Date(row.end).setHours(0,0,0,0):null;
-      const lc=row.loc==='Dobanovci'?'dob':'kru',rk=calcRisk(row),rkC=rk.level!=='none'?' gantt-row-risk':'';
-      const eng=row.engineer?row.engineer.split(' ').pop():'',ld=row.person?row.person.split(' ').pop():'';
-      h+=`<tr class="gantt-row${rkC}"><td class="gantt-label" style="background:var(--surface2);border-right:2px solid var(--border2);padding-left:18px"><div class="gantt-label-name">${escHtml(row.name)}</div><div class="gantt-label-sub ${lc}">${row.loc} ${eng?'· '+eng:''} ${ld?'· '+ld:''} · <span class="gantt-label-status gs-${row.status}">${STATUSES[row.status]} ${row.pct}%</span></div></td>`;
-      days.forEach(d=>{const dMs=d.getTime(),isT=dMs===today.getTime(),isW=d.getDay()===0||d.getDay()===6;const inB=sMs!==null&&eMs!==null&&dMs>=sMs&&dMs<=eMs;const isS=sMs!==null&&dMs===sMs,isE=eMs!==null&&dMs===eMs;let cls='gantt-cell';if(isW)cls+=' wknd';if(isT)cls+=' today-col';if(inB){if(isS&&isE)cls+=` bar-${lc} bar-start-${lc} bar-end-${lc}`;else if(isS)cls+=` bar-start-${lc}`;else if(isE)cls+=` bar-end-${lc}`;else cls+=` bar-${lc}`;}h+=`<td class="${cls}"></td>`;});
-      h+=`</tr>`;
+let totalGanttWPs={};function toggleGanttWP(id){totalGanttWPs[id]=!totalGanttWPs[id];renderTotalGantt();}
+function renderGanttWpFilter(){const p=getProject();if(!p)return;p.workPackages.forEach(w=>{if(totalGanttWPs[w.id]===undefined)totalGanttWPs[w.id]=true;});document.getElementById('ganttWpFilter').innerHTML='<span style="font-size:9px;color:var(--text3);font-weight:600;text-transform:uppercase;margin-right:6px">Pozicije:</span>'+p.workPackages.map(w=>`<label><input type="checkbox" ${totalGanttWPs[w.id]?'checked':''} onchange="toggleGanttWP('${w.id}')">${escHtml(w.name)}</label>`).join('');}
+function renderTotalGantt(){const p=getProject();if(!p){document.getElementById('totalGanttWrap').innerHTML='';return;}let min=new Date(today),max=new Date(today);max.setDate(max.getDate()+60);p.workPackages.forEach(w=>{if(!totalGanttWPs[w.id])return;w.phases.forEach(r=>{if(r.start){const d=new Date(r.start);if(d<min)min=d;}if(r.end){const d=new Date(r.end);if(d>max)max=d;}});});min.setDate(min.getDate()-3);max.setDate(max.getDate()+5);const days=[];let cur=new Date(min);while(cur<=max){days.push(new Date(cur));cur.setDate(cur.getDate()+1);}const months={};days.forEach(d=>{const k=d.getFullYear()+'-'+d.getMonth();if(!months[k])months[k]={label:MONTHS_SR[d.getMonth()]+' '+d.getFullYear(),count:0};months[k].count++;});const MC=['#1f3a6e','#1a3a1a','#3a2800','#2a0a2a','#002a2a'];let h=`<table class="gantt-table"><thead><tr><th class="gantt-label" rowspan="2" style="min-width:220px">Pozicija / Faza</th>${Object.values(months).map(m=>`<th class="gantt-month-hdr" colspan="${m.count}">${m.label}</th>`).join('')}</tr><tr>${days.map(d=>{const isT=d.getTime()===today.getTime(),isW=d.getDay()===0||d.getDay()===6;return`<th class="gantt-day-hdr ${isT?'today-col':''} ${isW?'wknd':''}">${d.getDate()}</th>`;}).join('')}</tr></thead><tbody>`;p.workPackages.forEach((wp,wi)=>{if(!totalGanttWPs[wp.id])return;const active=wp.phases.filter(r=>r.status!==2),tc=days.length;h+=`<tr class="gantt-machine-hdr"><td colspan="${tc+1}" style="background:${MC[wi%5]};color:#aac8ff;font-weight:700;font-size:11px;padding:5px 10px;border-top:2px solid #2e75b6">⚙ ${escHtml(wp.name)} <span style="font-size:9px;opacity:0.7">${escHtml(wp.rnCode)}</span></td></tr>`;if(active.length===0){h+=`<tr><td colspan="${tc+1}" style="color:var(--text3);font-style:italic;padding:6px 10px;font-size:11px">Nema aktivnih faza</td></tr>`;}else active.forEach(row=>{const sMs=row.start?new Date(row.start).setHours(0,0,0,0):null,eMs=row.end?new Date(row.end).setHours(0,0,0,0):null,lc=row.loc==='Dobanovci'?'dob':'kru',rk=calcRisk(row),rkC=rk.level!=='none'?' gantt-row-risk':'',eng=row.engineer?row.engineer.split(' ').pop():'',ld=row.person?row.person.split(' ').pop():'';h+=`<tr class="gantt-row${rkC}"><td class="gantt-label" style="background:var(--surface2);border-right:2px solid var(--border2);padding-left:18px"><div class="gantt-label-name">${escHtml(row.name)}</div><div class="gantt-label-sub ${lc}">${row.loc} ${eng?'· '+eng:''} ${ld?'· '+ld:''} · <span class="gantt-label-status gs-${row.status}">${STATUSES[row.status]} ${row.pct}%</span></div></td>`;days.forEach(d=>{const dMs=d.getTime(),isT=dMs===today.getTime(),isW=d.getDay()===0||d.getDay()===6,inB=sMs!==null&&eMs!==null&&dMs>=sMs&&dMs<=eMs,isS=sMs!==null&&dMs===sMs,isE=eMs!==null&&dMs===eMs;let cls='gantt-cell';if(isW)cls+=' wknd';if(isT)cls+=' today-col';if(inB){if(isS&&isE)cls+=` bar-${lc} bar-start-${lc} bar-end-${lc}`;else if(isS)cls+=` bar-start-${lc}`;else if(isE)cls+=` bar-end-${lc}`;else cls+=` bar-${lc}`;}h+=`<td class="${cls}"></td>`;});h+=`</tr>`;});});h+=`</tbody></table>`;document.getElementById('totalGanttWrap').innerHTML=h;}
+
+/* ═══════════════════════════════════════════════════════════
+   RENDER: Summary + Reminders
+   ═══════════════════════════════════════════════════════════ */
+function renderSummary(){const state=getPhases(),p=getProject(),wp=getWP();const total=state.length,done=state.filter(r=>r.status===2).length,inP=state.filter(r=>r.status===1).length,onH=state.filter(r=>r.status===3).length;const rdyC=state.filter(r=>calcReadiness(r).ready).length,notR=total-rdyC-done,noD=state.filter(r=>!r.start||!r.end).length,wRk=state.filter(r=>calcRisk(r).level!=='none').length,avg=total>0?Math.round(state.reduce((a,r)=>a+r.pct,0)/total):0;const kpi=(l,v,s,c)=>`<div class="kpi-card ${c}"><div class="kpi-label">${l}</div><div class="kpi-value">${v}</div>${s?`<div class="kpi-sub">${s}</div>`:''}</div>`;const mb=document.getElementById('projectMetaBar');if(mb&&p){mb.innerHTML=`<span>📌 <strong style="color:var(--text)">${escHtml(p.code)}</strong> ${escHtml(p.name)}</span><span>PM: ${escHtml(p.projectM)||'—'}</span><span>Rok: ${p.deadline?formatDate(p.deadline):'—'}</span><span>Pozicija: <strong style="color:var(--accent)">${wp?escHtml(wp.name):'—'}</strong> ${wp?escHtml(wp.rnCode):''}</span>`;}document.getElementById('summaryBar').innerHTML=kpi('Ukupno',total,'','kpi-neutral')+kpi('Završeno',done,`od ${total}`,'kpi-ok')+kpi('U toku',inP,'','kpi-info')+kpi('Na čekanju',onH,'',onH>0?'kpi-warn':'kpi-neutral')+kpi('Spremne',rdyC,'',rdyC>0?'kpi-ok':'kpi-neutral')+kpi('Nespremne',notR,'',notR>0?'kpi-warn':'kpi-neutral')+kpi('Bez datuma',noD,'',noD>0?'kpi-warn':'kpi-neutral')+kpi('Rizik',wRk,'',wRk>0?'kpi-danger':'kpi-neutral')+kpi('Prosek',avg+'%','','kpi-info');}
+function renderReminders(){const z=document.getElementById('reminderZone');if(!z)return;z.innerHTML='';const p=getProject();if(!p)return;p.workPackages.forEach(wp=>{wp.phases.forEach(row=>{if(row.status===2||!row.start)return;const d=Math.round((new Date(row.start)-today)/864e5);if(d<0||d>7)return;const rd=calcReadiness(row);if(rd.ready)return;const urg=d<=3,c=document.createElement('div');c.className='reminder-card '+(urg?'rc-red':'rc-yellow');c.innerHTML=`<div class="rc-title">${urg?'🔴':'🟡'} ${escHtml(row.name)}</div><div class="rc-sub">${escHtml(p.code)} / ${escHtml(wp.name)} · ${formatDate(row.start)} · Za ${d}d</div><div class="rc-sub">${rd.reasons.slice(0,3).join(', ')}</div>`;z.appendChild(c);});});}
+
+/* ═══════════════════════════════════════════════════════════
+   EXPORT/IMPORT/RESET
+   ═══════════════════════════════════════════════════════════ */
+function exportData(){const blob=new Blob([JSON.stringify(allData,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`plan_${getProject()?.code||'export'}_${new Date().toISOString().slice(0,10)}.json`;a.click();showToast('💾 Exported');}
+function importData(event){const file=event.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=e=>{try{const d=JSON.parse(e.target.result);if(d.projects&&Array.isArray(d.projects)){allData=d;activeProjectId=allData.projects[0]?.id;activeWpId=allData.projects[0]?.workPackages?.[0]?.id;cacheToLocal();buildProjectSelector();buildWpTabs();render();queueCurrentWpSync();showToast('📂 Imported');}else showToast('❌ Format');}catch{showToast('❌ JSON err');}};reader.readAsText(file);event.target.value='';}
+function resetData(){if(!confirm('Reset?'))return;allData={projects:[createBlankProject('RN 9000','Kovačka linija')]};activeProjectId=allData.projects[0].id;activeWpId=allData.projects[0].workPackages[0].id;filteredIndices=null;cacheToLocal();buildProjectSelector();buildWpTabs();render();showToast('🗑 Reset');}
+
+/* ═══════════════════════════════════════════════════════════
+   MASTER RENDER + INIT
+   ═══════════════════════════════════════════════════════════ */
+function render(){renderPlan();renderReminders();renderSummary();buildPersonFilter();if(activeView==='gantt')renderGantt();if(activeView==='total'){renderGanttWpFilter();renderTotalGantt();}}
+
+/* Try session restore first */
+(function init(){
+  if(hasSupabaseConfig()){
+    restoreSession().then(restored=>{
+      if(!restored)document.getElementById('authOverlay').classList.remove('hidden');
     });
-  });
-  h+=`</tbody></table>`;document.getElementById('totalGanttWrap').innerHTML=h;
-}
-
-/* ═══════════════════════════════════════════════════════════
-   RENDER: Summary + Meta + Reminders
-   ═══════════════════════════════════════════════════════════ */
-function renderSummary(){
-  const state=getPhases(),p=getProject(),wp=getWP();
-  const total=state.length,done=state.filter(r=>r.status===2).length,inP=state.filter(r=>r.status===1).length;
-  const onH=state.filter(r=>r.status===3).length,notS=state.filter(r=>r.status===0).length;
-  const rdyC=state.filter(r=>calcReadiness(r).ready).length,notR=total-rdyC-done;
-  const noD=state.filter(r=>!r.start||!r.end).length,wRk=state.filter(r=>calcRisk(r).level!=='none').length;
-  const avg=total>0?Math.round(state.reduce((a,r)=>a+r.pct,0)/total):0;
-  const kpi=(l,v,s,c)=>`<div class="kpi-card ${c}"><div class="kpi-label">${l}</div><div class="kpi-value">${v}</div>${s?`<div class="kpi-sub">${s}</div>`:''}</div>`;
-  /* Meta bar */
-  const mb=document.getElementById('projectMetaBar');
-  if(mb&&p){
-    const wn=wp?wp.name:'—';const wc=wp?wp.rnCode:'';
-    mb.innerHTML=`<span>📌 <strong style="color:var(--text)">${escHtml(p.code)}</strong> ${escHtml(p.name)}</span>
-      <span>PM: ${escHtml(p.projectM)||'—'}</span><span>Rok: ${escHtml(p.deadline)||'—'}</span>
-      <span>Pozicija: <strong style="color:var(--accent)">${escHtml(wn)}</strong> ${escHtml(wc)}</span>
-      <span>Lok: ${wp?wp.location:'—'}</span>`;
+  }else{
+    document.getElementById('authOverlay').classList.remove('hidden');
   }
-  document.getElementById('summaryBar').innerHTML=
-    kpi('Ukupno',total,'','kpi-neutral')+kpi('Završeno',done,`od ${total}`,'kpi-ok')+kpi('U toku',inP,'','kpi-info')+
-    kpi('Na čekanju',onH,'',onH>0?'kpi-warn':'kpi-neutral')+kpi('Spremne',rdyC,'',rdyC>0?'kpi-ok':'kpi-neutral')+
-    kpi('Nespremne',notR,'',notR>0?'kpi-warn':'kpi-neutral')+kpi('Bez datuma',noD,'',noD>0?'kpi-warn':'kpi-neutral')+
-    kpi('Rizik',wRk,'',wRk>0?'kpi-danger':'kpi-neutral')+kpi('Prosek',avg+'%','','kpi-info');
-}
-function renderReminders(){
-  const z=document.getElementById('reminderZone');if(!z)return;z.innerHTML='';
-  const p=getProject();if(!p)return;
-  p.workPackages.forEach(wp=>{
-    wp.phases.forEach(row=>{
-      if(row.status===2||!row.start)return;
-      const d=Math.round((new Date(row.start)-today)/864e5);if(d<0||d>7)return;
-      const rd=calcReadiness(row);if(rd.ready)return;
-      const urg=d<=3;const c=document.createElement('div');c.className='reminder-card '+(urg?'rc-red':'rc-yellow');
-      c.innerHTML=`<div class="rc-title">${urg?'🔴':'🟡'} ${escHtml(row.name)}</div><div class="rc-sub">${escHtml(p.code)} / ${escHtml(wp.name)} · Početak: ${formatDate(row.start)} · Za ${d} ${d===1?'dan':'dana'}</div><div class="rc-sub">Razlog: ${rd.reasons.slice(0,3).join(', ')}</div>`;
-      z.appendChild(c);
-    });
-  });
-}
+  updateAuthUI();
+})();
 
-/* ═══════════════════════════════════════════════════════════
-   PHASE MANAGEMENT
-   ═══════════════════════════════════════════════════════════ */
-function addPhase(){const inp=document.getElementById('newPhaseInput'),n=inp.value.trim();if(!n){showToast('⚠ Unesi naziv');inp.focus();return;}getPhases().push(createBlankPhase(n));saveState();render();inp.value='';showToast('✅ Faza dodana');}
-function deleteRow(i){const s=getPhases(),n=s[i].name;if(!confirm('Obriši "'+n+'"?'))return;s.splice(i,1);filteredIndices=null;saveState();render();showToast('🗑 Obrisano');}
-function moveRow(i,dir){const s=getPhases(),j=i+dir;if(j<0||j>=s.length)return;[s[i],s[j]]=[s[j],s[i]];filteredIndices=null;saveState();render();}
-
-/* ═══════════════════════════════════════════════════════════
-   EXPORT / IMPORT / RESET
-   ═══════════════════════════════════════════════════════════ */
-function exportData(){
-  const blob=new Blob([JSON.stringify(allData,null,2)],{type:'application/json'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
-  a.download=`plan_montaze_${getProject()?.code||'export'}_${new Date().toISOString().slice(0,10)}.json`;
-  a.click();showToast('💾 Sačuvano!');
-}
-function importData(event){
-  const file=event.target.files[0];if(!file)return;
-  const reader=new FileReader();
-  reader.onload=e=>{
-    try{
-      const parsed=JSON.parse(e.target.result);
-      if(parsed.projects&&Array.isArray(parsed.projects)){
-        allData=parsed;
-        if(allData.projects.length>0){activeProjectId=allData.projects[0].id;const p=allData.projects[0];if(p.workPackages.length>0)activeWpId=p.workPackages[0].id;}
-        saveState();buildProjectSelector();buildWpTabs();render();showToast('📂 Učitano!');
-      }else{showToast('❌ Neispravan format');}
-    }catch{showToast('❌ Greška u JSON-u');}
-  };
-  reader.readAsText(file);event.target.value='';
-}
-function resetData(){
-  if(!confirm('Resetovati sve?'))return;
-  allData={projects:[createBlankProject('RN 9000','Kovačka linija')]};
-  activeProjectId=allData.projects[0].id;activeWpId=allData.projects[0].workPackages[0].id;
-  filteredIndices=null;saveState();buildProjectSelector();buildWpTabs();render();showToast('🗑 Reset');
-}
-
-/* ═══════════════════════════════════════════════════════════
-   TOAST + RENDER + INIT
-   ═══════════════════════════════════════════════════════════ */
-function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
-
-function render(){
-  renderPlan();renderReminders();renderSummary();buildPersonFilter();
-  if(activeView==='gantt')renderGantt();
-  if(activeView==='total'){renderGanttWpFilter();renderTotalGantt();}
-}
-
-buildProjectSelector();buildWpTabs();render();
-
-let resizeTimer;
-window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>render(),150);});
+let resizeTimer;window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>render(),150);});
 </script>
 </body>
 </html>
