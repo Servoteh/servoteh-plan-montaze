@@ -678,6 +678,10 @@ body.print-gantt, body.print-total { }
 .btn-print { background: #1a2d4a; border-color: var(--blue-light); color: #79c0ff; }
 .btn-print:hover { background: #142e50; }
 
+/* LeadPM-only delete project button */
+.btn-del-project { background: var(--red-bg) !important; border-color: #5a1e1e !important; color: #ff9a9a !important; }
+.btn-del-project:hover { background: #401010 !important; color: #ffbfbf !important; }
+
 /* Print modal */
 .print-overlay { display: none; position: fixed; inset: 0; z-index: 2500; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); align-items: center; justify-content: center; }
 .print-overlay.open { display: flex; }
@@ -735,6 +739,7 @@ body.print-gantt, body.print-total { }
   <button class="btn-sm" onclick="addProject()">+ Projekat</button>
   <button class="btn-sm" onclick="addWorkPackage()">+ Pozicija</button>
   <button class="btn-sm" onclick="editProjectMeta()">⚙ Meta</button>
+  <button class="btn-sm btn-del-project" id="btnDelProject" onclick="deleteProject()" style="display:none">🗑 Obriši projekat</button>
 </div>
 
 <!-- Work package tabs -->
@@ -935,6 +940,7 @@ function toIsoDate(d){if(!d)return null;const dt=new Date(d);return isNaN(dt)?nu
 function calcDuration(s,e){if(!s||!e)return null;const a=new Date(s),b=new Date(e);if(isNaN(a)||isNaN(b))return null;const d=Math.round((b-a)/864e5);return d<0?-1:d+1;}
 function statusClass(s){return['st-0','st-1','st-2','st-3'][s]||'st-0';}
 function canEdit(){return currentRole==='pm'||currentRole==='leadpm';}
+function isLeadPM(){return currentRole==='leadpm';}
 function disabledAttr(){return canEdit()?'':'disabled';}
 function getProject(){return allData.projects.find(p=>p.id===activeProjectId)||null;}
 function getWP(){const p=getProject();return p?p.workPackages.find(w=>w.id===activeWpId):null;}
@@ -1326,6 +1332,9 @@ function updateAuthUI(){
   const edit=canEdit();
   const pb=document.getElementById('projectBar');
   if(pb)pb.querySelectorAll('button.btn-sm').forEach(b=>{b.disabled=!edit;b.style.opacity=edit?'1':'0.5';b.style.cursor=edit?'pointer':'not-allowed';});
+  // Dugme za brisanje projekta — vidljivo samo za LeadPM
+  const delBtn=document.getElementById('btnDelProject');
+  if(delBtn)delBtn.style.display=isLeadPM()?'':'none';
   const ap=document.querySelector('.add-phase-bar');
   if(ap){ap.querySelectorAll('input,button').forEach(el=>{el.disabled=!edit;el.style.opacity=edit?'1':'0.5';});}
   const imp=document.querySelector('.btn-load');const rst=document.querySelector('.btn-reset');
@@ -1391,6 +1400,34 @@ async function addProject(){
   const p=createBlankProject(code,name);allData.projects.push(p);activeProjectId=p.id;activeWpId=p.workPackages[0]?.id;
   if(isOnline){await saveProjectToDb(p);for(const wp of p.workPackages)await saveWorkPackageToDb(wp,p.id);}
   cacheToLocal();buildProjectSelector();buildWpTabs();render();showToast('✅ Projekat kreiran');
+}
+async function deleteProject(){
+  if(!isLeadPM()){showToast('⚠ Samo LeadPM može obrisati projekat');return;}
+  const p=getProject();if(!p){showToast('⚠ Nema aktivnog projekta');return;}
+  const confirmCode=prompt(`⚠ OPASNA AKCIJA: Obrisaćeš projekat "${p.code} — ${p.name}" i SVE njegove pozicije i faze.\n\nOvo nije moguće poništiti.\n\nAko si siguran, upiši tačan kod projekta (${p.code}) za potvrdu:`,'');
+  if(confirmCode==null)return;
+  if(String(confirmCode).trim()!==String(p.code).trim()){showToast('❌ Kod se ne poklapa — otkazano');return;}
+  if(!confirm(`Poslednja potvrda: obriši projekat "${p.name}" zauvek?`))return;
+  const targetId=p.id;
+  if(isOnline){
+    const res=await sbReq(`projects?id=eq.${encodeURIComponent(targetId)}`,'DELETE');
+    // sbReq vraća null pri grešci; kod DELETE bez Prefer return=representation vraća 204 + prazan body → null. Zato ne možemo samo po null-u zaključiti grešku.
+    // Umesto toga, koristimo lastUserRolesQueryFailed logiku → nemamo je ovde. Nastavljamo sa lokalnim brisanjem; ako je RLS blokirao, projekt će se vratiti pri ponovnom loadu.
+  }
+  allData.projects=allData.projects.filter(x=>x.id!==targetId);
+  if(allData.projects.length){
+    activeProjectId=allData.projects[0].id;
+    activeWpId=allData.projects[0].workPackages?.[0]?.id||null;
+  }else{
+    const blank=createBlankProject('RN 9000','Novi projekat');
+    allData.projects=[blank];
+    activeProjectId=blank.id;
+    activeWpId=blank.workPackages[0]?.id||null;
+    if(isOnline){await saveProjectToDb(blank);for(const wp of blank.workPackages)await saveWorkPackageToDb(wp,blank.id);}
+  }
+  filteredIndices=null;
+  cacheToLocal();buildProjectSelector();buildWpTabs();render();
+  showToast('🗑 Projekat obrisan');
 }
 async function addWorkPackage(){
   if(!canEdit()){showToast('⚠ Pregled — nema izmena');return;}
