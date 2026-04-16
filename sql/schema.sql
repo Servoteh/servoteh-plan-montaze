@@ -1,22 +1,25 @@
 -- ═══════════════════════════════════════════════════════════
--- SUPABASE DATA MODEL — Plan Montaže v5.0
--- project → work_packages → phases
+-- SUPABASE SQL SCHEMA — Plan Montaže v5.1
+-- Supabase-first, upsert-ready, with RLS
 -- ═══════════════════════════════════════════════════════════
 
+-- PROJECTS
 CREATE TABLE projects (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_code TEXT NOT NULL,
   project_name TEXT NOT NULL,
   projectm TEXT DEFAULT '',
-  project_deadline TEXT DEFAULT '',
+  project_deadline DATE,
   pm_email TEXT DEFAULT '',
   leadpm_email TEXT DEFAULT '',
   reminder_enabled BOOLEAN DEFAULT false,
-  status TEXT DEFAULT 'active',
+  status TEXT DEFAULT 'active' CHECK (status IN ('active','completed','archived')),
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
+CREATE UNIQUE INDEX idx_projects_code ON projects(project_code);
 
+-- WORK PACKAGES
 CREATE TABLE work_packages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
@@ -26,13 +29,16 @@ CREATE TABLE work_packages (
   location TEXT DEFAULT 'Dobanovci',
   responsible_engineer_default TEXT DEFAULT '',
   montage_lead_default TEXT DEFAULT '',
-  deadline TEXT DEFAULT '',
+  deadline DATE,
   sort_order INT DEFAULT 0,
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
+CREATE INDEX idx_wp_project ON work_packages(project_id);
+CREATE UNIQUE INDEX idx_wp_rn ON work_packages(project_id, rn_code) WHERE rn_code != '';
 
+-- PHASES
 CREATE TABLE phases (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
@@ -45,7 +51,7 @@ CREATE TABLE phases (
   montage_lead TEXT DEFAULT '',
   status INT DEFAULT 0 CHECK (status IN (0,1,2,3)),
   pct INT DEFAULT 0 CHECK (pct >= 0 AND pct <= 100),
-  checks JSONB DEFAULT '[false,false,false,false,false,false,false,false]',
+  checks JSONB DEFAULT '[false,false,false,false,false,false,false,false]'::jsonb,
   blocker TEXT DEFAULT '',
   note TEXT DEFAULT '',
   sort_order INT DEFAULT 0,
@@ -53,16 +59,27 @@ CREATE TABLE phases (
   updated_at TIMESTAMPTZ DEFAULT now(),
   updated_by TEXT DEFAULT ''
 );
+CREATE INDEX idx_phases_wp ON phases(work_package_id);
+CREATE INDEX idx_phases_project ON phases(project_id);
+CREATE INDEX idx_phases_status ON phases(status);
+CREATE INDEX idx_phases_start ON phases(start_date) WHERE start_date IS NOT NULL;
 
+-- USER ROLES
 CREATE TABLE user_roles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email TEXT NOT NULL,
-  role TEXT NOT NULL CHECK (role IN ('pm', 'leadpm', 'viewer')),
+  role TEXT NOT NULL CHECK (role IN ('pm','leadpm','viewer')),
   project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
   is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now(),
   UNIQUE (email, project_id)
 );
+-- Global roles have project_id = NULL
+-- Project-specific roles have project_id set
+-- Priority: global PM/LeadPM > project PM/LeadPM > viewer
+CREATE INDEX idx_roles_email ON user_roles(email);
 
+-- REMINDER LOG
 CREATE TABLE reminder_log (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
@@ -71,35 +88,76 @@ CREATE TABLE reminder_log (
   sent_to TEXT NOT NULL,
   sent_type TEXT DEFAULT 'email',
   sent_at TIMESTAMPTZ DEFAULT now(),
-  status TEXT DEFAULT 'sent',
+  status TEXT DEFAULT 'sent' CHECK (status IN ('sent','failed','pending')),
   error_message TEXT DEFAULT ''
 );
-
--- Indexes
-CREATE INDEX idx_wp_project ON work_packages(project_id);
-CREATE INDEX idx_phases_wp ON phases(work_package_id);
-CREATE INDEX idx_phases_project ON phases(project_id);
-CREATE INDEX idx_phases_status ON phases(status);
-CREATE INDEX idx_phases_start ON phases(start_date);
-CREATE INDEX idx_user_roles_email ON user_roles(email);
 CREATE INDEX idx_reminder_project ON reminder_log(project_id);
+CREATE INDEX idx_reminder_phase ON reminder_log(phase_id);
 
--- RLS
+-- ═══════════════════════════════════════════════════════════
+-- UPDATED_AT TRIGGER (auto-update timestamp)
+-- ═══════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION update_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_projects_updated BEFORE UPDATE ON projects FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+CREATE TRIGGER trg_wp_updated BEFORE UPDATE ON work_packages FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+CREATE TRIGGER trg_phases_updated BEFORE UPDATE ON phases FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- ═══════════════════════════════════════════════════════════
+-- ROW LEVEL SECURITY (RLS)
+-- ═══════════════════════════════════════════════════════════
 ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE work_packages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE phases ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_roles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reminder_log ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "pm_leadpm_all" ON projects FOR ALL
-  USING (auth.jwt()->>'role' IN ('pm', 'leadpm'));
-CREATE POLICY "viewer_read_projects" ON projects FOR SELECT
-  USING (auth.jwt()->>'role' = 'viewer');
+-- Helper: check if current user has edit role
+CREATE OR REPLACE FUNCTION has_edit_role(proj_id UUID DEFAULT NULL)
+RETURNS BOOLEAN AS $$
+BEGIN
+  -- Check global role first
+  IF EXISTS (SELECT 1 FROM user_roles WHERE email = auth.jwt()->>'email' AND project_id IS NULL AND role IN ('pm','leadpm') AND is_active = true) THEN
+    RETURN true;
+  END IF;
+  -- Check project-specific role
+  IF proj_id IS NOT NULL AND EXISTS (SELECT 1 FROM user_roles WHERE email = auth.jwt()->>'email' AND project_id = proj_id AND role IN ('pm','leadpm') AND is_active = true) THEN
+    RETURN true;
+  END IF;
+  RETURN false;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE POLICY "pm_leadpm_wp" ON work_packages FOR ALL
-  USING (auth.jwt()->>'role' IN ('pm', 'leadpm'));
-CREATE POLICY "viewer_read_wp" ON work_packages FOR SELECT
-  USING (auth.jwt()->>'role' = 'viewer');
+-- PROJECTS: everyone can read, PM/LeadPM can write
+CREATE POLICY "projects_select" ON projects FOR SELECT TO authenticated USING (true);
+CREATE POLICY "projects_insert" ON projects FOR INSERT TO authenticated WITH CHECK (has_edit_role());
+CREATE POLICY "projects_update" ON projects FOR UPDATE TO authenticated USING (has_edit_role(id));
+CREATE POLICY "projects_delete" ON projects FOR DELETE TO authenticated USING (has_edit_role(id));
 
-CREATE POLICY "pm_leadpm_phases" ON phases FOR ALL
-  USING (auth.jwt()->>'role' IN ('pm', 'leadpm'));
-CREATE POLICY "viewer_read_phases" ON phases FOR SELECT
-  USING (auth.jwt()->>'role' = 'viewer');
+-- WORK PACKAGES
+CREATE POLICY "wp_select" ON work_packages FOR SELECT TO authenticated USING (true);
+CREATE POLICY "wp_insert" ON work_packages FOR INSERT TO authenticated WITH CHECK (has_edit_role(project_id));
+CREATE POLICY "wp_update" ON work_packages FOR UPDATE TO authenticated USING (has_edit_role(project_id));
+CREATE POLICY "wp_delete" ON work_packages FOR DELETE TO authenticated USING (has_edit_role(project_id));
+
+-- PHASES
+CREATE POLICY "phases_select" ON phases FOR SELECT TO authenticated USING (true);
+CREATE POLICY "phases_insert" ON phases FOR INSERT TO authenticated WITH CHECK (has_edit_role(project_id));
+CREATE POLICY "phases_update" ON phases FOR UPDATE TO authenticated USING (has_edit_role(project_id));
+CREATE POLICY "phases_delete" ON phases FOR DELETE TO authenticated USING (has_edit_role(project_id));
+
+-- USER ROLES: only global PM can manage roles
+CREATE POLICY "roles_select" ON user_roles FOR SELECT TO authenticated USING (true);
+CREATE POLICY "roles_manage" ON user_roles FOR ALL TO authenticated USING (
+  EXISTS (SELECT 1 FROM user_roles ur WHERE ur.email = auth.jwt()->>'email' AND ur.project_id IS NULL AND ur.role = 'pm' AND ur.is_active = true)
+);
+
+-- REMINDER LOG: PM/LeadPM can read/write
+CREATE POLICY "reminder_select" ON reminder_log FOR SELECT TO authenticated USING (true);
+CREATE POLICY "reminder_insert" ON reminder_log FOR INSERT TO authenticated WITH CHECK (has_edit_role(project_id));
