@@ -814,7 +814,7 @@ function formatDate(d){if(!d)return'';const dt=new Date(d);if(isNaN(dt))return''
 function toIsoDate(d){if(!d)return null;const dt=new Date(d);return isNaN(dt)?null:dt.toISOString().split('T')[0];}
 function calcDuration(s,e){if(!s||!e)return null;const a=new Date(s),b=new Date(e);if(isNaN(a)||isNaN(b))return null;const d=Math.round((b-a)/864e5);return d<0?-1:d+1;}
 function statusClass(s){return['st-0','st-1','st-2','st-3'][s]||'st-0';}
-function canEdit(){return currentRole==='pm'||currentRole==='leadpm';}
+function canEdit(){return true;}
 function disabledAttr(){return canEdit()?'':'disabled';}
 function getProject(){return allData.projects.find(p=>p.id===activeProjectId)||null;}
 function getWP(){const p=getProject();return p?p.workPackages.find(w=>w.id===activeWpId):null;}
