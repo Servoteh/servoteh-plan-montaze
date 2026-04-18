@@ -905,18 +905,158 @@ tr.row-finished td { color: var(--text3); }
 }
 
 
-/* ═══ AUTH ═══ */
-.auth-overlay { display:flex; position:fixed; inset:0; z-index:2000; background:rgba(0,0,0,0.7); backdrop-filter:blur(6px); align-items:center; justify-content:center; }
-[data-theme="light"] .auth-overlay { background:rgba(17,24,39,0.45); }
+/* ═══ AUTH (Servoteh industrial) ═══ */
+.auth-overlay {
+  display:flex; position:fixed; inset:0; z-index:2000;
+  background:var(--bg);
+  align-items:center; justify-content:center;
+  overflow:hidden;
+  padding:24px;
+}
 .auth-overlay.hidden { display:none; }
-.auth-box { background:var(--surface); border:1px solid var(--border3); border-radius:var(--radius-lg); padding:28px 24px; width:320px; box-shadow:var(--shadow-lg); }
-.auth-box h2 { font-size:15px; color:var(--text); margin-bottom:14px; font-weight:600; }
-.auth-box input { width:100%; padding:10px 12px; font-size:13px; margin-bottom:10px; background:var(--surface3); border:1px solid var(--border2); color:var(--text); border-radius:var(--radius); font-family:var(--font); outline:none; }
-.auth-box input:focus { border-color:var(--accent); }
-.auth-box .auth-btn { width:100%; padding:10px; font-size:12px; font-weight:600; cursor:pointer; border:1px solid var(--accent); background:var(--accent-dim); color:var(--accent); border-radius:var(--radius); font-family:var(--font); transition:all 0.15s; text-transform:uppercase; letter-spacing:0.5px; }
-.auth-box .auth-btn:hover { background:var(--accent); color:var(--accent-fg); }
-.auth-box .auth-msg { font-size:11px; color:var(--text3); margin-top:8px; text-align:center; }
-.auth-box .auth-err { color:var(--red); }
+/* Ambient brand geometry (dekorativno, ne-interaktivno) */
+.auth-overlay::before,
+.auth-overlay::after {
+  content:""; position:absolute; border-radius:50%; pointer-events:none;
+  filter:blur(60px); opacity:0.55; z-index:0;
+}
+.auth-overlay::before {
+  width:520px; height:520px; top:-180px; left:-160px;
+  background:radial-gradient(circle, var(--servoteh) 0%, transparent 70%);
+  opacity:0.18;
+}
+.auth-overlay::after {
+  width:420px; height:420px; bottom:-140px; right:-120px;
+  background:radial-gradient(circle, var(--servoteh-600) 0%, transparent 70%);
+  opacity:0.12;
+}
+[data-theme="light"] .auth-overlay::before { opacity:0.22; }
+[data-theme="light"] .auth-overlay::after  { opacity:0.14; }
+
+.auth-box {
+  position:relative; z-index:1;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:36px 32px 28px;
+  width:100%; max-width:400px;
+  box-shadow:var(--shadow-lg);
+}
+[data-theme="light"] .auth-box {
+  box-shadow:0 24px 60px rgba(17,24,39,0.12), 0 4px 12px rgba(17,24,39,0.06);
+}
+
+.auth-brand {
+  display:flex; flex-direction:column; align-items:center;
+  gap:12px; margin-bottom:24px;
+}
+.auth-brand-mark {
+  width:56px; height:56px; display:flex; align-items:center; justify-content:center;
+  background:var(--servoteh); color:#fff;
+  border-radius:14px; font-size:26px; line-height:1;
+  box-shadow:0 8px 22px rgba(232,82,58,0.35), inset 0 1px 0 rgba(255,255,255,0.18);
+}
+.auth-brand-mark svg { width:28px; height:28px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+.auth-title {
+  font-size:20px; font-weight:700; color:var(--text);
+  letter-spacing:-0.01em; text-align:center;
+}
+.auth-subtitle {
+  font-size:12px; color:var(--text3);
+  text-align:center; letter-spacing:0.2px;
+}
+
+.auth-form { display:flex; flex-direction:column; gap:12px; }
+.auth-field { display:flex; flex-direction:column; gap:6px; }
+.auth-field label {
+  font-size:11px; font-weight:600; color:var(--text2);
+  text-transform:uppercase; letter-spacing:0.6px;
+}
+.auth-box input {
+  width:100%; padding:11px 13px; font-size:13px;
+  background:var(--surface2);
+  border:1px solid var(--border2);
+  color:var(--text);
+  border-radius:8px;
+  font-family:var(--font);
+  outline:none; transition:border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+.auth-box input::placeholder { color:var(--text3); opacity:0.7; }
+.auth-box input:hover { border-color:var(--border3); }
+.auth-box input:focus {
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px var(--accent-dim);
+  background:var(--surface);
+}
+
+.auth-btn-primary {
+  width:100%; padding:12px 16px;
+  font-size:13px; font-weight:600;
+  cursor:pointer;
+  border:1px solid var(--accent);
+  background:var(--accent);
+  color:var(--accent-fg);
+  border-radius:8px;
+  font-family:var(--font);
+  transition:background 0.15s, border-color 0.15s, transform 0.05s;
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  letter-spacing:0.2px;
+  margin-top:4px;
+}
+.auth-btn-primary:hover {
+  background:var(--accent-hover, var(--servoteh-500));
+  border-color:var(--accent-hover, var(--servoteh-500));
+}
+.auth-btn-primary:active { transform:translateY(1px); }
+.auth-btn-primary .arrow { opacity:0.8; transition:transform 0.15s; }
+.auth-btn-primary:hover .arrow { transform:translateX(2px); opacity:1; }
+
+.auth-divider {
+  display:flex; align-items:center; gap:10px;
+  margin:14px 0 10px;
+  color:var(--text3); font-size:10px; letter-spacing:1px; text-transform:uppercase;
+}
+.auth-divider::before,
+.auth-divider::after {
+  content:""; flex:1; height:1px; background:var(--border);
+}
+
+.auth-btn-ghost {
+  width:100%; padding:10px 14px;
+  font-size:12px; font-weight:500;
+  cursor:pointer;
+  border:1px solid var(--border2);
+  background:transparent;
+  color:var(--text2);
+  border-radius:8px;
+  font-family:var(--font);
+  transition:all 0.15s;
+}
+.auth-btn-ghost:hover { background:var(--surface2); border-color:var(--border3); color:var(--text); }
+
+.auth-msg {
+  font-size:12px; color:var(--text3);
+  margin-top:12px; text-align:center; min-height:16px;
+}
+.auth-err {
+  color:var(--red);
+  background:color-mix(in srgb, var(--red) 10%, transparent);
+  border:1px solid color-mix(in srgb, var(--red) 35%, transparent);
+  padding:8px 12px; border-radius:6px;
+  display:inline-block;
+}
+
+.auth-footer {
+  margin-top:22px; text-align:center;
+  font-size:10px; color:var(--text3); letter-spacing:0.4px;
+}
+.auth-footer strong { color:var(--servoteh); font-weight:600; letter-spacing:0.8px; }
+
+@media (max-width:480px) {
+  .auth-box { padding:28px 20px 22px; border-radius:12px; }
+  .auth-brand-mark { width:48px; height:48px; border-radius:12px; }
+  .auth-title { font-size:18px; }
+}
 .user-bar { display:flex; align-items:center; gap:6px; font-size:10px; color:var(--text3); }
 .user-bar .user-email { font-family:var(--mono); color:var(--text2); max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .user-bar .btn-logout { padding:3px 8px; font-size:9px; border-radius:4px; cursor:pointer; border:1px solid var(--border2); background:var(--surface3); color:var(--text3); font-family:var(--font); }
@@ -1394,14 +1534,40 @@ td.td-loc .loc-select { border-left: 3px solid transparent; }
 
 <!-- Auth login overlay -->
 <div class="auth-overlay" id="authOverlay">
-  <div class="auth-box">
-    <h2>⚙ Plan Montaže — Prijava</h2>
+  <div class="auth-box" role="dialog" aria-labelledby="authTitle" aria-describedby="authSubtitle">
+    <div class="auth-brand">
+      <div class="auth-brand-mark" aria-hidden="true">
+        <!-- Wrench icon (Lucide-equivalent) -->
+        <svg viewBox="0 0 24 24" role="img" aria-label="Servoteh">
+          <path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.8-.7-.7-2.8 2.5-2.5z"></path>
+        </svg>
+      </div>
+      <div class="auth-title" id="authTitle">Plan Montaže</div>
+      <div class="auth-subtitle" id="authSubtitle">Servoteh · Sistem za planiranje montaža</div>
+    </div>
 
-    <input type="email" id="loginEmail" placeholder="Email adresa">
-    <input type="password" id="loginPassword" placeholder="Lozinka">
-    <button class="auth-btn" onclick="doLogin()">Prijavi se</button>
-    <button class="auth-btn" style="margin-top:6px;background:transparent;border-color:var(--border2);color:var(--text3)" onclick="doOfflineMode()">Nastavi offline</button>
-    <div class="auth-msg" id="authMsg"></div>
+    <form class="auth-form" onsubmit="event.preventDefault(); doLogin();">
+      <div class="auth-field">
+        <label for="loginEmail">Email</label>
+        <input type="email" id="loginEmail" placeholder="ime@servoteh.rs" autocomplete="username" required>
+      </div>
+      <div class="auth-field">
+        <label for="loginPassword">Lozinka</label>
+        <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="auth-btn-primary">
+        Prijavi se
+        <span class="arrow" aria-hidden="true">→</span>
+      </button>
+    </form>
+
+    <div class="auth-divider">ili</div>
+
+    <button type="button" class="auth-btn-ghost" onclick="doOfflineMode()">Nastavi offline</button>
+
+    <div class="auth-msg" id="authMsg" role="status" aria-live="polite"></div>
+
+    <div class="auth-footer"><strong>SERVOTEH</strong> · Plan Montaže</div>
   </div>
 </div>
 <div class="toast" id="toast"></div>
