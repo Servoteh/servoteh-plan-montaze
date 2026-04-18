@@ -20,6 +20,7 @@ import { renderLoginScreen } from './auth/loginScreen.js';
 import { renderModuleHub } from './hub/moduleHub.js';
 import { renderModulePlaceholder } from './modulePlaceholder.js';
 import { renderKadrovskaModule } from './kadrovska/index.js';
+import { renderPlanMontazeModule } from './planMontaze/index.js';
 import { getAuth, canAccessKadrovska, canManageUsers } from '../state/auth.js';
 import { resetKadrovskaState } from '../state/kadrovska.js';
 import { showToast } from '../lib/dom.js';
@@ -39,6 +40,8 @@ function clearMount() {
     'kadrovska-active',
     'module-kadrovska',
     'module-settings',
+    'plan-active',
+    'module-plan',
   );
 }
 
@@ -96,6 +99,9 @@ function showModulePlaceholder(moduleId) {
   if (moduleId === 'podesavanja') {
     document.body.classList.add('module-settings');
   }
+  if (moduleId === 'plan-montaze') {
+    document.body.classList.add('plan-active', 'module-plan');
+  }
   setStoredModule(moduleId);
 
   /* Faza 4: Kadrovska više nije placeholder — renderuje real modul. */
@@ -130,7 +136,39 @@ function showModulePlaceholder(moduleId) {
     return;
   }
 
-  /* Plan Montaže (F5) i Podešavanja (F5b) i dalje koriste placeholder. */
+  /* Faza 5.1.a: Plan Montaže shell (project bar + WP tabs + meta). */
+  if (moduleId === 'plan-montaze') {
+    try {
+      renderPlanMontazeModule(mountEl, {
+        onBackToHub: () => showHub(),
+        onLogout: () => {
+          resetKadrovskaState();
+          showLogin();
+        },
+      });
+    } catch (e) {
+      console.error('[router] Plan Montaže render failed', e);
+      mountEl.innerHTML = `
+        <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px">
+          <div class="auth-box" style="max-width:640px">
+            <div class="auth-brand">
+              <div class="auth-title">Greška u Plan Montaže modulu</div>
+              <div class="auth-subtitle">${(e && e.message) || String(e)}</div>
+            </div>
+            <pre style="background:var(--surface3,#222);padding:12px;border-radius:6px;font-family:var(--mono,monospace);font-size:11px;color:var(--text2,#ccc);text-align:left;overflow:auto;max-height:280px">${(e && e.stack) || ''}</pre>
+            <div style="display:flex;gap:8px;margin-top:12px">
+              <button class="btn" id="planErrBackBtn">← Nazad na hub</button>
+            </div>
+          </div>
+        </div>
+      `;
+      const back = mountEl.querySelector('#planErrBackBtn');
+      back?.addEventListener('click', () => showHub());
+    }
+    return;
+  }
+
+  /* Podešavanja (F5b) i dalje koriste placeholder. */
   const screen = renderModulePlaceholder({
     moduleId,
     onBack: () => showHub(),

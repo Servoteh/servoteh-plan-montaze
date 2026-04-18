@@ -2157,3 +2157,117 @@ td.td-loc .loc-select { border-left: 3px solid transparent; }
   .gantt-drag-handle-l, .gantt-drag-handle-r { width: 8px; background: rgba(255,255,255,0.5); }
 }
 
+/* ═══════════════════════════════════════════════════════════════════════
+   PLAN MONTAŽE MODULE — Vite (F5.1.a)
+   Shell, project bar overrides, view tabs, generic modal/form helpers.
+   ═══════════════════════════════════════════════════════════════════════ */
+.plan-main { padding:18px 24px 32px; min-height:calc(100vh - 64px); background:var(--bg); }
+.plan-toolbar { display:flex; flex-direction:column; gap:10px; margin-bottom:18px; }
+.plan-body { display:flex; flex-direction:column; gap:14px; }
+
+/* Project bar — extends legacy .project-bar with Vite-specific layout */
+.plan-toolbar .project-bar {
+  display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+  padding:10px 14px; background:var(--surface); border:1px solid var(--border);
+  border-radius:8px;
+}
+.project-select-wrap { display:flex; flex-direction:column; gap:3px; }
+.project-select-label { font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:0.7px; font-weight:600; }
+.project-bar-actions { display:flex; gap:6px; margin-left:auto; flex-wrap:wrap; }
+.project-bar-meta { font-size:11px; color:var(--text3); margin-left:8px; font-family:var(--mono); }
+.project-bar-rok:not(:empty) { color:var(--text2); }
+
+/* WP tabs wrapper — adds + Pozicija button on right */
+.wp-tabs-wrap { display:flex; align-items:stretch; gap:8px; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:0 8px; }
+.wp-tabs-wrap .wp-tabs { flex:1; border-bottom:none; background:transparent; padding:0; }
+.wp-tabs-wrap .wp-tab { background:transparent; border:none; cursor:pointer; font-family:var(--font); }
+.wp-tabs-actions { display:flex; align-items:center; gap:6px; padding:6px 0; }
+
+/* View tabs container reset (use legacy .view-tab styles) */
+.plan-toolbar .kadrovska-tabs { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:4px; gap:4px; }
+.plan-toolbar .kadrovska-tab.view-tab { padding:8px 16px; border-radius:6px; border-bottom:none; }
+.plan-toolbar .kadrovska-tab.view-tab.active { background:var(--accent-dim, var(--surface2)); color:var(--accent); border-bottom:none; }
+
+/* Generic .btn / .btn-ghost / .btn.danger fallback (Plan-modal interna upotreba) */
+.btn { display:inline-flex; align-items:center; gap:6px; padding:8px 14px; font-size:11px; font-weight:600; cursor:pointer; border-radius:6px; border:1px solid var(--border2); background:var(--surface2); color:var(--text); font-family:var(--font); transition:all 0.15s; text-transform:uppercase; letter-spacing:0.4px; }
+.btn:hover { background:var(--surface3); border-color:var(--border3); }
+.btn[disabled] { opacity:0.4; cursor:not-allowed; }
+.btn-ghost.danger { color:var(--red); border-color:color-mix(in srgb, var(--red) 35%, var(--border2)); }
+.btn-ghost.danger:hover:not([disabled]) { background:color-mix(in srgb, var(--red) 10%, var(--surface2)); border-color:var(--red); }
+
+/* Generic modal — reused by metaModals.js */
+.modal-overlay {
+  position:fixed; inset:0; z-index:2500;
+  background:rgba(0,0,0,0.6); backdrop-filter:blur(6px);
+  display:flex; align-items:center; justify-content:center; padding:20px;
+}
+[data-theme="light"] .modal-overlay { background:rgba(17,24,39,0.45); }
+.modal-overlay:not(.open) { display:none; }
+.modal-panel {
+  background:var(--surface); border:1px solid var(--border); border-radius:12px;
+  width:100%; max-width:560px; box-shadow:var(--shadow-lg);
+  max-height:90vh; display:flex; flex-direction:column; overflow:hidden;
+}
+.modal-header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:16px 20px; border-bottom:1px solid var(--border);
+}
+.modal-header h3 { font-size:14px; font-weight:700; color:var(--text); margin:0; letter-spacing:-0.01em; }
+.modal-close {
+  background:transparent; border:none; color:var(--text3); cursor:pointer;
+  font-size:18px; line-height:1; padding:4px 8px; border-radius:4px;
+}
+.modal-close:hover { background:var(--surface2); color:var(--text); }
+.modal-body { padding:18px 20px 20px; overflow-y:auto; }
+
+/* Form helpers — used in metaModals + later phases */
+.form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px 14px; }
+.form-grid > label { display:flex; flex-direction:column; gap:4px; font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; font-weight:600; }
+.form-grid input[type="text"], .form-grid input[type="date"], .form-grid select {
+  background:var(--surface2); border:1px solid var(--border2); color:var(--text);
+  border-radius:6px; padding:8px 10px; font-size:12px; font-family:var(--font);
+  outline:none; transition:border-color 0.15s; text-transform:none; letter-spacing:0;
+}
+.form-grid input:focus, .form-grid select:focus { border-color:var(--accent); }
+.form-checkbox-row { flex-direction:row !important; align-items:center; gap:8px !important; }
+.form-checkbox-row input { width:auto; }
+.form-checkbox-row span { text-transform:none; font-weight:500; color:var(--text2); letter-spacing:0; }
+.form-hint { font-size:11px; color:var(--text3); margin-top:8px; line-height:1.5; }
+.form-section-title { font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:0.7px; font-weight:600; margin:14px 0 8px; }
+.form-sep { border:none; border-top:1px solid var(--border); margin:14px 0 0; }
+.form-actions { display:flex; gap:8px; margin-top:12px; }
+.form-card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:18px 20px; }
+.form-card h3 { font-size:13px; font-weight:700; color:var(--text); margin:0 0 8px; letter-spacing:-0.01em; }
+
+/* Locations list (in project meta modal) */
+.loc-list { display:flex; flex-direction:column; gap:6px; max-height:240px; overflow-y:auto; padding:4px 0; }
+.loc-row { display:flex; align-items:center; gap:6px; }
+.loc-row input { flex:1; background:var(--surface2); border:1px solid var(--border2); color:var(--text); border-radius:6px; padding:6px 9px; font-size:12px; font-family:var(--font); outline:none; }
+.loc-row input:focus { border-color:var(--accent); }
+.loc-color-dot { width:12px; height:12px; border-radius:50%; flex-shrink:0; border:1px solid var(--border2); }
+.loc-del { background:transparent; border:1px solid var(--border2); color:var(--text3); cursor:pointer; padding:5px 9px; border-radius:5px; font-size:11px; }
+.loc-del:hover { color:var(--red); border-color:var(--red); }
+.loc-add-row { display:flex; gap:6px; margin-top:10px; }
+.loc-add-row input { flex:1; background:var(--surface2); border:1px solid var(--border2); color:var(--text); border-radius:6px; padding:7px 10px; font-size:12px; font-family:var(--font); outline:none; }
+.loc-add-row input:focus { border-color:var(--accent); }
+
+/* Hide hub/legacy bar shells when Plan module is active (Vite root) */
+body.module-plan > .header,
+body.module-plan > .project-bar,
+body.module-plan > .project-meta-strip,
+body.module-plan > .wp-tabs,
+body.module-plan > .print-only,
+body.module-plan > .main,
+body.module-plan > .view-section,
+body.module-plan > .add-phase-bar,
+body.module-plan > .legend,
+body.module-plan > .reminder-zone,
+body.module-plan > .filter-bar { display:none !important; }
+
+@media (max-width: 767px) {
+  .plan-main { padding:14px 14px 24px; }
+  .form-grid { grid-template-columns:1fr; }
+  .project-bar-actions { width:100%; }
+  .project-bar-actions .btn { flex:1; justify-content:center; }
+}
+
