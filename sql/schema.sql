@@ -144,6 +144,11 @@ CREATE INDEX IF NOT EXISTS idx_absences_range    ON absences(date_from, date_to)
 CREATE INDEX IF NOT EXISTS idx_absences_type     ON absences(type);
 
 -- WORK_HOURS (Kadrovska phase 1 — ručni unos umesto Excel-a)
+-- Extended for the Mesečni grid (Excel-like) editor:
+--   field_hours   = terenski rad
+--   absence_code  = go|bo|sp|np|sl|pr (when set, hours = 0)
+-- UNIQUE(employee_id, work_date) enables PostgREST upsert
+-- (Prefer: resolution=merge-duplicates) for batch saves.
 CREATE TABLE IF NOT EXISTS work_hours (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   employee_id     UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
@@ -152,14 +157,20 @@ CREATE TABLE IF NOT EXISTS work_hours (
                   CHECK (hours >= 0 AND hours <= 24),
   overtime_hours  NUMERIC(5,2) NOT NULL DEFAULT 0
                   CHECK (overtime_hours >= 0 AND overtime_hours <= 24),
+  field_hours     NUMERIC(5,2) NOT NULL DEFAULT 0
+                  CHECK (field_hours >= 0 AND field_hours <= 24),
+  absence_code    TEXT
+                  CHECK (absence_code IS NULL OR absence_code IN ('go','bo','sp','np','sl','pr')),
   project_ref     TEXT DEFAULT '',
   note            TEXT DEFAULT '',
   created_at      TIMESTAMPTZ DEFAULT now(),
-  updated_at      TIMESTAMPTZ DEFAULT now()
+  updated_at      TIMESTAMPTZ DEFAULT now(),
+  CONSTRAINT work_hours_emp_date_uq UNIQUE (employee_id, work_date)
 );
-CREATE INDEX IF NOT EXISTS idx_work_hours_employee ON work_hours(employee_id);
-CREATE INDEX IF NOT EXISTS idx_work_hours_date     ON work_hours(work_date);
-CREATE INDEX IF NOT EXISTS idx_work_hours_emp_date ON work_hours(employee_id, work_date);
+CREATE INDEX IF NOT EXISTS idx_work_hours_employee  ON work_hours(employee_id);
+CREATE INDEX IF NOT EXISTS idx_work_hours_date      ON work_hours(work_date);
+CREATE INDEX IF NOT EXISTS idx_work_hours_emp_date  ON work_hours(employee_id, work_date);
+CREATE INDEX IF NOT EXISTS idx_work_hours_date_only ON work_hours(work_date);
 
 -- CONTRACTS (Kadrovska phase 1)
 -- Business rules: date_from is mandatory, date_to optional (NULL = open-ended),

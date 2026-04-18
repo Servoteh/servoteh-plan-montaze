@@ -1652,6 +1652,181 @@ body.module-kadrovska > .filter-bar { display:none !important; }
 .kadr-summary-chip.accent .kscv{ color:var(--accent); }
 .kadr-summary-chip.muted .kscv { color:var(--text3); }
 @media (max-width:640px) { .kadr-summary-strip { padding:10px 16px 0; } }
+
+/* ═══ MESEČNI GRID (Excel-like) ═══ */
+.grid-wrap {
+  position:relative;
+  overflow:auto;
+  max-height:calc(100vh - 280px);
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:var(--surface);
+}
+.grid-table {
+  border-collapse:separate; border-spacing:0;
+  font-family:var(--mono); font-size:11px;
+  white-space:nowrap;
+  min-width:100%;
+}
+.grid-table th, .grid-table td {
+  border-right:1px solid var(--border);
+  border-bottom:1px solid var(--border);
+  padding:0;
+  background:var(--surface);
+}
+.grid-table thead th {
+  position:sticky; top:0; z-index:3;
+  background:var(--surface2);
+  color:var(--text);
+  font-weight:600;
+  text-align:center;
+  height:28px;
+  padding:0 6px;
+  font-size:11px;
+}
+.grid-table thead tr.row-day-letter th {
+  top:28px;
+  font-size:9px;
+  font-weight:500;
+  color:var(--text3);
+  height:18px;
+  text-transform:uppercase;
+  letter-spacing:0.4px;
+}
+.grid-table thead th.col-num,
+.grid-table thead th.col-name,
+.grid-table thead th.col-kind {
+  z-index:5;
+}
+.grid-table th.col-day, .grid-table td.col-day {
+  width:34px; min-width:34px; max-width:34px;
+  text-align:center;
+}
+.grid-table th.col-sum, .grid-table td.col-sum {
+  width:60px; min-width:60px;
+  text-align:center;
+  background:var(--surface2);
+  font-weight:600; color:var(--accent);
+}
+.grid-table th.col-num, .grid-table td.col-num {
+  width:38px; min-width:38px; text-align:center; color:var(--text3); font-size:10px;
+}
+.grid-table th.col-name, .grid-table td.col-name {
+  width:200px; min-width:200px; max-width:200px;
+  padding:0 10px;
+  text-align:left;
+  font-family:var(--font); font-size:12px; font-weight:600;
+  color:var(--text);
+  overflow:hidden; text-overflow:ellipsis;
+}
+.grid-table th.col-kind, .grid-table td.col-kind {
+  width:90px; min-width:90px;
+  padding:0 8px;
+  text-align:left;
+  font-family:var(--font); font-size:10px;
+  color:var(--text2);
+  font-weight:500;
+  text-transform:uppercase; letter-spacing:0.3px;
+}
+
+/* Sticky left columns */
+.grid-table th.col-num,    .grid-table td.col-num    { position:sticky; left:0;   z-index:2; background:var(--surface2); }
+.grid-table th.col-name,   .grid-table td.col-name   { position:sticky; left:38px; z-index:2; background:var(--surface); }
+.grid-table th.col-kind,   .grid-table td.col-kind   { position:sticky; left:238px;z-index:2; background:var(--surface); }
+.grid-table thead th.col-num,
+.grid-table thead th.col-name,
+.grid-table thead th.col-kind { z-index:6; background:var(--surface2); }
+
+/* Per-employee row group: highlight on hover */
+.grid-table tr.row-emp-1 td.col-name,
+.grid-table tr.row-emp-1 td.col-num,
+.grid-table tr.row-emp-1 td.col-kind { border-top:2px solid var(--border2); }
+.grid-table tbody tr:hover td:not(.col-day):not(.col-sum) { background:var(--row-hover); }
+.grid-table tbody tr:hover td.col-name { background:color-mix(in srgb, var(--accent) 6%, var(--surface)); }
+
+/* Cells (input) */
+.grid-cell {
+  width:100%; height:24px;
+  padding:0 4px;
+  border:1px solid transparent;
+  background:transparent;
+  color:var(--text);
+  font-family:var(--mono);
+  font-size:11px;
+  text-align:center;
+  outline:none;
+  border-radius:0;
+  box-sizing:border-box;
+}
+.grid-cell:hover { background:var(--surface3); }
+.grid-cell:focus { background:var(--surface3); border-color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent); }
+.grid-cell:disabled { color:var(--text3); cursor:not-allowed; background:transparent; }
+.grid-cell::placeholder { color:transparent; }
+
+/* Cell states */
+td.col-day.cell-weekend { background:var(--surface3); }
+td.col-day.cell-today   { box-shadow:inset 0 0 0 1px var(--accent); }
+td.col-day.cell-dirty   { background:color-mix(in srgb, #F2994A 18%, var(--surface)) !important; }
+td.col-day.cell-dirty .grid-cell { color:#F2994A; font-weight:600; }
+td.col-day.cell-error   { background:color-mix(in srgb, var(--red) 22%, var(--surface)) !important; }
+td.col-day.cell-error .grid-cell { color:var(--red); font-weight:600; }
+
+/* Absence pill — used inside cell when value is a code */
+.grid-cell.is-absence { font-weight:700; text-transform:uppercase; letter-spacing:0.5px; font-size:10px; }
+.grid-cell.abs-go { background:color-mix(in srgb, #27AE60 18%, transparent); color:#27AE60; }
+.grid-cell.abs-bo { background:color-mix(in srgb, var(--red) 18%, transparent); color:var(--red); }
+.grid-cell.abs-sp { background:color-mix(in srgb, #2D9CDB 18%, transparent); color:#2D9CDB; }
+.grid-cell.abs-np { background:color-mix(in srgb, #6B7280 28%, transparent); color:var(--text3); }
+.grid-cell.abs-sl { background:color-mix(in srgb, var(--accent) 18%, transparent); color:var(--accent); }
+.grid-cell.abs-pr { background:color-mix(in srgb, #9B51E0 18%, transparent); color:#9B51E0; }
+
+/* Section header rows (SERVOTEH / HAP FLUID) */
+.grid-table tr.row-section td {
+  position:sticky; left:0; z-index:4;
+  background:var(--surface3);
+  color:var(--accent);
+  font-weight:700; font-family:var(--font);
+  font-size:12px; letter-spacing:0.5px; text-transform:uppercase;
+  padding:8px 14px;
+  border-top:2px solid var(--accent);
+  border-bottom:2px solid var(--border2);
+}
+
+/* Footer row (per-day totals) */
+.grid-table tr.row-totals td {
+  position:sticky; bottom:0; z-index:3;
+  background:var(--surface2);
+  font-weight:700; color:var(--text);
+  border-top:2px solid var(--accent);
+}
+.grid-table tr.row-totals td.col-sum { color:var(--accent); }
+.grid-table tr.row-totals td.col-name {
+  text-transform:uppercase; letter-spacing:0.5px; font-size:11px; color:var(--accent);
+}
+
+/* Toolbar pills (legend) */
+.grid-legend { display:inline-flex; gap:4px; align-items:center; margin-left:6px; }
+.grid-pill {
+  padding:2px 7px; border-radius:4px;
+  font-family:var(--mono); font-size:10px; font-weight:700;
+  text-transform:uppercase; letter-spacing:0.4px;
+  background:var(--surface3); color:var(--text2);
+  border:1px solid var(--border2);
+}
+.grid-pill.abs-go { background:color-mix(in srgb, #27AE60 18%, transparent); color:#27AE60; border-color:color-mix(in srgb, #27AE60 30%, transparent); }
+.grid-pill.abs-bo { background:color-mix(in srgb, var(--red) 18%, transparent); color:var(--red); border-color:color-mix(in srgb, var(--red) 30%, transparent); }
+.grid-pill.abs-sp { background:color-mix(in srgb, #2D9CDB 18%, transparent); color:#2D9CDB; border-color:color-mix(in srgb, #2D9CDB 30%, transparent); }
+.grid-pill.abs-np { background:color-mix(in srgb, #6B7280 28%, transparent); color:var(--text3); }
+.grid-pill.abs-sl { background:color-mix(in srgb, var(--accent) 18%, transparent); color:var(--accent); border-color:color-mix(in srgb, var(--accent) 30%, transparent); }
+.grid-pill.abs-pr { background:color-mix(in srgb, #9B51E0 18%, transparent); color:#9B51E0; border-color:color-mix(in srgb, #9B51E0 30%, transparent); }
+
+@media (max-width:640px) {
+  .grid-wrap { max-height:calc(100vh - 220px); }
+  .grid-table th.col-name, .grid-table td.col-name { width:140px; min-width:140px; max-width:140px; font-size:11px; }
+  .grid-table th.col-name, .grid-table td.col-name { left:38px; }
+  .grid-table th.col-kind, .grid-table td.col-kind { left:178px; width:78px; min-width:78px; font-size:9px; }
+  .grid-legend { display:none; }
+}
 .user-bar { display:flex; align-items:center; gap:6px; font-size:10px; color:var(--text3); }
 .user-bar .user-email { font-family:var(--mono); color:var(--text2); max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .user-bar .btn-logout { padding:3px 8px; font-size:9px; border-radius:4px; cursor:pointer; border:1px solid var(--border2); background:var(--surface3); color:var(--text3); font-family:var(--font); }
@@ -2297,8 +2472,11 @@ td.td-loc .loc-select { border-left: 3px solid transparent; }
     <button class="kadrovska-tab" role="tab" aria-selected="false" data-kadr-tab="absences" onclick="switchKadrovskaTab('absences')">
       Odsustva <span class="kadr-tab-badge" id="kadrTabCountAbsences">0</span>
     </button>
+    <button class="kadrovska-tab" role="tab" aria-selected="false" data-kadr-tab="grid" onclick="switchKadrovskaTab('grid')">
+      Mesečni grid <span class="kadr-tab-badge" id="kadrTabCountGrid">0</span>
+    </button>
     <button class="kadrovska-tab" role="tab" aria-selected="false" data-kadr-tab="hours" onclick="switchKadrovskaTab('hours')">
-      Sati rada <span class="kadr-tab-badge" id="kadrTabCountHours">0</span>
+      Sati (pojedinačno) <span class="kadr-tab-badge" id="kadrTabCountHours">0</span>
     </button>
     <button class="kadrovska-tab" role="tab" aria-selected="false" data-kadr-tab="contracts" onclick="switchKadrovskaTab('contracts')">
       Ugovori <span class="kadr-tab-badge" id="kadrTabCountContracts">0</span>
@@ -2390,8 +2568,42 @@ td.td-loc .loc-select { border-left: 3px solid transparent; }
     </main>
   </div>
 
-  <!-- ── TAB: SATI RADA ───────────────────────────────── -->
-  <div class="kadr-panel" id="kadrPanel-hours" role="tabpanel" aria-label="Sati rada">
+  <!-- ── TAB: MESEČNI GRID (Excel-like) ───────────────── -->
+  <div class="kadr-panel" id="kadrPanel-grid" role="tabpanel" aria-label="Mesečni grid">
+    <div class="kadr-summary-strip" id="gridSummary"></div>
+    <div class="kadrovska-toolbar">
+      <select class="kadrovska-filter" id="gridCompanyFilter" onchange="renderGrid()">
+        <option value="">Sve firme</option>
+        <option value="Servoteh">Servoteh</option>
+        <option value="HAP Fluid">HAP Fluid</option>
+      </select>
+      <input type="month" class="kadrovska-filter" id="gridMonth" title="Mesec" onchange="onGridMonthChange()">
+      <span class="grid-legend" title="Skraćenice za odsustva">
+        <span class="grid-pill abs-go">go</span>
+        <span class="grid-pill abs-bo">bo</span>
+        <span class="grid-pill abs-sp">sp</span>
+        <span class="grid-pill abs-np">np</span>
+        <span class="grid-pill abs-sl">sl</span>
+        <span class="grid-pill abs-pr">pr</span>
+      </span>
+      <div class="kadrovska-toolbar-spacer"></div>
+      <span class="kadrovska-count" id="gridDirtyCount">0 izmena</span>
+      <button class="btn" id="gridExportXlsx" onclick="exportGridToXlsx()" title="Izvezi mesečni grid u .xlsx">📊 Export</button>
+      <button class="btn btn-primary" id="gridSaveAll" onclick="saveAllGrid()" disabled>💾 Sačuvaj sve izmene</button>
+    </div>
+    <main class="kadrovska-main">
+      <div class="grid-wrap" id="gridWrap">
+        <div style="padding:30px;color:var(--text3);font-size:12px;text-align:center">Učitavanje mesečnog grid-a…</div>
+      </div>
+      <div class="kadrovska-empty" id="gridEmpty" style="display:none;margin-top:16px;">
+        <div class="kadrovska-empty-title">Nema aktivnih zaposlenih za izabrane filtere</div>
+        <div>Promeni firmu ili mesec, ili dodaj zaposlene u tabu <strong>Zaposleni</strong>.</div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ── TAB: SATI (POJEDINAČNO) ──────────────────────── -->
+  <div class="kadr-panel" id="kadrPanel-hours" role="tabpanel" aria-label="Sati (pojedinačno)">
     <div class="kadr-summary-strip" id="whSummary"></div>
     <div class="kadrovska-toolbar">
       <select class="kadrovska-filter" id="whEmpFilter" onchange="renderWorkHours()">
@@ -3699,6 +3911,8 @@ function mapDbWorkHour(d){
   return{
     id:d.id,employeeId:d.employee_id,workDate:d.work_date||'',
     hours:Number(d.hours||0),overtimeHours:Number(d.overtime_hours||0),
+    fieldHours:Number(d.field_hours||0),
+    absenceCode:d.absence_code||null,
     projectRef:d.project_ref||'',note:d.note||'',
     createdAt:d.created_at||null,updatedAt:d.updated_at||null
   };
@@ -3710,6 +3924,11 @@ function buildWorkHourPayload(w){
     project_ref:w.projectRef||'',note:w.note||'',
     updated_at:new Date().toISOString()
   };
+  /* Only include the new attendance-grid fields if defined on the input.
+     This keeps the existing 'Sati (pojedinačno)' modal backward compatible
+     even before the add_attendance_grid migration is applied. */
+  if(w.fieldHours!==undefined)p.field_hours=Number(w.fieldHours||0);
+  if(w.absenceCode!==undefined)p.absence_code=w.absenceCode||null;
   if(w.id)p.id=w.id;
   return p;
 }
@@ -3812,7 +4031,7 @@ async function ensureContractsLoaded(force){
 
 /* ═══ TAB SWITCHER ═══ */
 function switchKadrovskaTab(name){
-  if(!['employees','absences','hours','contracts'].includes(name))name='employees';
+  if(!['employees','absences','hours','contracts','grid'].includes(name))name='employees';
   kadrActiveTab=name;
   try{sessionStorage.setItem(KADR_TAB_KEY,name);}catch(e){}
 
@@ -3851,6 +4070,11 @@ function switchKadrovskaTab(name){
       await ensureContractsLoaded();
       _kadrPopulateEmpSelects();
       renderContracts();
+    })();
+  }else if(name==='grid'){
+    (async()=>{
+      await ensureKadrovskaLoaded();
+      await ensureGridReady();
     })();
   }
 }
@@ -4359,6 +4583,607 @@ async function confirmDeleteContract(id){
     renderContracts();
     showToast('🗑 Ugovor obrisan');
   }catch(e){console.error(e);showToast('⚠ Greška');}
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MESEČNI GRID — Excel-like attendance editor
+   ═══════════════════════════════════════════════════════════ */
+const GRID_ABS_CODES=['go','bo','sp','np','sl','pr'];
+const GRID_DAY_LETTERS=['Ned','Pon','Uto','Sre','Čet','Pet','Sub']; /* JS getDay() index */
+let gridState={
+  monthKey:'',                /* 'YYYY-MM' */
+  loaded:false,
+  rowsByEmpDate:new Map(),    /* Map<empId, Map<'YYYY-MM-DD', dbRowMapped>> */
+  dirty:new Map(),            /* Map<'empId|YYYY-MM-DD', { hours, overtime_hours, field_hours, absence_code }> */
+  saving:false
+};
+
+function _gridDaysInMonth(yyyymm){
+  if(!yyyymm)return [];
+  const [y,m]=yyyymm.split('-').map(n=>parseInt(n,10));
+  if(!y||!m)return [];
+  const last=new Date(y,m,0).getDate();
+  const out=[];
+  for(let d=1;d<=last;d++){
+    const ymd=formatYMD(y,m,d);
+    const dt=new Date(y,m-1,d);
+    const dow=dt.getDay();
+    out.push({day:d,ymd,dow,isWeekend:(dow===0||dow===6),letter:GRID_DAY_LETTERS[dow]});
+  }
+  return out;
+}
+function _gridIsoToday(){
+  const t=new Date();
+  return formatYMD(t.getFullYear(),t.getMonth()+1,t.getDate());
+}
+function _gridDirtyKey(empId,ymd){return empId+'|'+ymd;}
+
+async function loadGridMonth(yyyymm){
+  if(!yyyymm)return new Map();
+  if(!isOnline||!hasSupabaseConfig())return new Map();
+  const days=_gridDaysInMonth(yyyymm);
+  if(!days.length)return new Map();
+  const from=days[0].ymd, to=days[days.length-1].ymd;
+  const data=await sbReq(`work_hours?work_date=gte.${from}&work_date=lte.${to}&select=*`);
+  const out=new Map();
+  if(!Array.isArray(data))return out;
+  data.forEach(r=>{
+    const m=mapDbWorkHour(r);
+    if(!m.employeeId||!m.workDate)return;
+    if(!out.has(m.employeeId))out.set(m.employeeId,new Map());
+    out.get(m.employeeId).set(m.workDate,m);
+  });
+  return out;
+}
+
+/* Get current effective value (dirty override → DB row → defaults) */
+function _gridEffective(empId,ymd){
+  const dk=_gridDirtyKey(empId,ymd);
+  const db=gridState.rowsByEmpDate.get(empId)?.get(ymd);
+  if(gridState.dirty.has(dk)){
+    const d=gridState.dirty.get(dk);
+    return{
+      hours:d.hours!=null?d.hours:(db?.hours||0),
+      overtime_hours:d.overtime_hours!=null?d.overtime_hours:(db?.overtimeHours||0),
+      field_hours:d.field_hours!=null?d.field_hours:(db?.fieldHours||0),
+      absence_code:'absence_code' in d?d.absence_code:(db?.absenceCode||null)
+    };
+  }
+  return{
+    hours:db?.hours||0,overtime_hours:db?.overtimeHours||0,
+    field_hours:db?.fieldHours||0,absence_code:db?.absenceCode||null
+  };
+}
+
+/* Parse a cell text: returns {kind:'num',value} | {kind:'abs',code} | {kind:'empty'} | {kind:'err'} */
+function _gridParseCellText(raw){
+  const v=String(raw||'').trim().toLowerCase();
+  if(!v)return{kind:'empty'};
+  if(GRID_ABS_CODES.includes(v))return{kind:'abs',code:v};
+  /* Accept comma decimal separator */
+  const num=parseFloat(v.replace(',','.'));
+  if(isFinite(num)&&num>=0&&num<=24&&/^[0-9]+([.,][0-9]+)?$/.test(v))return{kind:'num',value:Math.round(num*100)/100};
+  return{kind:'err'};
+}
+
+function _gridFormatNum(n){
+  if(n==null||n===0)return '';
+  const r=Math.round(Number(n)*100)/100;
+  if(Number.isInteger(r))return String(r);
+  return String(r).replace(/0+$/,'').replace(/\.$/,'');
+}
+
+/* Update dirty cache for a single (empId,ymd,kind). kind = 'reg'|'ot'|'field' */
+function _gridApplyEdit(empId,ymd,kind,parsed){
+  const dk=_gridDirtyKey(empId,ymd);
+  /* Start from current effective, then mutate */
+  const eff=_gridEffective(empId,ymd);
+  const next={
+    hours:eff.hours,overtime_hours:eff.overtime_hours,
+    field_hours:eff.field_hours,absence_code:eff.absence_code
+  };
+  if(kind==='reg'){
+    if(parsed.kind==='abs'){
+      next.absence_code=parsed.code;
+      next.hours=0;            /* by spec, absence wipes regular hours */
+    }else if(parsed.kind==='num'){
+      next.absence_code=null;
+      next.hours=parsed.value;
+    }else if(parsed.kind==='empty'){
+      next.absence_code=null;
+      next.hours=0;
+    }
+  }else if(kind==='ot'){
+    next.overtime_hours=parsed.kind==='num'?parsed.value:0;
+  }else if(kind==='field'){
+    next.field_hours=parsed.kind==='num'?parsed.value:0;
+  }
+  gridState.dirty.set(dk,next);
+}
+
+function _gridDirtyCount(){return gridState.dirty.size;}
+function _gridUpdateDirtyBadge(){
+  const el=document.getElementById('gridDirtyCount');
+  const btn=document.getElementById('gridSaveAll');
+  const n=_gridDirtyCount();
+  if(el)el.textContent=n+' '+(n===1?'izmena':'izmena');
+  if(btn){
+    btn.disabled=!canEdit()||n===0||gridState.saving;
+    btn.style.opacity=btn.disabled?'0.55':'1';
+  }
+}
+
+function _gridFilteredEmployees(){
+  const company=document.getElementById('gridCompanyFilter')?.value||'';
+  return kadrovskaState.employees
+    .filter(e=>e.isActive)
+    .filter(e=>!company||e.department===company)
+    .sort((a,b)=>String(a.fullName||'').localeCompare(String(b.fullName||''),'sr'));
+}
+
+function _gridGroupedByDepartment(emps){
+  /* Stable order: Servoteh first, then HAP Fluid, then anything else alphabetically */
+  const order=['Servoteh','HAP Fluid'];
+  const groups=new Map();
+  emps.forEach(e=>{
+    const dep=e.department||'(Ostalo)';
+    if(!groups.has(dep))groups.set(dep,[]);
+    groups.get(dep).push(e);
+  });
+  const sorted=Array.from(groups.entries()).sort((a,b)=>{
+    const ai=order.indexOf(a[0]); const bi=order.indexOf(b[0]);
+    if(ai!==-1||bi!==-1){
+      if(ai===-1)return 1;
+      if(bi===-1)return -1;
+      return ai-bi;
+    }
+    return a[0].localeCompare(b[0],'sr');
+  });
+  return sorted;
+}
+
+function renderGrid(){
+  const wrap=document.getElementById('gridWrap');
+  const empty=document.getElementById('gridEmpty');
+  const badge=document.getElementById('kadrTabCountGrid');
+  if(!wrap)return;
+
+  const monthEl=document.getElementById('gridMonth');
+  if(!monthEl.value){
+    const t=new Date();
+    monthEl.value=String(t.getFullYear())+'-'+String(t.getMonth()+1).padStart(2,'0');
+  }
+  const yyyymm=monthEl.value;
+  gridState.monthKey=yyyymm;
+  const days=_gridDaysInMonth(yyyymm);
+
+  const emps=_gridFilteredEmployees();
+  if(badge)badge.textContent=String(emps.length);
+
+  if(emps.length===0){
+    wrap.innerHTML='';
+    if(empty)empty.style.display='block';
+    _gridRenderSummary(emps,days);
+    return;
+  }
+  if(empty)empty.style.display='none';
+
+  const groups=_gridGroupedByDepartment(emps);
+  const today=_gridIsoToday();
+  const totalCols=4+days.length+1; /* num + name + kind + (days) + sum */
+
+  /* Build header */
+  let html='<table class="grid-table"><thead>';
+  html+='<tr>';
+  html+='<th class="col-num" rowspan="2">#</th>';
+  html+='<th class="col-name" rowspan="2">Ime i prezime</th>';
+  html+='<th class="col-kind" rowspan="2">Tip</th>';
+  days.forEach(d=>{
+    const cls=['col-day'];
+    if(d.isWeekend)cls.push('cell-weekend');
+    if(d.ymd===today)cls.push('cell-today');
+    html+=`<th class="${cls.join(' ')}">${d.day}</th>`;
+  });
+  html+='<th class="col-sum" rowspan="2">Σ</th>';
+  html+='</tr>';
+  html+='<tr class="row-day-letter">';
+  days.forEach(d=>{
+    const cls=['col-day'];
+    if(d.isWeekend)cls.push('cell-weekend');
+    html+=`<th class="${cls.join(' ')}">${d.letter}</th>`;
+  });
+  html+='</tr></thead><tbody>';
+
+  /* Group rows */
+  let serialNo=0;
+  const editable=canEdit();
+  /* For per-day footer totals across whole grid */
+  const colTotals=days.map(()=>({reg:0,ot:0,field:0}));
+  let grandTot={reg:0,ot:0,field:0};
+
+  groups.forEach(([dep,list])=>{
+    html+=`<tr class="row-section"><td colspan="${totalCols}">${escHtml(dep)} (${list.length})</td></tr>`;
+    list.forEach(emp=>{
+      serialNo++;
+      const empId=escHtml(emp.id||'');
+      /* Per-emp sums */
+      let sReg=0,sOt=0,sField=0;
+      const cellsReg=[],cellsOt=[],cellsField=[];
+      days.forEach((d,di)=>{
+        const eff=_gridEffective(emp.id,d.ymd);
+        sReg+=Number(eff.hours||0);
+        sOt+=Number(eff.overtime_hours||0);
+        sField+=Number(eff.field_hours||0);
+        colTotals[di].reg+=Number(eff.hours||0);
+        colTotals[di].ot+=Number(eff.overtime_hours||0);
+        colTotals[di].field+=Number(eff.field_hours||0);
+
+        const dk=_gridDirtyKey(emp.id,d.ymd);
+        const isDirty=gridState.dirty.has(dk);
+        const dayBase=['col-day'];
+        if(d.isWeekend)dayBase.push('cell-weekend');
+        if(d.ymd===today)dayBase.push('cell-today');
+        if(isDirty)dayBase.push('cell-dirty');
+
+        /* REG cell value: if absence_code, render code; else number */
+        let regVal,regCls=['grid-cell'];
+        if(eff.absence_code){
+          regVal=eff.absence_code;
+          regCls.push('is-absence','abs-'+eff.absence_code);
+        }else{
+          regVal=_gridFormatNum(eff.hours);
+        }
+        cellsReg.push(`<td class="${dayBase.join(' ')}" data-emp="${empId}" data-ymd="${d.ymd}" data-kind="reg"><input class="${regCls.join(' ')}" type="text" value="${escHtml(regVal)}" maxlength="6" ${editable?'':'disabled'}></td>`);
+
+        const otCls=dayBase.slice();
+        cellsOt.push(`<td class="${otCls.join(' ')}" data-emp="${empId}" data-ymd="${d.ymd}" data-kind="ot"><input class="grid-cell" type="text" value="${escHtml(_gridFormatNum(eff.overtime_hours))}" maxlength="6" ${editable?'':'disabled'}></td>`);
+
+        const fieldCls=dayBase.slice();
+        cellsField.push(`<td class="${fieldCls.join(' ')}" data-emp="${empId}" data-ymd="${d.ymd}" data-kind="field"><input class="grid-cell" type="text" value="${escHtml(_gridFormatNum(eff.field_hours))}" maxlength="6" ${editable?'':'disabled'}></td>`);
+      });
+      grandTot.reg+=sReg; grandTot.ot+=sOt; grandTot.field+=sField;
+
+      html+=`<tr class="row-emp-1"><td class="col-num" rowspan="3">${serialNo}.</td><td class="col-name" rowspan="3">${escHtml(emp.fullName||'—')}</td><td class="col-kind">Redovni</td>${cellsReg.join('')}<td class="col-sum">${_gridFormatSum(sReg)}</td></tr>`;
+      html+=`<tr class="row-emp-2"><td class="col-kind">Prekov.</td>${cellsOt.join('')}<td class="col-sum">${_gridFormatSum(sOt)}</td></tr>`;
+      html+=`<tr class="row-emp-3"><td class="col-kind">Teren</td>${cellsField.join('')}<td class="col-sum">${_gridFormatSum(sField)}</td></tr>`;
+    });
+  });
+
+  /* Totals footer (Σ per day across all emps) — three rows for clarity */
+  const ftReg=colTotals.map((c,i)=>{
+    const cls=['col-day'];
+    if(days[i].isWeekend)cls.push('cell-weekend');
+    return `<td class="${cls.join(' ')}">${_gridFormatSum(c.reg)}</td>`;
+  }).join('');
+  const ftOt=colTotals.map((c,i)=>{
+    const cls=['col-day'];
+    if(days[i].isWeekend)cls.push('cell-weekend');
+    return `<td class="${cls.join(' ')}">${_gridFormatSum(c.ot)}</td>`;
+  }).join('');
+  const ftField=colTotals.map((c,i)=>{
+    const cls=['col-day'];
+    if(days[i].isWeekend)cls.push('cell-weekend');
+    return `<td class="${cls.join(' ')}">${_gridFormatSum(c.field)}</td>`;
+  }).join('');
+  html+=`<tr class="row-totals"><td class="col-num"></td><td class="col-name">UKUPNO</td><td class="col-kind">Redovni</td>${ftReg}<td class="col-sum">${_gridFormatSum(grandTot.reg)}</td></tr>`;
+  html+=`<tr class="row-totals"><td class="col-num"></td><td class="col-name"></td><td class="col-kind">Prekov.</td>${ftOt}<td class="col-sum">${_gridFormatSum(grandTot.ot)}</td></tr>`;
+  html+=`<tr class="row-totals"><td class="col-num"></td><td class="col-name"></td><td class="col-kind">Teren</td>${ftField}<td class="col-sum">${_gridFormatSum(grandTot.field)}</td></tr>`;
+
+  html+='</tbody></table>';
+  wrap.innerHTML=html;
+
+  /* Wire up cell handlers */
+  wrap.querySelectorAll('.grid-cell:not(:disabled)').forEach(inp=>{
+    inp.addEventListener('input',_gridOnCellInput);
+    inp.addEventListener('blur',_gridOnCellBlur);
+    inp.addEventListener('keydown',_gridOnCellKeydown);
+    inp.addEventListener('focus',function(){this.select();});
+  });
+
+  _gridUpdateDirtyBadge();
+  _gridRenderSummary(emps,days,grandTot);
+}
+
+function _gridFormatSum(n){
+  if(!n||n===0)return '0';
+  const r=Math.round(Number(n)*100)/100;
+  if(Number.isInteger(r))return String(r);
+  return r.toFixed(2).replace(/0+$/,'').replace(/\.$/,'');
+}
+
+function _gridRenderSummary(emps,days,gt){
+  const company=document.getElementById('gridCompanyFilter')?.value||'';
+  let g=gt;
+  if(!g){
+    g={reg:0,ot:0,field:0};
+    emps.forEach(e=>{
+      days.forEach(d=>{
+        const eff=_gridEffective(e.id,d.ymd);
+        g.reg+=Number(eff.hours||0); g.ot+=Number(eff.overtime_hours||0); g.field+=Number(eff.field_hours||0);
+      });
+    });
+  }
+  _kadrRenderSummary('gridSummary',[
+    {label:'Aktivnih radnika',value:emps.length,tone:'accent'},
+    {label:'Firma (filter)',value:company||'Sve',tone:'muted'},
+    {label:'Mesec',value:gridState.monthKey||'—',tone:'muted'},
+    {label:'Σ Redovni',value:_gridFormatSum(g.reg),tone:'accent'},
+    {label:'Σ Prekov.',value:_gridFormatSum(g.ot),tone:g.ot>0?'warn':'muted'},
+    {label:'Σ Teren',value:_gridFormatSum(g.field),tone:'ok'},
+    {label:'Izmena za snimanje',value:_gridDirtyCount(),tone:_gridDirtyCount()>0?'warn':'muted'}
+  ]);
+}
+
+/* ─── CELL HANDLERS ─── */
+function _gridOnCellInput(e){
+  const td=e.target.closest('td');
+  if(!td)return;
+  const empId=td.dataset.emp, ymd=td.dataset.ymd, kind=td.dataset.kind;
+  if(!empId||!ymd)return;
+  const parsed=_gridParseCellText(e.target.value);
+  td.classList.remove('cell-error');
+  /* Always mark dirty on change vs current effective; cheaper: just mark */
+  td.classList.add('cell-dirty');
+  if(parsed.kind==='err'){
+    td.classList.add('cell-error');
+    e.target.title='Nevažeća vrednost: koristi broj 0–24 ili oznaku '+GRID_ABS_CODES.join('/');
+    return;
+  }
+  e.target.title='';
+  /* Refresh absence pill class on REG cell */
+  if(kind==='reg'){
+    e.target.classList.remove('is-absence','abs-go','abs-bo','abs-sp','abs-np','abs-sl','abs-pr');
+    if(parsed.kind==='abs'){
+      e.target.classList.add('is-absence','abs-'+parsed.code);
+    }
+  }
+  _gridApplyEdit(empId,ymd,kind,parsed);
+  _gridUpdateDirtyBadge();
+  _gridRefreshSums(empId);
+}
+function _gridOnCellBlur(e){
+  const td=e.target.closest('td');
+  if(!td)return;
+  const parsed=_gridParseCellText(e.target.value);
+  if(parsed.kind==='err')return;
+  /* Normalize displayed value */
+  if(parsed.kind==='num'){e.target.value=_gridFormatNum(parsed.value);}
+  else if(parsed.kind==='abs'){e.target.value=parsed.code;}
+  else{e.target.value='';}
+}
+function _gridOnCellKeydown(e){
+  const k=e.key;
+  if(!['Tab','Enter','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(k))return;
+  /* Don't hijack normal Tab — default focus advance handles Tab/Shift+Tab */
+  if(k==='Tab')return;
+  e.preventDefault();
+  const td=e.target.closest('td');
+  if(!td)return;
+  const tr=td.parentElement;
+  const cellIdx=Array.prototype.indexOf.call(tr.children,td);
+  let target=null;
+  if(k==='ArrowLeft')target=tr.children[cellIdx-1]?.querySelector?.('input.grid-cell');
+  else if(k==='ArrowRight'||k==='Enter')target=tr.children[cellIdx+1]?.querySelector?.('input.grid-cell');
+  else if(k==='ArrowUp'||k==='ArrowDown'){
+    const dir=k==='ArrowUp'?-1:1;
+    let row=tr;
+    for(let safety=0;safety<200;safety++){
+      row=dir>0?row.nextElementSibling:row.previousElementSibling;
+      if(!row)break;
+      const cell=row.children[cellIdx];
+      const inp=cell?.querySelector?.('input.grid-cell:not(:disabled)');
+      if(inp){target=inp;break;}
+    }
+  }
+  if(target&&target.focus)target.focus();
+}
+
+/* Live re-sum sums for a single employee without full re-render */
+function _gridRefreshSums(empId){
+  const wrap=document.getElementById('gridWrap');
+  if(!wrap)return;
+  const days=_gridDaysInMonth(gridState.monthKey);
+  let sReg=0,sOt=0,sField=0;
+  days.forEach(d=>{
+    const eff=_gridEffective(empId,d.ymd);
+    sReg+=Number(eff.hours||0);
+    sOt+=Number(eff.overtime_hours||0);
+    sField+=Number(eff.field_hours||0);
+  });
+  /* Find the 3 sub-rows for this emp by data-emp on first day cell */
+  const probe=wrap.querySelector(`td[data-emp="${empId}"][data-ymd="${days[0]?.ymd}"][data-kind="reg"]`);
+  const trReg=probe?.parentElement;
+  if(!trReg)return;
+  const trOt=trReg.nextElementSibling;
+  const trField=trOt?.nextElementSibling;
+  const sumReg=trReg.querySelector('.col-sum');
+  const sumOt=trOt?.querySelector('.col-sum');
+  const sumField=trField?.querySelector('.col-sum');
+  if(sumReg)sumReg.textContent=_gridFormatSum(sReg);
+  if(sumOt)sumOt.textContent=_gridFormatSum(sOt);
+  if(sumField)sumField.textContent=_gridFormatSum(sField);
+}
+
+/* ─── BATCH SAVE ─── */
+async function saveAllGrid(){
+  if(!canEdit()){showToast('⚠ Samo PM/LeadPM može da snima');return;}
+  if(gridState.saving)return;
+  if(_gridDirtyCount()===0)return;
+  if(!isOnline||!hasSupabaseConfig()){showToast('⚠ Offline — batch save zahteva Supabase');return;}
+  /* Validate first: any cell-error blocks the save */
+  const wrap=document.getElementById('gridWrap');
+  if(wrap?.querySelector('td.cell-error')){
+    showToast('⚠ Postoje nevažeće ćelije (crveno) — popravi pre snimanja');
+    return;
+  }
+  gridState.saving=true;
+  const btn=document.getElementById('gridSaveAll');
+  if(btn){btn.disabled=true;btn.textContent='💾 Snimanje…';}
+
+  /* Build upsert payload from dirty map */
+  const nowIso=new Date().toISOString();
+  const payload=[];
+  gridState.dirty.forEach((d,key)=>{
+    const [empId,ymd]=key.split('|');
+    const row={
+      employee_id:empId,
+      work_date:ymd,
+      hours:Number(d.hours||0),
+      overtime_hours:Number(d.overtime_hours||0),
+      field_hours:Number(d.field_hours||0),
+      absence_code:d.absence_code||null,
+      updated_at:nowIso
+    };
+    payload.push(row);
+  });
+
+  let savedCount=0;
+  try{
+    /* PostgREST upsert via Prefer: resolution=merge-duplicates (already set in sbReq POST) */
+    const res=await sbReq('work_hours?on_conflict=employee_id,work_date','POST',payload);
+    if(!res){
+      showToast('⚠ Supabase batch upsert nije uspeo — proveri migraciju add_attendance_grid.sql');
+      return;
+    }
+    savedCount=Array.isArray(res)?res.length:payload.length;
+    /* Update local rowsByEmpDate from response */
+    if(Array.isArray(res)){
+      res.forEach(r=>{
+        const m=mapDbWorkHour(r);
+        if(!m.employeeId||!m.workDate)return;
+        if(!gridState.rowsByEmpDate.has(m.employeeId))gridState.rowsByEmpDate.set(m.employeeId,new Map());
+        gridState.rowsByEmpDate.get(m.employeeId).set(m.workDate,m);
+      });
+    }
+    gridState.dirty.clear();
+    showToast('✅ Sačuvano '+savedCount+' '+(savedCount===1?'izmena':'izmena'));
+    renderGrid();
+  }catch(e){
+    console.error('[grid] batch save error',e);
+    showToast('⚠ Greška pri snimanju — vidi konzolu');
+  }finally{
+    gridState.saving=false;
+    if(btn){btn.textContent='💾 Sačuvaj sve izmene';}
+    _gridUpdateDirtyBadge();
+  }
+}
+
+/* ─── MONTH CHANGE ─── */
+async function onGridMonthChange(){
+  if(_gridDirtyCount()>0){
+    if(!confirm('Imaš nesačuvanih izmena. Promena meseca će ih odbaciti. Nastaviti?')){
+      const monthEl=document.getElementById('gridMonth');
+      if(monthEl)monthEl.value=gridState.monthKey;
+      return;
+    }
+    gridState.dirty.clear();
+  }
+  const monthEl=document.getElementById('gridMonth');
+  const yyyymm=monthEl?.value||'';
+  if(!yyyymm)return;
+  document.getElementById('gridWrap').innerHTML='<div style="padding:30px;color:var(--text3);font-size:12px;text-align:center">Učitavanje '+escHtml(yyyymm)+'…</div>';
+  gridState.rowsByEmpDate=await loadGridMonth(yyyymm);
+  gridState.monthKey=yyyymm;
+  gridState.loaded=true;
+  renderGrid();
+}
+
+/* ─── EXCEL EXPORT (mimics 03. Mart layout) ─── */
+function exportGridToXlsx(){
+  if(typeof XLSX==='undefined'){showToast('⏳ XLSX biblioteka se učitava…');setTimeout(exportGridToXlsx,400);return;}
+  const yyyymm=gridState.monthKey||document.getElementById('gridMonth')?.value;
+  if(!yyyymm){showToast('⚠ Nema izabranog meseca');return;}
+  const days=_gridDaysInMonth(yyyymm);
+  const emps=_gridFilteredEmployees();
+  if(emps.length===0){showToast('⚠ Nema radnika za izvoz');return;}
+  const groups=_gridGroupedByDepartment(emps);
+  const monthLabel=(function(){
+    const [y,m]=yyyymm.split('-');
+    const names=['Januar','Februar','Mart','April','Maj','Jun','Jul','Avgust','Septembar','Oktobar','Novembar','Decembar'];
+    return (names[parseInt(m,10)-1]||m).toUpperCase()+' '+y;
+  })();
+
+  /* Build AOA */
+  const aoa=[];
+  /* Title row */
+  const titleRow=[monthLabel].concat(new Array(days.length+3).fill(''));
+  aoa.push(titleRow);
+  aoa.push([]); /* empty separator */
+  /* Header row 1 */
+  const hdr1=['#','Ime i prezime','Tip'].concat(days.map(d=>d.day)).concat(['Σ']);
+  aoa.push(hdr1);
+  /* Header row 2 (day letters) */
+  const hdr2=['','',''].concat(days.map(d=>d.letter)).concat(['']);
+  aoa.push(hdr2);
+
+  let serialNo=0;
+  let grand={reg:0,ot:0,field:0};
+  const colTotals=days.map(()=>({reg:0,ot:0,field:0}));
+
+  groups.forEach(([dep,list])=>{
+    const sectionRow=[`${dep} (${list.length})`].concat(new Array(days.length+3).fill(''));
+    aoa.push(sectionRow);
+    list.forEach(emp=>{
+      serialNo++;
+      let sR=0,sO=0,sF=0;
+      const rowR=[serialNo+'.',emp.fullName||'—','Redovni'];
+      const rowO=['','','Prekov.'];
+      const rowF=['','','Teren'];
+      days.forEach((d,i)=>{
+        const eff=_gridEffective(emp.id,d.ymd);
+        if(eff.absence_code){rowR.push(eff.absence_code.toUpperCase());}
+        else{rowR.push(eff.hours||'');}
+        rowO.push(eff.overtime_hours||'');
+        rowF.push(eff.field_hours||'');
+        sR+=Number(eff.hours||0); sO+=Number(eff.overtime_hours||0); sF+=Number(eff.field_hours||0);
+        colTotals[i].reg+=Number(eff.hours||0);
+        colTotals[i].ot+=Number(eff.overtime_hours||0);
+        colTotals[i].field+=Number(eff.field_hours||0);
+      });
+      grand.reg+=sR; grand.ot+=sO; grand.field+=sF;
+      rowR.push(sR||0); rowO.push(sO||0); rowF.push(sF||0);
+      aoa.push(rowR); aoa.push(rowO); aoa.push(rowF);
+    });
+  });
+  /* Totals */
+  aoa.push([]);
+  aoa.push(['','UKUPNO','Redovni'].concat(colTotals.map(c=>c.reg||0)).concat([grand.reg||0]));
+  aoa.push(['','','Prekov.'].concat(colTotals.map(c=>c.ot||0)).concat([grand.ot||0]));
+  aoa.push(['','','Teren'].concat(colTotals.map(c=>c.field||0)).concat([grand.field||0]));
+
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  /* Column widths */
+  ws['!cols']=[{wch:5},{wch:26},{wch:9}].concat(days.map(()=>({wch:4}))).concat([{wch:7}]);
+  /* Title merge across all columns */
+  ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:days.length+3}}];
+
+  const wb=XLSX.utils.book_new();
+  const sheetName=monthLabel.length>31?monthLabel.slice(0,31):monthLabel;
+  XLSX.utils.book_append_sheet(wb,ws,sheetName);
+  const fname='Sati_'+yyyymm+'.xlsx';
+  XLSX.writeFile(wb,fname);
+  showToast('📊 Izvezeno: '+fname);
+}
+
+/* ─── PUBLIC ENTRYPOINT (called from switchKadrovskaTab) ─── */
+async function ensureGridReady(){
+  /* Make sure month picker has a value */
+  const monthEl=document.getElementById('gridMonth');
+  if(monthEl&&!monthEl.value){
+    const t=new Date();
+    monthEl.value=String(t.getFullYear())+'-'+String(t.getMonth()+1).padStart(2,'0');
+  }
+  const wantMonth=monthEl?.value||'';
+  /* If already loaded for same month, just rerender (cheap) */
+  if(gridState.loaded&&gridState.monthKey===wantMonth){
+    renderGrid();
+    return;
+  }
+  document.getElementById('gridWrap').innerHTML='<div style="padding:30px;color:var(--text3);font-size:12px;text-align:center">Učitavanje '+escHtml(wantMonth)+'…</div>';
+  gridState.rowsByEmpDate=await loadGridMonth(wantMonth);
+  gridState.monthKey=wantMonth;
+  gridState.loaded=true;
+  renderGrid();
 }
 
 /* ═══ Module hub routing ═══ */
