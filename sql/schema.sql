@@ -103,6 +103,28 @@ CREATE TABLE reminder_log (
 CREATE INDEX idx_reminder_project ON reminder_log(project_id);
 CREATE INDEX idx_reminder_phase ON reminder_log(phase_id);
 
+-- EMPLOYEES (Kadrovska module — v5.1)
+CREATE TABLE IF NOT EXISTS employees (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  full_name   TEXT NOT NULL,
+  position    TEXT DEFAULT '',
+  department  TEXT DEFAULT '',
+  phone       TEXT DEFAULT '',
+  email       TEXT DEFAULT '',
+  hire_date   DATE,
+  is_active   BOOLEAN DEFAULT true,
+  note        TEXT DEFAULT '',
+  created_at  TIMESTAMPTZ DEFAULT now(),
+  updated_at  TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_employees_name       ON employees(lower(full_name));
+CREATE INDEX IF NOT EXISTS idx_employees_department ON employees(department);
+CREATE INDEX IF NOT EXISTS idx_employees_position   ON employees(position);
+CREATE INDEX IF NOT EXISTS idx_employees_active     ON employees(is_active);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_employees_email
+  ON employees(lower(email))
+  WHERE email IS NOT NULL AND email <> '';
+
 -- ═══════════════════════════════════════════════════════════
 -- UPDATED_AT TRIGGER (auto-update timestamp)
 -- ═══════════════════════════════════════════════════════════
@@ -117,6 +139,8 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER trg_projects_updated BEFORE UPDATE ON projects FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trg_wp_updated BEFORE UPDATE ON work_packages FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trg_phases_updated BEFORE UPDATE ON phases FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS trg_employees_updated ON employees;
+CREATE TRIGGER trg_employees_updated BEFORE UPDATE ON employees FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- ═══════════════════════════════════════════════════════════
 -- ROW LEVEL SECURITY (RLS)
@@ -126,6 +150,7 @@ ALTER TABLE work_packages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE phases ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_roles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reminder_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE employees ENABLE ROW LEVEL SECURITY;
 
 -- Helper: check if current user has edit role
 CREATE OR REPLACE FUNCTION has_edit_role(proj_id UUID DEFAULT NULL)
@@ -181,3 +206,9 @@ CREATE POLICY "roles_manage" ON user_roles FOR ALL TO authenticated USING (
 CREATE POLICY "reminder_select" ON reminder_log FOR SELECT TO authenticated USING (true);
 CREATE POLICY "reminder_insert" ON reminder_log FOR INSERT TO authenticated WITH CHECK (has_edit_role(project_id));
 CREATE POLICY "reminder_update" ON reminder_log FOR UPDATE TO authenticated USING (has_edit_role(project_id)) WITH CHECK (has_edit_role(project_id));
+
+-- EMPLOYEES (Kadrovska): everyone auth can read, PM/LeadPM can write
+CREATE POLICY "employees_select" ON employees FOR SELECT TO authenticated USING (true);
+CREATE POLICY "employees_insert" ON employees FOR INSERT TO authenticated WITH CHECK (has_edit_role());
+CREATE POLICY "employees_update" ON employees FOR UPDATE TO authenticated USING (has_edit_role()) WITH CHECK (has_edit_role());
+CREATE POLICY "employees_delete" ON employees FOR DELETE TO authenticated USING (has_edit_role());
