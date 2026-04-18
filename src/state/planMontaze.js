@@ -36,6 +36,8 @@ export const planMontazeState = {
   activeView: 'plan',
   /** Filtrovani indeksi faza ili null. */
   filteredIndices: null,
+  /** Vrednosti svih filter polja (čuvaju se kroz rerender tbody-ja). */
+  filterValues: {},
   /** Async race protection za switchProject. */
   activeProjectLoadToken: 0,
   /** Save debouncing timers. */

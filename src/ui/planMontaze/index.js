@@ -26,13 +26,14 @@ import {
   ensureLocationColorsForProjects,
   ensurePeopleFromProjects,
   getActiveProject,
-  getActiveWP,
   setActiveView,
 } from '../../state/planMontaze.js';
 import { fetchAllProjectsHierarchy } from '../../services/plan.js';
 import { planHeaderHtml, viewTabsHtml } from './shared.js';
 import { projectBarHtml, wpTabsHtml, wireProjectBar } from './projectBar.js';
 import { openProjectMetaModal, openWpMetaModal } from './metaModals.js';
+import { planSectionHtml, wirePlanSection } from './planTable.js';
+import { reminderZoneHtml } from './reminderZone.js';
 
 let _mountEl = null;
 let _onLogoutCb = null;
@@ -100,12 +101,20 @@ function _renderShell() {
   _wireHeader();
   _wireToolbar();
   _wireViewTabs();
+  _wireBody();
 }
 
-/** Privremeni placeholder body — biće zamenjen u F5.1.b / F5.3 / F5.4. */
+function _wireBody() {
+  const body = _mountEl.querySelector('#planBody');
+  if (!body) return;
+  if (planMontazeState.activeView === 'plan') {
+    wirePlanSection(body, { onChange: () => _renderShell() });
+  }
+}
+
+/** Body za aktivni view: plan / gantt / total. */
 function _planBodyHtml() {
   const p = getActiveProject();
-  const wp = getActiveWP();
   if (!p) {
     return `
       <div class="form-card">
@@ -115,29 +124,29 @@ function _planBodyHtml() {
     `;
   }
   const view = planMontazeState.activeView;
-  const viewLabel = { plan: 'Plan tabela', gantt: 'Gantogram', total: 'Ukupan Gant' }[view] || 'Plan';
-  return `
-    <div class="form-card">
-      <h3>📋 ${viewLabel} — ${escapeText(p.code + ' / ' + p.name)}${wp ? ' / ' + escapeText(wp.name) : ''}</h3>
-      <p class="form-hint">
-        Aktivni pogled: <strong>${viewLabel}</strong>. Sledeća pod-faza migracije
-        donosi punu tabelu / gantogram (F5.1.b → F5.4).
-      </p>
-      <ul class="form-hint" style="line-height:1.8;margin-top:8px">
-        <li><strong>Projekat:</strong> ${escapeText(p.code)} — ${escapeText(p.name)}</li>
-        <li><strong>Pozicija:</strong> ${wp ? escapeText(wp.name) + ' (' + escapeText(wp.rnCode) + ')' : '<em>nema aktivne</em>'}</li>
-        <li><strong>Faza:</strong> ${wp?.phases?.length || 0}</li>
-        <li><strong>Lokacija WP-a:</strong> ${wp ? escapeText(wp.location || '—') : '—'}</li>
-        <li><strong>Default inženjer:</strong> ${wp ? escapeText(wp.defaultEngineer || '—') : '—'}</li>
-        <li><strong>Default vođa:</strong> ${wp ? escapeText(wp.defaultLead || '—') : '—'}</li>
-      </ul>
-    </div>
-  `;
-}
-
-function escapeText(s) {
-  return String(s == null ? '' : s)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  if (view === 'plan') {
+    return `
+      ${reminderZoneHtml()}
+      ${planSectionHtml()}
+    `;
+  }
+  if (view === 'gantt') {
+    return `
+      <div class="form-card">
+        <h3>📊 Gantogram</h3>
+        <p class="form-hint">Gantogram će biti aktiviran u F5.3 (drag/resize, kolona-selekcija, boje po lokaciji).</p>
+      </div>
+    `;
+  }
+  if (view === 'total') {
+    return `
+      <div class="form-card">
+        <h3>🌐 Ukupan Gant</h3>
+        <p class="form-hint">Ukupan gant svih projekata + filteri stiže u F5.4.</p>
+      </div>
+    `;
+  }
+  return '';
 }
 
 function _wireHeader() {
