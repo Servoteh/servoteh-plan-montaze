@@ -39,12 +39,16 @@ import {
   renderContractsTab,
   wireContractsTab,
 } from './contractsTab.js';
+import {
+  renderGridTab,
+  wireGridTab,
+} from './gridTab.js';
 import { renderComingSoonTab } from './comingSoon.js';
 
 const TABS = [
   { id: 'employees', label: 'Zaposleni' },
   { id: 'absences', label: 'Odsustva' },
-  { id: 'grid', label: 'Mesečni grid', plannedPhase: 'F4.2' },
+  { id: 'grid', label: 'Mesečni grid' },
   { id: 'hours', label: 'Sati (pojedinačno)' },
   { id: 'contracts', label: 'Ugovori' },
   { id: 'reports', label: 'Izveštaji', plannedPhase: 'F4.3' },
@@ -129,6 +133,7 @@ function mountTabBody(id) {
   const tabImpl = {
     employees: { render: renderEmployeesTab, wire: wireEmployeesTab },
     absences: { render: renderAbsencesTab, wire: wireAbsencesTab },
+    grid: { render: renderGridTab, wire: wireGridTab },
     hours: { render: renderWorkHoursTab, wire: wireWorkHoursTab },
     contracts: { render: renderContractsTab, wire: wireContractsTab },
   };
