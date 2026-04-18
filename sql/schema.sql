@@ -54,6 +54,7 @@ CREATE TABLE phases (
   checks JSONB DEFAULT '[false,false,false,false,false,false,false,false]'::jsonb,
   blocker TEXT DEFAULT '',
   note TEXT DEFAULT '',
+  phase_type TEXT DEFAULT 'mechanical' CHECK (phase_type IN ('mechanical','electrical')),
   sort_order INT DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now(),
@@ -63,6 +64,7 @@ CREATE INDEX idx_phases_wp ON phases(work_package_id);
 CREATE INDEX idx_phases_project ON phases(project_id);
 CREATE INDEX idx_phases_status ON phases(status);
 CREATE INDEX idx_phases_start ON phases(start_date) WHERE start_date IS NOT NULL;
+CREATE INDEX idx_phases_phase_type ON phases(phase_type);
 
 -- USER ROLES
 CREATE TABLE user_roles (

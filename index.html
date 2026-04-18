@@ -327,6 +327,51 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); font
   background: var(--surface3); color: var(--text3); border-color: var(--border2);
 }
 
+/* ═══ PHASE TYPE (Mašinska / Elektro) ═══ */
+.phase-type-chip {
+  display: inline-flex; align-items: center; gap: 4px; font-family: var(--mono); font-size: 10px;
+  font-weight: 700; letter-spacing: 0.3px; border-radius: 6px; padding: 2px 7px; cursor: pointer;
+  border: 1px solid transparent; transition: all 0.15s; text-transform: uppercase;
+  flex-shrink: 0;
+}
+.phase-type-chip.pt-mech {
+  background: color-mix(in srgb, #8ab4ff 18%, var(--surface));
+  color: #8ab4ff;
+  border-color: color-mix(in srgb, #8ab4ff 45%, transparent);
+}
+.phase-type-chip.pt-elec {
+  background: color-mix(in srgb, #ffb45a 20%, var(--surface));
+  color: #ffb45a;
+  border-color: color-mix(in srgb, #ffb45a 50%, transparent);
+}
+.phase-type-chip:hover { filter: brightness(1.12); }
+.phase-type-chip[disabled] { cursor: default; opacity: 0.75; }
+.phase-type-chip .pt-ic { font-size: 10px; }
+
+/* ═══ GANTT: "Prikaži završene" toggle ═══ */
+.gantt-toggle-bar {
+  display: flex; align-items: center; gap: 12px; padding: 8px 14px; margin: 0 0 6px 0;
+  background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius);
+  font-size: 11px; color: var(--text2); flex-wrap: wrap;
+}
+.gantt-toggle-bar label.toggle-inline {
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;
+  padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border2);
+  background: var(--surface); transition: all 0.15s;
+}
+.gantt-toggle-bar label.toggle-inline:hover { border-color: var(--accent); color: var(--text); }
+.gantt-toggle-bar input[type="checkbox"] { accent-color: var(--accent); cursor: pointer; }
+.gantt-legend { display: inline-flex; gap: 10px; margin-left: auto; font-size: 10px; color: var(--text3); }
+.gantt-legend .leg-dot { display: inline-flex; align-items: center; gap: 4px; }
+.gantt-legend .leg-swatch { width: 16px; height: 10px; border-radius: 2px; display: inline-block; border: 1px solid var(--border2); }
+.gantt-legend .leg-swatch.leg-mech { background: linear-gradient(rgba(0,0,0,0.18), rgba(0,0,0,0.18)), #4da3ff; }
+.gantt-legend .leg-swatch.leg-elec {
+  background-image:
+    linear-gradient(rgba(255,255,255,0.22), rgba(255,255,255,0.22)),
+    repeating-linear-gradient(135deg, rgba(255,255,255,0.35) 0 2px, transparent 2px 6px);
+  background-color: #4da3ff;
+}
+
 /* ═══ MACHINE TABS ═══ */
 .machine-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border2); background: var(--surface); overflow-x: auto; }
 .machine-tab { padding: 10px 22px; cursor: pointer; font-size: 12px; font-weight: 600; color: var(--text3); border-bottom: 2px solid transparent; white-space: nowrap; transition: all 0.15s; border-right: 1px solid var(--border); letter-spacing: 0.1px; }
@@ -523,6 +568,17 @@ textarea.note-area:focus { border-color: var(--accent); box-shadow: 0 0 0 2px va
 .gantt-cell.wknd { background: var(--gantt-wknd); }
 .gantt-cell.today-col { background: var(--gantt-today); }
 .gantt-cell.bar-phase,.gantt-cell.bar-phase-start,.gantt-cell.bar-phase-end { background: var(--accent); }
+/* ── Phase type tiers on Gantt bars (not mixed with status colors) ──
+   - Mašinska → darker overlay (darker tier)
+   - Elektro  → lighter overlay + thin diagonal pattern for clarity */
+.gantt-cell.bar-phase.bar-mech, .gantt-cell.bar-phase-start.bar-mech, .gantt-cell.bar-phase-end.bar-mech {
+  background-image: linear-gradient(rgba(0,0,0,0.18), rgba(0,0,0,0.18));
+}
+.gantt-cell.bar-phase.bar-elec, .gantt-cell.bar-phase-start.bar-elec, .gantt-cell.bar-phase-end.bar-elec {
+  background-image:
+    linear-gradient(rgba(255,255,255,0.22), rgba(255,255,255,0.22)),
+    repeating-linear-gradient(135deg, rgba(255,255,255,0.28) 0 2px, transparent 2px 6px);
+}
 .gantt-row:hover .bar-phase,.gantt-row:hover .bar-phase-start,.gantt-row:hover .bar-phase-end { filter: brightness(1.12); }
 .gantt-row:hover td { background: var(--row-hover); }
 .gantt-row-risk td.gantt-label { border-left: 3px solid var(--risk-med); }
@@ -861,6 +917,12 @@ tr.row-finished td { color: var(--text3); }
 /* ═══ PRINT ═══ */
 @media print {
   @page { size: A4 portrait; margin: 10mm; }
+  /* Force browsers to render background colors (fixes Gantt bars lost in PDF export) */
+  html, body, *, *::before, *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
   /* Isključi sve animacije/tranzicije/shadow-e — ubrzava paint u Chrome print preview-u */
   *, *::before, *::after {
     transition: none !important;
@@ -927,7 +989,21 @@ tr.row-finished td { color: var(--text3); }
   .gantt-day-hdr { background: #f0f0f0 !important; color: #000 !important; }
   .gantt-day-hdr.today-col, .gantt-cell.today-col { background: #ddecff !important; color: #000 !important; }
   .gantt-day-hdr.wknd, .gantt-cell.wknd { background: #f5f5f5 !important; color: #555 !important; }
-  .gantt-cell.bar-phase, .gantt-cell.bar-phase-start, .gantt-cell.bar-phase-end { background: #444 !important; }
+  /* FIX: Preserve the inline location-color background on Gantt bars during print/PDF export.
+     We intentionally do NOT override the background here (previously forced #444).
+     -webkit-print-color-adjust: exact (set globally above) ensures background colors are rendered. */
+  .gantt-cell.bar-phase, .gantt-cell.bar-phase-start, .gantt-cell.bar-phase-end {
+    border-color: rgba(0,0,0,0.25) !important;
+  }
+  /* Pattern fallback: guarantees Mašinska vs Elektro is distinguishable even in B/W prints.
+     Electrical bars get diagonal stripes, mechanical stays solid. */
+  .gantt-cell.bar-elec.bar-phase, .gantt-cell.bar-elec.bar-phase-start, .gantt-cell.bar-elec.bar-phase-end {
+    background-image: repeating-linear-gradient(135deg, rgba(255,255,255,0.55) 0 2px, transparent 2px 6px) !important;
+  }
+  .gantt-cell.bar-mech.bar-phase, .gantt-cell.bar-mech.bar-phase-start, .gantt-cell.bar-mech.bar-phase-end {
+    /* mechanical: slightly darker overlay (solid) */
+    background-image: linear-gradient(rgba(0,0,0,0.12), rgba(0,0,0,0.12)) !important;
+  }
   .gantt-row { page-break-inside: avoid; }
   .gantt-label-sub, .gantt-label-status, .gantt-label-name { color: #000 !important; }
   .gantt-machine-hdr td { background: #e4e4e4 !important; color: #000 !important; border-top: 2px solid #888 !important; }
@@ -1208,12 +1284,14 @@ td.td-loc .loc-select { border-left: 3px solid transparent; }
   </div>
 
   <div id="view-gantt" class="view-section">
+    <div class="gantt-toggle-bar" id="ganttToggleBar"></div>
     <div class="gantt-wrap" id="ganttWrap"></div>
   </div>
 
   <div id="view-total" class="view-section">
     <div class="total-gantt-filters" id="totalGanttFilters"></div>
     <div class="gantt-machine-filter" id="ganttWpFilter"></div>
+    <div class="gantt-toggle-bar" id="totalGanttToggleBar"></div>
     <div class="gantt-wrap" id="totalGanttWrap"></div>
   </div>
 </div>
@@ -1320,8 +1398,68 @@ td.td-loc .loc-select { border-left: 3px solid transparent; }
 /* ── CONSTANTS ── */
 const DEFAULT_PHASES=["Montaža agregata","Elektro montaža agregata","Montaža postolja prese sa cilindrima","Montaža agregata na lokaciji naručioca","Povezivanje agregata sa cilindrima","Montaža na batu","Elektro montaža bata","Kompletiranje tela prese","Montaža ruke podmazivanja","Elektro montaža ruke podmazivanja","Montaža ruke podmazivanja (2)","Postavljanje robota","Postavljanje agregata podmazivanja","Postavljanje kanalica","Elektro povezivanje kompletne prese"];
 const STATUSES=["Nije počelo","U toku","Završeno","Na čekanju"];
-const VODJA=["","Miloš Oreščanin","Vladan Radivojević","Stefan Mirić","Slaviša Babić","Goran Mlađenović"];
-const ENGINEERS=["","Dejan Ćirković","Đorđe Arsić","Igor Voštić","Jovan Papić","Luka Talović","Marko Stojanović","Milan Milovanović","Milan Stojadinović","Milorad Jerotić","Nebojša Milošević","Nikola Aksentijević","Pavle Ilić","Slaviša Radosavljević","Tatjana Gnjidić","Vladan Pavlović","Vuk Radivojević"];
+const VODJA_DEFAULT=["","Miloš Oreščanin","Vladan Radivojević","Stefan Mirić","Slaviša Babić","Goran Mlađenović"];
+const ENGINEERS_DEFAULT=["","Dejan Ćirković","Đorđe Arsić","Igor Voštić","Jovan Papić","Luka Talović","Marko Stojanović","Milan Milovanović","Milan Stojadinović","Milorad Jerotić","Nebojša Milošević","Nikola Aksentijević","Pavle Ilić","Slaviša Radosavljević","Tatjana Gnjidić","Vladan Pavlović","Vuk Radivojević"];
+const LEAD_KEY='plan_montaze_leads_v1';
+const ENG_KEY='plan_montaze_engineers_v1';
+function _loadPersonList(key,defaults){
+  try{const raw=localStorage.getItem(key);if(raw){const arr=JSON.parse(raw);if(Array.isArray(arr)){const merged=defaults.slice();arr.forEach(v=>{const s=String(v||'').trim();if(!s)return;if(!merged.some(x=>String(x).trim().toLowerCase()===s.toLowerCase()))merged.push(s);});return merged;}}}catch(e){}
+  return defaults.slice();
+}
+function _persistPersonList(key,list){try{const extras=list.filter(v=>v&&!list.slice(0,1).includes(v));localStorage.setItem(key,JSON.stringify(list));}catch(e){}}
+let VODJA=_loadPersonList(LEAD_KEY,VODJA_DEFAULT);
+let ENGINEERS=_loadPersonList(ENG_KEY,ENGINEERS_DEFAULT);
+function addEngineerName(name){
+  const n=String(name||'').trim();if(!n)return null;
+  const existing=ENGINEERS.find(v=>String(v).trim().toLowerCase()===n.toLowerCase());
+  if(existing)return existing;
+  ENGINEERS.push(n);_persistPersonList(ENG_KEY,ENGINEERS);return n;
+}
+function addLeadName(name){
+  const n=String(name||'').trim();if(!n)return null;
+  const existing=VODJA.find(v=>String(v).trim().toLowerCase()===n.toLowerCase());
+  if(existing)return existing;
+  VODJA.push(n);_persistPersonList(LEAD_KEY,VODJA);return n;
+}
+/* Unified handler for person <select>: detects the "__add__" sentinel, prompts for a new name,
+   adds it to the appropriate list and updates the phase.
+   The caller is expected to have wired this onchange into the row select. */
+function handlePersonSelectChange(el,i,field){
+  const kind=(field==='engineer')?'odg. inženjera':'vođu montaže';
+  if(el.value==='__add__'){
+    const raw=prompt('Unesi ime novog '+kind+':','');
+    const name=(raw||'').trim();
+    if(!name){ el.value=getPhases()[i][field]||''; return; }
+    const added=(field==='engineer')?addEngineerName(name):addLeadName(name);
+    if(added){ update(i,field,added); showToast('✅ '+kind+' dodato'); }
+    else { el.value=getPhases()[i][field]||''; }
+    return;
+  }
+  update(i,field,el.value);
+}
+/* Handler for WP meta form (default engineer/lead dropdowns) */
+function handleWpPersonSelectChange(el,field){
+  const wp=getWP();if(!wp)return;
+  if(el.value==='__add__'){
+    const kind=(field==='defaultEngineer')?'odg. inženjera':'vođu montaže';
+    const raw=prompt('Unesi ime novog '+kind+':','');
+    const name=(raw||'').trim();
+    if(!name){ el.value=wp[field]||''; return; }
+    const added=(field==='defaultEngineer')?addEngineerName(name):addLeadName(name);
+    if(added){ updateWpField(field,added); showToast('✅ '+kind+' dodato'); editWpMeta(); }
+    else { el.value=wp[field]||''; }
+    return;
+  }
+  updateWpField(field,el.value);
+}
+/* Build <select>...</select> options with a trailing "+ Dodaj novog..." sentinel */
+function personOptionsHtml(list,currentValue){
+  const cur=String(currentValue||'');
+  let has=false;
+  const opts=list.map(v=>{const sel=(v===cur);if(sel)has=true;return `<option value="${escHtml(v)}" ${sel?'selected':''}>${escHtml(v)||'—'}</option>`;}).join('');
+  const unknownOpt=(cur&&!has)?`<option value="${escHtml(cur)}" selected>${escHtml(cur)}</option>`:'';
+  return unknownOpt+opts+'<option value="__add__" style="font-weight:600;color:var(--accent)">➕ Dodaj novog…</option>';
+}
 const CHECK_LABELS=["Montažni crteži","Mašinske komponente","Gotova roba","Vijčana roba","Električni materijal","Alati / oprema","Termin potvrđen","Dostupna ekipa"];
 const CHECK_SHORT=['Crteži','Mašin.','Got.rob','Vijci','Elektro','Alati','Termin','Ekipa'];
 const NUM_CHECKS=CHECK_LABELS.length;
@@ -1373,14 +1511,52 @@ let activeProjectLoadToken=0;
 const selectedDateIndices={gantt:new Set(),total:new Set()};
 let lastSelectedDateIndex={gantt:null,total:null};
 let totalGanttFilters={loc:'',lead:'',engineer:'',projectId:'',dateFrom:'',dateTo:''};
+/* Toggle "Prikaži završene faze" u Gantu (persist u localStorage). Default: false (postojeće ponašanje). */
+const GANTT_SHOW_DONE_KEY='plan_montaze_gantt_show_done_v1';
+let showFinishedInGantt=(function(){try{return localStorage.getItem(GANTT_SHOW_DONE_KEY)==='1';}catch(e){return false;}})();
+function toggleShowFinishedInGantt(v){
+  showFinishedInGantt=!!v;
+  try{localStorage.setItem(GANTT_SHOW_DONE_KEY,showFinishedInGantt?'1':'0');}catch(e){}
+  renderGanttToggleBars();
+  if(activeView==='gantt')renderGantt();
+  if(activeView==='total'){renderTotalGantt();}
+}
+function renderGanttToggleBars(){
+  const html=`
+    <label class="toggle-inline" title="Uključuje faze sa statusom Završeno u prikaz Ganta">
+      <input type="checkbox" ${showFinishedInGantt?'checked':''} onchange="toggleShowFinishedInGantt(this.checked)">
+      <span>Prikaži završene faze</span>
+    </label>
+    <span class="gantt-legend" aria-hidden="true">
+      <span class="leg-dot"><span class="leg-swatch leg-mech"></span>Mašinska</span>
+      <span class="leg-dot"><span class="leg-swatch leg-elec"></span>Elektro</span>
+    </span>`;
+  const a=document.getElementById('ganttToggleBar');if(a)a.innerHTML=html;
+  const b=document.getElementById('totalGanttToggleBar');if(b)b.innerHTML=html;
+}
 let gantDrag=null; // {ri, wpId, projectId, mode:'move|start|end', originX, startISO, endISO, cellWidth, dayCount, startIdxInView, endIdxInView}
 let modelEditing=null; // {phaseId}
 
 /* ── HELPERS ── */
 function escHtml(s){if(s==null)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
-function formatDate(d){if(!d)return'';const dt=new Date(d);if(isNaN(dt))return'';return`${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}.${dt.getFullYear()}`;}
-function toIsoDate(d){if(!d)return null;const dt=new Date(d);return isNaN(dt)?null:dt.toISOString().split('T')[0];}
-function calcDuration(s,e){if(!s||!e)return null;const a=new Date(s),b=new Date(e);if(isNaN(a)||isNaN(b))return null;const d=Math.round((b-a)/864e5);return d<0?-1:d+1;}
+/* ─── DATE UTILS (fix: -1 day bug) ───
+   Dates are stored as 'YYYY-MM-DD' strings. `new Date('YYYY-MM-DD')` parses as UTC midnight,
+   which shifts by tz offset when reading with local getters. All date math and display
+   must go through parseDateLocal() so "the day the user picked" == "the day shown". */
+function parseDateLocal(s){
+  if(!s)return null;
+  if(s instanceof Date){if(isNaN(s))return null;return new Date(s.getFullYear(),s.getMonth(),s.getDate());}
+  const m=String(s).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(m){const d=new Date(+m[1], +m[2]-1, +m[3]);d.setHours(0,0,0,0);return d;}
+  const d=new Date(s);if(isNaN(d))return null;
+  return new Date(d.getFullYear(),d.getMonth(),d.getDate());
+}
+function formatYMD(y,m,d){return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;}
+function dateToYMD(dt){if(!(dt instanceof Date)||isNaN(dt))return null;return formatYMD(dt.getFullYear(),dt.getMonth(),dt.getDate());}
+function formatDate(d){const dt=parseDateLocal(d);if(!dt)return'';return`${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}.${dt.getFullYear()}`;}
+function toIsoDate(d){const dt=parseDateLocal(d);return dt?dateToYMD(dt):null;}
+function calcDuration(s,e){const a=parseDateLocal(s),b=parseDateLocal(e);if(!a||!b)return null;const d=Math.round((b-a)/864e5);return d<0?-1:d+1;}
+function dayDiffFromToday(s){const d=parseDateLocal(s);if(!d)return null;return Math.round((d-today)/864e5);}
 function statusClass(s){return['st-0','st-1','st-2','st-3'][s]||'st-0';}
 function canEdit(){return currentRole==='pm'||currentRole==='leadpm';}
 function isLeadPM(){return currentRole==='leadpm';}
@@ -1458,6 +1634,23 @@ function transferLocationColor(oldName,newName){
     persistLocationColors();
   }
 }
+/* Harvest any engineer / lead values found in loaded data that aren't in our current list,
+   so previously-saved phases can be edited without the name disappearing, and the user can pick
+   them from the dropdown like any other person. Persists to localStorage. */
+function ensurePeopleFromProjects(){
+  const addedEng=[];const addedLead=[];
+  (allData.projects||[]).forEach(p=>(p.workPackages||[]).forEach(wp=>{
+    const addIfMissing=(list,val,bucket)=>{if(!val)return;const v=String(val).trim();if(!v)return;if(!list.some(x=>String(x).trim().toLowerCase()===v.toLowerCase())){list.push(v);bucket.push(v);}};
+    addIfMissing(ENGINEERS,wp.defaultEngineer,addedEng);
+    addIfMissing(VODJA,wp.defaultLead,addedLead);
+    (wp.phases||[]).forEach(ph=>{
+      addIfMissing(ENGINEERS,ph.engineer,addedEng);
+      addIfMissing(VODJA,ph.person,addedLead);
+    });
+  }));
+  if(addedEng.length)_persistPersonList(ENG_KEY,ENGINEERS);
+  if(addedLead.length)_persistPersonList(LEAD_KEY,VODJA);
+}
 function ensureLocationColorsForProjects(){
   (allData.projects||[]).forEach(p=>{
     (p.locations||[]).forEach(l=>getLocationColor(l));
@@ -1505,7 +1698,7 @@ function calcRisk(row){
   const reasons=[],dur=calcDuration(row.start,row.end);
   if(dur===-1)reasons.push('🔴 Kraj pre početka');
   if(row.status===2&&!row.checks.every(c=>c))reasons.push('🔴 Završeno ali nepotpuno');
-  if(row.start&&row.status!==2){const d=Math.round((new Date(row.start)-today)/864e5);if(d>=0&&d<=7&&!calcReadiness(row).ready)reasons.push('🟠 Počinje uskoro, nije spremno');}
+  if(row.start&&row.status!==2){const d=dayDiffFromToday(row.start);if(d!==null&&d>=0&&d<=7&&!calcReadiness(row).ready)reasons.push('🟠 Počinje uskoro, nije spremno');}
   if(!row.person&&row.status!==2)reasons.push('🟡 Nema vođe');
   if((!row.start||!row.end)&&row.status!==2)reasons.push('⚪ Nedostaju datumi');
   if(row.status===3&&!row.blocker.trim())reasons.push('🟠 Na čekanju bez blokatora');
@@ -1516,7 +1709,7 @@ function calcRisk(row){
 function applyBusinessRules(row){
   if(row.status===2)row.pct=100;if(row.status===0)row.pct=0;
   if(row.pct>0&&row.status===0)row.status=1;if(row.pct===100&&row.status!==2)row.status=2;
-  if(row.start&&row.end&&new Date(row.end)<new Date(row.start))row.end=row.start;
+  if(row.start&&row.end){const _s=parseDateLocal(row.start),_e=parseDateLocal(row.end);if(_s&&_e&&_e<_s)row.end=row.start;}
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1552,7 +1745,9 @@ function mapDbWP(d){
   return{id:d.id,projectId:d.project_id,rnCode:d.rn_code||'',rnOrder:d.rn_order||1,name:d.name||'',location:d.location||'Dobanovci',defaultEngineer:d.responsible_engineer_default||'',defaultLead:d.montage_lead_default||'',deadline:d.deadline||'',isActive:d.is_active!==false,phases:[]};
 }
 function mapDbPhase(d){
-  return{id:d.id,projectId:d.project_id,wpId:d.work_package_id,name:d.phase_name||'',loc:d.location||'Dobanovci',start:d.start_date,end:d.end_date,engineer:d.responsible_engineer||'',person:d.montage_lead||'',status:d.status||0,pct:d.pct||0,checks:d.checks||new Array(NUM_CHECKS).fill(false),note:d.note||'',blocker:d.blocker||''};
+  /* Back-compat: phase_type column may not exist → infer from phase name */
+  const rawType=d.phase_type||(String(d.phase_name||'').toLowerCase().includes('elektro')?'electrical':'mechanical');
+  return{id:d.id,projectId:d.project_id,wpId:d.work_package_id,name:d.phase_name||'',loc:d.location||'Dobanovci',start:d.start_date,end:d.end_date,engineer:d.responsible_engineer||'',person:d.montage_lead||'',status:d.status||0,pct:d.pct||0,checks:d.checks||new Array(NUM_CHECKS).fill(false),note:d.note||'',blocker:d.blocker||'',type:normalizePhaseType(rawType)};
 }
 function buildProjectPayload(p){
   return{id:p.id,project_code:p.code,project_name:p.name,projectm:p.projectM,project_deadline:p.deadline||null,pm_email:p.pmEmail,leadpm_email:p.leadPmEmail,reminder_enabled:p.reminderEnabled,status:p.status,updated_at:new Date().toISOString()};
@@ -1561,7 +1756,12 @@ function buildWPPayload(wp,projectId){
   return{id:wp.id,project_id:projectId,rn_code:wp.rnCode,rn_order:wp.rnOrder,name:wp.name,location:wp.location,responsible_engineer_default:wp.defaultEngineer,montage_lead_default:wp.defaultLead,deadline:wp.deadline||null,sort_order:wp.rnOrder,is_active:wp.isActive,updated_at:new Date().toISOString()};
 }
 function buildPhasePayload(ph,projectId,wpId,sortOrder){
-  return{id:ph.id,project_id:projectId,work_package_id:wpId,phase_name:ph.name,location:ph.loc,start_date:ph.start||null,end_date:ph.end||null,responsible_engineer:ph.engineer,montage_lead:ph.person,status:ph.status,pct:ph.pct,checks:ph.checks,blocker:ph.blocker,note:ph.note,sort_order:sortOrder,updated_at:new Date().toISOString(),updated_by:currentUser?.email||''};
+  /* phase_type is optional — only include if DB migration has been applied.
+     The flag `allData._phaseTypeSchemaSupported` is set to false if we get a "column does not exist"
+     style error, and subsequent payloads skip phase_type to preserve backward compatibility. */
+  const base={id:ph.id,project_id:projectId,work_package_id:wpId,phase_name:ph.name,location:ph.loc,start_date:ph.start||null,end_date:ph.end||null,responsible_engineer:ph.engineer,montage_lead:ph.person,status:ph.status,pct:ph.pct,checks:ph.checks,blocker:ph.blocker,note:ph.note,sort_order:sortOrder,updated_at:new Date().toISOString(),updated_by:currentUser?.email||''};
+  if(allData._phaseTypeSchemaSupported!==false){base.phase_type=normalizePhaseType(ph.type);}
+  return base;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1672,7 +1872,18 @@ async function saveWorkPackageToDb(wp,projectId){
   return await sbReq('work_packages','POST',buildWPPayload(wp,projectId));
 }
 async function savePhaseToDb(ph,projectId,wpId,sortOrder){
-  return await sbReq('phases','POST',buildPhasePayload(ph,projectId,wpId,sortOrder));
+  /* Attempt save with full payload. If backend complains about phase_type (column not yet migrated),
+     disable phase_type for the rest of the session and retry without it. */
+  let payload=buildPhasePayload(ph,projectId,wpId,sortOrder);
+  let res=await sbReq('phases','POST',payload);
+  if(res===null&&payload.phase_type!==undefined&&allData._phaseTypeSchemaSupported!==false){
+    /* Fallback path: disable schema flag and retry once without phase_type */
+    allData._phaseTypeSchemaSupported=false;
+    const {phase_type,...rest}=payload;
+    res=await sbReq('phases','POST',rest);
+    if(res!==null)console.warn('[phase_type] Column not present in DB; skipping phase_type in future saves. Apply sql/migrations/add_phase_type.sql to enable.');
+  }
+  return res;
 }
 async function deletePhaseFromDb(phaseId){
   if(!isOnline||!phaseId)return;
@@ -1869,8 +2080,11 @@ function saveAfterDelete(deletedPhaseId){saveState();if(deletedPhaseId)deletePha
    ═══════════════════════════════════════════════════════════ */
 function createBlankPhase(name,wp){
   const w=wp||getWP();
-  return{id:crypto.randomUUID(),name:name||'',loc:(w?.location)||defaultLocation(),start:null,end:null,engineer:(w?.defaultEngineer)||'',person:(w?.defaultLead)||'',status:0,pct:0,checks:new Array(NUM_CHECKS).fill(false),note:'',blocker:''};
+  /* Default type is 'mechanical'; heuristic: phases containing "Elektro" are electrical */
+  const inferType=String(name||'').toLowerCase().includes('elektro')?'electrical':'mechanical';
+  return{id:crypto.randomUUID(),name:name||'',loc:(w?.location)||defaultLocation(),start:null,end:null,engineer:(w?.defaultEngineer)||'',person:(w?.defaultLead)||'',status:0,pct:0,checks:new Array(NUM_CHECKS).fill(false),note:'',blocker:'',type:inferType};
 }
+function normalizePhaseType(t){const v=String(t||'').toLowerCase();return v==='electrical'||v==='elektro'||v==='e'?'electrical':'mechanical';}
 function createBlankWP(name,rnCode,order){
   const wp={id:crypto.randomUUID(),rnCode:rnCode||'',rnOrder:order||1,name:name||'Nova pozicija',location:defaultLocation(),defaultEngineer:'',defaultLead:'',deadline:'',isActive:true,phases:[]};
   wp.phases=DEFAULT_PHASES.map(n=>createBlankPhase(n,wp));
@@ -1885,8 +2099,8 @@ function buildReminderPayload(){
   const alerts=[];
   allData.projects.forEach(proj=>{if(!proj.reminderEnabled)return;
     proj.workPackages.forEach(wp=>{wp.phases.forEach(row=>{
-      if(row.status===2||!row.start)return;const d=Math.round((new Date(row.start)-today)/864e5);
-      if(d<0||d>7)return;const rd=calcReadiness(row);if(rd.ready)return;
+      if(row.status===2||!row.start)return;const d=dayDiffFromToday(row.start);
+      if(d===null||d<0||d>7)return;const rd=calcReadiness(row);if(rd.ready)return;
       alerts.push({project_code:proj.code,project_id:proj.id,work_package:wp.name,work_package_id:wp.id,rn_code:wp.rnCode,phase:row.name,phase_id:row.id,start_date:row.start,days_until:d,urgency:d<=3?'critical':'warning',reasons:rd.reasons,engineer:row.engineer,lead:row.person,pm_email:proj.pmEmail,leadpm_email:proj.leadPmEmail});
     });});
   });return alerts;
@@ -1977,15 +2191,15 @@ function editWpMeta(){
   const wp=getWP();if(!wp){showToast('⚠ Nema aktivne pozicije');return;}
   const _d=disabledAttr();
   const locOpts=locationOptionsHtml(wp.location);
-  const engOpts=ENGINEERS.map(v=>`<option value="${escHtml(v)}" ${wp.defaultEngineer===v?'selected':''}>${escHtml(v)||'—'}</option>`).join('');
-  const ldOpts=VODJA.map(v=>`<option value="${escHtml(v)}" ${wp.defaultLead===v?'selected':''}>${escHtml(v)||'—'}</option>`).join('');
+  const engOpts=personOptionsHtml(ENGINEERS,wp.defaultEngineer);
+  const ldOpts=personOptionsHtml(VODJA,wp.defaultLead);
   document.getElementById('wpMetaForm').innerHTML=`
     <label style="font-size:10px;color:var(--text3)">Naziv pozicije</label><input type="text" value="${escHtml(wp.name)}" onchange="updateWpField('name',this.value)" ${_d}>
     <label style="font-size:10px;color:var(--text3)">RN kod</label><input type="text" value="${escHtml(wp.rnCode)}" onchange="updateWpField('rnCode',this.value)" ${_d}>
     <label style="font-size:10px;color:var(--text3)">Lokacija pozicije</label><select onchange="updateWpField('location',this.value)" ${_d}>${locOpts}</select>
     <label style="font-size:10px;color:var(--text3)">Rok (YYYY-MM-DD)</label><input type="date" value="${wp.deadline||''}" onchange="updateWpField('deadline',this.value)" ${_d}>
-    <label style="font-size:10px;color:var(--text3)">Podrazumevani odgovorni inženjer</label><select onchange="updateWpField('defaultEngineer',this.value)" ${_d}>${engOpts}</select>
-    <label style="font-size:10px;color:var(--text3)">Podrazumevani vođa montaže</label><select onchange="updateWpField('defaultLead',this.value)" ${_d}>${ldOpts}</select>
+    <label style="font-size:10px;color:var(--text3)">Podrazumevani odgovorni inženjer</label><select onchange="handleWpPersonSelectChange(this,'defaultEngineer')" ${_d}>${engOpts}</select>
+    <label style="font-size:10px;color:var(--text3)">Podrazumevani vođa montaže</label><select onchange="handleWpPersonSelectChange(this,'defaultLead')" ${_d}>${ldOpts}</select>
     <div style="font-size:10px;color:var(--text3);margin-top:4px;line-height:1.4">Napomena: kada dodaš novu fazu, automatski dobija ove podrazumevane vrednosti. Postojeće faze se ne menjaju.</div>
     <div style="display:flex;gap:6px;margin-top:6px">
       <button class="btn-sm" ${_d} style="flex:1" onclick="applyWpDefaultsToEmptyPhases()">↓ Primeni prazne</button>
@@ -2078,7 +2292,7 @@ function buildWpTabs(){const p=getProject();if(!p){document.getElementById('wpTa
 /* ═══════════════════════════════════════════════════════════
    VIEW/FILTER/CALENDAR (same as V5.0)
    ═══════════════════════════════════════════════════════════ */
-function switchView(v){activeView=v;document.querySelectorAll('.view-tab').forEach((el,i)=>el.classList.toggle('active',['plan','gantt','total'][i]===v));document.querySelectorAll('.view-section').forEach((el,i)=>el.classList.toggle('active',['plan','gantt','total'][i]===v));const ip=v==='plan';if(isMobile()){document.getElementById('filterToggleBtn').style.display=ip?'':'none';if(!ip)document.getElementById('filterBar').classList.remove('filter-open');}else{document.getElementById('filterBar').style.display=ip?'flex':'none';document.getElementById('filterToggleBtn').style.display='none';}if(v==='gantt')renderGantt();if(v==='total'){buildTotalGanttFilters();renderGanttWpFilter();renderTotalGantt();}}
+function switchView(v){activeView=v;document.querySelectorAll('.view-tab').forEach((el,i)=>el.classList.toggle('active',['plan','gantt','total'][i]===v));document.querySelectorAll('.view-section').forEach((el,i)=>el.classList.toggle('active',['plan','gantt','total'][i]===v));const ip=v==='plan';if(isMobile()){document.getElementById('filterToggleBtn').style.display=ip?'':'none';if(!ip)document.getElementById('filterBar').classList.remove('filter-open');}else{document.getElementById('filterBar').style.display=ip?'flex':'none';document.getElementById('filterToggleBtn').style.display='none';}renderGanttToggleBars();if(v==='gantt')renderGantt();if(v==='total'){buildTotalGanttFilters();renderGanttWpFilter();renderTotalGantt();}}
 function isMobile(){return window.innerWidth<768;}
 function toggleMobileFilters(){document.getElementById('filterBar').classList.toggle('filter-open');document.getElementById('filterToggleBtn').classList.toggle('open');}
 function getFilterValues(){return{search:(document.getElementById('fSearch')?.value||'').toLowerCase().trim(),loc:document.getElementById('fLoc')?.value||'',status:document.getElementById('fStatus')?.value||'',person:document.getElementById('fPerson')?.value||'',ready:document.getElementById('fReady')?.value||'',dates:document.getElementById('fDates')?.value||'',risk:document.getElementById('fRisk')?.value||''};}
@@ -2087,18 +2301,33 @@ function resetFilters(){['fSearch','fLoc','fStatus','fPerson','fReady','fDates',
 function buildPersonFilter(){const sel=document.getElementById('fPerson');if(!sel)return;const v=sel.value;sel.innerHTML='<option value="">Svi</option><option value="__none__">— Bez vođe —</option>'+VODJA.filter(v=>v).map(v=>`<option value="${v}">${v}</option>`).join('');sel.value=v;}
 
 let calTarget=null,calYear,calMonth;
-function openCalendar(ri,field){if(!canEdit()){showToast('⚠ Pregled — nema izmena');return;}calTarget={ri,field};const d=getPhases()[ri][field]?new Date(getPhases()[ri][field]):new Date(today);calYear=d.getFullYear();calMonth=d.getMonth();renderCalendar();document.getElementById('calOverlay').classList.add('open');}
+function openCalendar(ri,field){if(!canEdit()){showToast('⚠ Pregled — nema izmena');return;}calTarget={ri,field};const stored=getPhases()[ri][field];const d=parseDateLocal(stored)||new Date(today);calYear=d.getFullYear();calMonth=d.getMonth();renderCalendar();document.getElementById('calOverlay').classList.add('open');}
 function closeCalendar(){document.getElementById('calOverlay').classList.remove('open');calTarget=null;}
 function closeCalIfOutside(e){if(e.target===document.getElementById('calOverlay'))closeCalendar();}
 function clearDate(){if(!canEdit())return;if(!calTarget)return;const ri=calTarget.ri;getPhases()[ri][calTarget.field]=null;saveDateState(ri);render();closeCalendar();}
 function calNav(dir){calMonth+=dir;if(calMonth<0){calMonth=11;calYear--;}if(calMonth>11){calMonth=0;calYear++;}renderCalendar();}
-function selectDay(y,m,d){if(!canEdit())return;if(!calTarget)return;const row=getPhases()[calTarget.ri],f=calTarget.field,ri=calTarget.ri;row[f]=new Date(y,m,d).toISOString().split('T')[0];if(row.start&&row.end&&new Date(row.end)<new Date(row.start)){row.end=row.start;showToast('📅 Kraj pomeren');}else showToast(`📅 ${d}.${m+1}.${y}`);applyBusinessRules(row);saveDateState(ri);render();closeCalendar();}
-function renderCalendar(){document.getElementById('calTitle').textContent=`${MONTHS_SR[calMonth]} ${calYear}`;const grid=document.getElementById('calGrid');grid.innerHTML='';const fd=new Date(calYear,calMonth,1),ld=new Date(calYear,calMonth+1,0),off=(fd.getDay()+6)%7;const sel=calTarget&&getPhases()[calTarget.ri][calTarget.field]?new Date(getPhases()[calTarget.ri][calTarget.field]):null;for(let i=0;i<off;i++){const el=document.createElement('div');el.className='cal-day empty';grid.appendChild(el);}for(let d=1;d<=ld.getDate();d++){const dt=new Date(calYear,calMonth,d),dow=(dt.getDay()+6)%7,el=document.createElement('div');el.className='cal-day';el.textContent=d;if(dow>=5)el.classList.add('weekend');if(dt.getTime()===today.getTime())el.classList.add('today');if(sel&&dt.getTime()===sel.getTime())el.classList.add('selected');el.onclick=()=>selectDay(calYear,calMonth,d);grid.appendChild(el);}}
+function selectDay(y,m,d){
+  if(!canEdit())return;if(!calTarget)return;
+  const row=getPhases()[calTarget.ri],f=calTarget.field,ri=calTarget.ri;
+  row[f]=formatYMD(y,m,d); /* FIX: store local YMD directly (no UTC shift) */
+  const sDt=parseDateLocal(row.start),eDt=parseDateLocal(row.end);
+  if(sDt&&eDt&&eDt<sDt){row.end=row.start;showToast('📅 Kraj pomeren');}
+  else showToast(`📅 ${d}.${m+1}.${y}`);
+  applyBusinessRules(row);saveDateState(ri);render();closeCalendar();
+}
+function renderCalendar(){document.getElementById('calTitle').textContent=`${MONTHS_SR[calMonth]} ${calYear}`;const grid=document.getElementById('calGrid');grid.innerHTML='';const fd=new Date(calYear,calMonth,1),ld=new Date(calYear,calMonth+1,0),off=(fd.getDay()+6)%7;const sel=calTarget?parseDateLocal(getPhases()[calTarget.ri][calTarget.field]):null;for(let i=0;i<off;i++){const el=document.createElement('div');el.className='cal-day empty';grid.appendChild(el);}for(let d=1;d<=ld.getDate();d++){const dt=new Date(calYear,calMonth,d),dow=(dt.getDay()+6)%7,el=document.createElement('div');el.className='cal-day';el.textContent=d;if(dow>=5)el.classList.add('weekend');if(dt.getTime()===today.getTime())el.classList.add('today');if(sel&&dt.getTime()===sel.getTime())el.classList.add('selected');el.onclick=()=>selectDay(calYear,calMonth,d);grid.appendChild(el);}}
 
 /* ═══════════════════════════════════════════════════════════
    UPDATE + PHASE MGMT
    ═══════════════════════════════════════════════════════════ */
 function update(i,field,value){if(!canEdit())return;const row=getPhases()[i];if(field==='status'&&value===3&&!row.blocker.trim()){showToast('⚠ Upiši blokator pre "Na čekanju"');render();return;}row[field]=value;applyBusinessRules(row);savePhaseState(i);render();}
+/* Toggle phase type between mechanical/electrical. Stored as row.type ('mechanical'|'electrical'). */
+function togglePhaseType(i){
+  if(!canEdit()){showToast('⚠ Pregled — nema izmena');return;}
+  const row=getPhases()[i];if(!row)return;
+  row.type=(normalizePhaseType(row.type)==='mechanical')?'electrical':'mechanical';
+  savePhaseState(i);render();
+}
 function updateCheck(i,ci,value){if(!canEdit())return;getPhases()[i].checks[ci]=value;saveCheckState(i);render();}
 function addPhase(){if(!canEdit()){showToast('⚠ Pregled — nema izmena');return;}const inp=document.getElementById('newPhaseInput'),n=inp.value.trim();if(!n){showToast('⚠ Unesi naziv');inp.focus();return;}getPhases().push(createBlankPhase(n));saveWpStructureState();render();inp.value='';showToast('✅ Dodano');}
 function deleteRow(i){if(!canEdit()){showToast('⚠ Pregled — nema izmena');return;}const s=getPhases(),n=s[i].name,deletedId=s[i]?.id;if(!confirm('Obriši "'+n+'"?'))return;s.splice(i,1);filteredIndices=null;if(deletedId){expandedMobileCards.delete(deletedId);deletePhaseModel(deletedId);}saveAfterDelete(deletedId);render();}
@@ -2135,7 +2364,7 @@ function renderMobileCards(){
     <div class="m-card-row" onclick="toggleMobileCard('${pid}',event)"><div class="m-card-field"><span class="m-lbl">Poč:</span> ${formatDate(row.start)||'—'}</div><div class="m-card-field"><span class="m-lbl">Kraj:</span> ${formatDate(row.end)||'—'}</div><div class="m-card-field"><span class="m-lbl">Ing:</span> ${row.engineer||'—'}</div><div class="m-card-field"><span class="m-lbl">Vođa:</span> ${row.person||'—'}</div></div>
     <div class="m-card-pct" onclick="toggleMobileCard('${pid}',event)"><div class="pct-bar"><div class="pct-bar-fill ${pC}" style="width:${row.pct}%"></div></div><span>${row.pct}%</span></div>
     <div class="m-card-details ${isOpen?'open':''}" id="mcd-${pid}" onclick="event.stopPropagation()"><div style="margin-bottom:6px;font-weight:600;color:var(--text3);font-size:9px;text-transform:uppercase">Spremnost</div><div class="m-card-checks">${chH}</div>
-    <div class="m-card-detail-grid"><div class="m-card-detail-item"><span class="m-lbl">Status</span><select class="${stC}" onchange="update(${i},'status',parseInt(this.value))" onclick="event.stopPropagation()" style="font-size:13px;padding:6px 8px" ${_dis}>${STATUSES.map((s,si)=>`<option value="${si}" ${row.status===si?'selected':''}>${s}</option>`).join('')}</select></div><div class="m-card-detail-item"><span class="m-lbl">Lokacija</span><select onchange="update(${i},'loc',this.value)" onclick="event.stopPropagation()" style="font-size:13px;padding:6px 8px;border-left:3px solid ${locColor}" ${_dis}>${locationOptionsHtml(row.loc)}</select></div><div class="m-card-detail-item"><span class="m-lbl">Ing.</span><select onchange="update(${i},'engineer',this.value)" onclick="event.stopPropagation()" style="font-size:13px;padding:6px 8px" ${_dis}>${ENGINEERS.map(v=>`<option value="${v}" ${row.engineer===v?'selected':''}>${v||'—'}</option>`).join('')}</select></div><div class="m-card-detail-item"><span class="m-lbl">Vođa</span><select onchange="update(${i},'person',this.value)" onclick="event.stopPropagation()" style="font-size:13px;padding:6px 8px" ${_dis}>${VODJA.map(v=>`<option value="${v}" ${row.person===v?'selected':''}>${v||'—'}</option>`).join('')}</select></div><div class="m-card-detail-item"><span class="m-lbl">%</span><input type="range" min="0" max="100" step="5" value="${row.pct}" style="width:100%;accent-color:var(--accent)" oninput="update(${i},'pct',parseInt(this.value))" onclick="event.stopPropagation()" ${_dis}></div></div>
+    <div class="m-card-detail-grid"><div class="m-card-detail-item"><span class="m-lbl">Status</span><select class="${stC}" onchange="update(${i},'status',parseInt(this.value))" onclick="event.stopPropagation()" style="font-size:13px;padding:6px 8px" ${_dis}>${STATUSES.map((s,si)=>`<option value="${si}" ${row.status===si?'selected':''}>${s}</option>`).join('')}</select></div><div class="m-card-detail-item"><span class="m-lbl">Lokacija</span><select onchange="update(${i},'loc',this.value)" onclick="event.stopPropagation()" style="font-size:13px;padding:6px 8px;border-left:3px solid ${locColor}" ${_dis}>${locationOptionsHtml(row.loc)}</select></div><div class="m-card-detail-item"><span class="m-lbl">Tip</span><select onchange="update(${i},'type',this.value)" onclick="event.stopPropagation()" style="font-size:13px;padding:6px 8px" ${_dis}><option value="mechanical" ${normalizePhaseType(row.type)==='mechanical'?'selected':''}>⚙ Mašinska</option><option value="electrical" ${normalizePhaseType(row.type)==='electrical'?'selected':''}>⚡ Elektro</option></select></div><div class="m-card-detail-item"><span class="m-lbl">Ing.</span><select onchange="handlePersonSelectChange(this,${i},'engineer')" onclick="event.stopPropagation()" style="font-size:13px;padding:6px 8px" ${_dis}>${personOptionsHtml(ENGINEERS,row.engineer)}</select></div><div class="m-card-detail-item"><span class="m-lbl">Vođa</span><select onchange="handlePersonSelectChange(this,${i},'person')" onclick="event.stopPropagation()" style="font-size:13px;padding:6px 8px" ${_dis}>${personOptionsHtml(VODJA,row.person)}</select></div><div class="m-card-detail-item"><span class="m-lbl">%</span><input type="range" min="0" max="100" step="5" value="${row.pct}" style="width:100%;accent-color:var(--accent)" oninput="update(${i},'pct',parseInt(this.value))" onclick="event.stopPropagation()" ${_dis}></div></div>
     ${row.blocker||row.status===3?`<div class="m-card-detail-item" style="margin-top:6px"><span class="m-lbl">Blokator</span><textarea class="note-area" rows="2" style="font-size:13px;padding:8px" onchange="update(${i},'blocker',this.value)" onclick="event.stopPropagation()" ${_dis}>${eBl}</textarea></div>`:''}
     <div class="m-card-detail-item" style="margin-top:6px"><span class="m-lbl">Napomena</span><textarea class="note-area" rows="2" style="font-size:13px;padding:8px" onchange="update(${i},'note',this.value)" onclick="event.stopPropagation()" ${_dis}>${eNo}</textarea></div>
     <div class="m-card-detail-item" style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--border2)"><span class="m-lbl">3D model</span>${mdl?`<div style="display:flex;gap:8px;align-items:flex-start"><div class="model-thumb" style="width:90px;aspect-ratio:4/3;flex-shrink:0">${mdl.imageUrl?`<img src="${escHtml(mdl.imageUrl)}" alt="${escHtml(mdl.name||'')}" onerror="this.style.display='none'">`:'<span style="font-size:20px;color:var(--text3)">🧩</span>'}</div><div style="flex:1;font-size:11px;color:var(--text2)"><div style="color:var(--text);font-weight:600">${escHtml(mdl.name||'Bez imena')}</div>${mdl.note?`<div style="margin-top:2px">${escHtml(mdl.note)}</div>`:''}${mdl.fileUrl?`<div style="margin-top:4px"><a class="model-link" href="${escHtml(mdl.fileUrl)}" target="_blank" rel="noopener">Otvori fajl</a></div>`:''}</div></div>`:'<div class="model-empty" style="font-size:11px;padding:6px 0">Nema 3D modela</div>'}<button class="btn-sm" style="margin-top:6px" onclick="openModelDialog('${pid}');event.stopPropagation()">✎ Uredi 3D</button></div>
@@ -2159,13 +2388,19 @@ function renderPlan(){
     let rdH;if(rd.done)rdH='<span class="badge-ready-final done">✔ DONE</span>';else if(rd.ready)rdH='<span class="badge-ready-final ready">✔ Spreman</span>';else{const t=rd.reasons.map(r=>'• '+r).join('<br>');rdH=`<div class="ready-tooltip"><span class="badge-ready-final not-ready">✘ Nije</span><div class="ready-tip-text">${t}</div></div>`;}
     let rkH;if(rk.reasons.length>0){const t=rk.reasons.join('<br>');rkH=`<div class="risk-tooltip"><span class="badge-risk ${rkBadgeCls}">${rI} ${rkLbl}</span><div class="risk-tip-text">${t}</div></div>`;}else rkH=`<span class="badge-risk ${rkBadgeCls}">${rI} ${rkLbl}</span>`;
     const blkH=(row.status===3&&!row.blocker.trim())?'blocker-highlight':'',rkC=rk.level!=='none'?`row-risk-${rk.level}`:'row-risk-none',finC=row.status===2?' row-finished':'';
-    let remDot='';if(row.start&&row.status!==2){const _du=Math.round((new Date(row.start)-today)/864e5);if(_du>=0&&_du<=3&&!rd.ready)remDot='<span class="reminder-dot rd-red"></span>';else if(_du>=4&&_du<=7&&!rd.ready)remDot='<span class="reminder-dot rd-yellow"></span>';}
+    let remDot='';if(row.start&&row.status!==2){const _du=dayDiffFromToday(row.start);if(_du!==null&&_du>=0&&_du<=3&&!rd.ready)remDot='<span class="reminder-dot rd-red"></span>';else if(_du!==null&&_du>=4&&_du<=7&&!rd.ready)remDot='<span class="reminder-dot rd-yellow"></span>';}
     const eN=escHtml(row.name),eNo=escHtml(row.note),eBl=escHtml(row.blocker);
     const mdl=getPhaseModel(pid);
     const mdlBtnCls=mdl?'model-btn has-model':'model-btn';
     const mdlTitle=mdl?(mdl.name||'3D'):'Dodaj 3D model';
     const tr=document.createElement('tr');tr.className=rkC+finC;
-    tr.innerHTML=`<td class="td-num">${i+1}</td><td class="td-name">${remDot}<input class="phase-name-input" type="text" value="${eN}" onchange="update(${i},'name',this.value)" ${_dis}> <button class="${mdlBtnCls}" onclick="openModelDialog('${pid}')" title="${escHtml(mdlTitle)}">🧩 3D${mdl?' ✓':''}</button></td><td class="td-loc"><select onchange="update(${i},'loc',this.value)" class="loc-select" style="border-left:3px solid ${locColor}" ${_dis}>${locationOptionsHtml(row.loc)}</select></td><td class="td-date ${dateErr?'date-error':''}"><div class="date-input-wrap"><input type="text" readonly value="${formatDate(row.start)}" placeholder="—" class="${row.start?'':'empty'}" onclick="openCalendar(${i},'start')"><button class="date-btn" onclick="openCalendar(${i},'start')">📅</button></div></td><td class="td-date ${dateErr?'date-error':''}"><div class="date-input-wrap"><input type="text" readonly value="${formatDate(row.end)}" placeholder="—" class="${row.end?'':'empty'}" onclick="openCalendar(${i},'end')"><button class="date-btn" onclick="openCalendar(${i},'end')">📅</button></div></td><td class="${durC}">${durT}</td><td class="td-eng"><select onchange="update(${i},'engineer',this.value)" ${_dis}>${ENGINEERS.map(v=>`<option value="${v}" ${row.engineer===v?'selected':''}>${v||'—'}</option>`).join('')}</select></td><td class="td-person"><select onchange="update(${i},'person',this.value)" ${_dis}>${VODJA.map(v=>`<option value="${v}" ${row.person===v?'selected':''}>${v||'—'}</option>`).join('')}</select></td><td class="td-status"><select class="${statusClass(row.status)}" onchange="update(${i},'status',parseInt(this.value))" ${_dis}>${STATUSES.map((s,si)=>`<option value="${si}" ${row.status===si?'selected':''}>${s}</option>`).join('')}</select></td><td class="td-pct"><div class="pct-bar-wrap"><div class="pct-bar"><div class="pct-bar-fill ${pctC}" style="width:${row.pct}%"></div></div><span style="font-family:var(--mono);font-size:10px;color:var(--text2);min-width:26px">${row.pct}%</span></div><input type="range" min="0" max="100" step="5" value="${row.pct}" style="width:100%;margin-top:2px;accent-color:var(--accent)" oninput="update(${i},'pct',parseInt(this.value))" ${_dis}></td>${row.checks.map((c,ci)=>{const gCls=ci===0?' td-check-group-start':(ci===row.checks.length-1?' td-check-group-end':'');const disAttr=_dis?' disabled':'';return `<td class="td-check${gCls}"><button type="button" class="check-chip ${c?'ok':'no'}"${disAttr} onclick="updateCheck(${i},${ci},${!c})" title="${CHECK_LABELS[ci]}: ${c?'Spremno — klikni za NE':'Nije spremno — klikni za DA'}"><span class="chip-icon">${c?'✓':'○'}</span>${c?'DA':'NE'}</button></td>`;}).join('')}<td class="td-ready">${rdH}</td><td class="td-risk">${rkH}</td><td class="td-blocker ${blkH}"><textarea class="note-area" rows="2" placeholder="${row.status===3?'⚠!':''}" onchange="update(${i},'blocker',this.value)" ${_dis}>${eBl}</textarea></td><td class="td-note"><textarea class="note-area" rows="2" onchange="update(${i},'note',this.value)" ${_dis}>${eNo}</textarea></td><td class="td-actions"><button class="row-btn btn-up" onclick="moveRow(${i},-1)">▲</button><button class="row-btn btn-dn" onclick="moveRow(${i},1)">▼</button><button class="row-btn btn-del" onclick="deleteRow(${i})">✕</button></td>`;
+    const pType=normalizePhaseType(row.type);
+    const ptCls=pType==='electrical'?'pt-elec':'pt-mech';
+    const ptLbl=pType==='electrical'?'E':'M';
+    const ptTitle=pType==='electrical'?'Elektro (klikni za Mašinska)':'Mašinska (klikni za Elektro)';
+    const ptDis=_dis?' disabled':'';
+    const ptBtn=`<button type="button" class="phase-type-chip ${ptCls}"${ptDis} onclick="togglePhaseType(${i})" title="${ptTitle}"><span class="pt-ic">${pType==='electrical'?'⚡':'⚙'}</span>${ptLbl}</button>`;
+    tr.innerHTML=`<td class="td-num">${i+1}</td><td class="td-name">${remDot}<input class="phase-name-input" type="text" value="${eN}" onchange="update(${i},'name',this.value)" ${_dis}> ${ptBtn} <button class="${mdlBtnCls}" onclick="openModelDialog('${pid}')" title="${escHtml(mdlTitle)}">🧩 3D${mdl?' ✓':''}</button></td><td class="td-loc"><select onchange="update(${i},'loc',this.value)" class="loc-select" style="border-left:3px solid ${locColor}" ${_dis}>${locationOptionsHtml(row.loc)}</select></td><td class="td-date ${dateErr?'date-error':''}"><div class="date-input-wrap"><input type="text" readonly value="${formatDate(row.start)}" placeholder="—" class="${row.start?'':'empty'}" onclick="openCalendar(${i},'start')"><button class="date-btn" onclick="openCalendar(${i},'start')">📅</button></div></td><td class="td-date ${dateErr?'date-error':''}"><div class="date-input-wrap"><input type="text" readonly value="${formatDate(row.end)}" placeholder="—" class="${row.end?'':'empty'}" onclick="openCalendar(${i},'end')"><button class="date-btn" onclick="openCalendar(${i},'end')">📅</button></div></td><td class="${durC}">${durT}</td><td class="td-eng"><select onchange="handlePersonSelectChange(this,${i},'engineer')" ${_dis}>${personOptionsHtml(ENGINEERS,row.engineer)}</select></td><td class="td-person"><select onchange="handlePersonSelectChange(this,${i},'person')" ${_dis}>${personOptionsHtml(VODJA,row.person)}</select></td><td class="td-status"><select class="${statusClass(row.status)}" onchange="update(${i},'status',parseInt(this.value))" ${_dis}>${STATUSES.map((s,si)=>`<option value="${si}" ${row.status===si?'selected':''}>${s}</option>`).join('')}</select></td><td class="td-pct"><div class="pct-bar-wrap"><div class="pct-bar"><div class="pct-bar-fill ${pctC}" style="width:${row.pct}%"></div></div><span style="font-family:var(--mono);font-size:10px;color:var(--text2);min-width:26px">${row.pct}%</span></div><input type="range" min="0" max="100" step="5" value="${row.pct}" style="width:100%;margin-top:2px;accent-color:var(--accent)" oninput="update(${i},'pct',parseInt(this.value))" ${_dis}></td>${row.checks.map((c,ci)=>{const gCls=ci===0?' td-check-group-start':(ci===row.checks.length-1?' td-check-group-end':'');const disAttr=_dis?' disabled':'';return `<td class="td-check${gCls}"><button type="button" class="check-chip ${c?'ok':'no'}"${disAttr} onclick="updateCheck(${i},${ci},${!c})" title="${CHECK_LABELS[ci]}: ${c?'Spremno — klikni za NE':'Nije spremno — klikni za DA'}"><span class="chip-icon">${c?'✓':'○'}</span>${c?'DA':'NE'}</button></td>`;}).join('')}<td class="td-ready">${rdH}</td><td class="td-risk">${rkH}</td><td class="td-blocker ${blkH}"><textarea class="note-area" rows="2" placeholder="${row.status===3?'⚠!':''}" onchange="update(${i},'blocker',this.value)" ${_dis}>${eBl}</textarea></td><td class="td-note"><textarea class="note-area" rows="2" onchange="update(${i},'note',this.value)" ${_dis}>${eNo}</textarea></td><td class="td-actions"><button class="row-btn btn-up" onclick="moveRow(${i},-1)">▲</button><button class="row-btn btn-dn" onclick="moveRow(${i},1)">▼</button><button class="row-btn btn-del" onclick="deleteRow(${i})">✕</button></td>`;
     tb.appendChild(tr);
   });
 }
@@ -2219,10 +2454,11 @@ function clearDaySelection(viewKey){selectedDateIndices[viewKey].clear();lastSel
    ═══════════════════════════════════════════════════════════ */
 function renderGantt(){
   const wrap=document.getElementById('ganttWrap');
-  const state=getPhases().filter(r=>r.status!==2);
+  /* Optionally include completed phases when user enabled the toggle */
+  const state=getPhases().filter(r=>showFinishedInGantt||r.status!==2);
   const wp=getWP();const p=getProject();
   let min=new Date(today),max=new Date(today);max.setDate(max.getDate()+60);
-  state.forEach(r=>{if(r.start){const d=new Date(r.start);if(d<min)min=d;}if(r.end){const d=new Date(r.end);if(d>max)max=d;}});
+  state.forEach(r=>{const ds=parseDateLocal(r.start),de=parseDateLocal(r.end);if(ds&&ds<min)min=ds;if(de&&de>max)max=de;});
   min.setDate(min.getDate()-3);max.setDate(max.getDate()+5);
   const days=buildDayRange(min,max);
   const months=buildMonthsHeader(days);
@@ -2230,8 +2466,9 @@ function renderGantt(){
   let h=`<table class="gantt-table" data-view="gantt"><thead><tr><th class="gantt-label" rowspan="2">Faza</th>${Object.values(months).map(m=>`<th class="gantt-month-hdr" colspan="${m.count}">${m.label}</th>`).join('')}</tr><tr>${daysHeadHtml}</tr></thead><tbody>`;
   state.forEach(row=>{
     const origIdx=getPhases().indexOf(row);
-    const sMs=row.start?new Date(row.start).setHours(0,0,0,0):null;
-    const eMs=row.end?new Date(row.end).setHours(0,0,0,0):null;
+    const _sD=parseDateLocal(row.start),_eD=parseDateLocal(row.end);
+    const sMs=_sD?_sD.getTime():null;
+    const eMs=_eD?_eD.getTime():null;
     const rk=calcRisk(row),rkC=rk.level!=='none'?' gantt-row-risk':'';
     const eng=row.engineer?row.engineer.split(' ').pop():'';
     const ld=row.person?row.person.split(' ').pop():'';
@@ -2251,7 +2488,9 @@ function renderGantt(){
         else if(isS)cls+=' bar-phase bar-phase-start';
         else if(isE)cls+=' bar-phase bar-phase-end';
         else cls+=' bar-phase';
-        bar=`style="background:${locColor}"`;
+        cls+=(normalizePhaseType(row.type)==='electrical')?' bar-elec':' bar-mech';
+        /* !important ensures print preserves color over generic tbody td print rule */
+        bar=`style="background-color:${locColor} !important"`;
       }
       let handles='';
       if(inB&&canEdit()){
@@ -2325,16 +2564,17 @@ function renderTotalGantt(){
     (project.workPackages||[]).forEach(wp=>{
       if(!totalGanttWPs[wp.id])return;
       (wp.phases||[]).forEach(ph=>{
-        if(ph.status===2)return;
+        if(!showFinishedInGantt&&ph.status===2)return;
         if(f.loc&&ph.loc!==f.loc)return;
         if(f.lead&&ph.person!==f.lead)return;
         if(f.engineer&&ph.engineer!==f.engineer)return;
         if(f.dateFrom||f.dateTo){
           if(!ph.start&&!ph.end)return;
-          const s=ph.start?new Date(ph.start).setHours(0,0,0,0):null;
-          const e=ph.end?new Date(ph.end).setHours(0,0,0,0):s;
-          if(f.dateTo){const to=new Date(f.dateTo).setHours(0,0,0,0);if(s!==null&&s>to)return;}
-          if(f.dateFrom){const from=new Date(f.dateFrom).setHours(0,0,0,0);if((e??s)!==null&&(e??s)<from)return;}
+          const _sD=parseDateLocal(ph.start),_eD=parseDateLocal(ph.end);
+          const s=_sD?_sD.getTime():null;
+          const e=_eD?_eD.getTime():s;
+          if(f.dateTo){const _to=parseDateLocal(f.dateTo);if(_to&&s!==null&&s>_to.getTime())return;}
+          if(f.dateFrom){const _from=parseDateLocal(f.dateFrom);if(_from&&(e??s)!==null&&(e??s)<_from.getTime())return;}
         }
         rows.push({project,wp,phase:ph});
       });
@@ -2343,14 +2583,14 @@ function renderTotalGantt(){
 
   /* Raspon: koristi filter-datume ako su postavljeni, inače realan min/max iz filtriranih faza */
   let min,max;
-  if(f.dateFrom)min=new Date(f.dateFrom);else{
+  if(f.dateFrom)min=parseDateLocal(f.dateFrom)||new Date(today);else{
     min=new Date(today);
-    rows.forEach(r=>{if(r.phase.start){const d=new Date(r.phase.start);if(d<min)min=d;}});
+    rows.forEach(r=>{const d=parseDateLocal(r.phase.start);if(d&&d<min)min=d;});
     min.setDate(min.getDate()-3);
   }
-  if(f.dateTo)max=new Date(f.dateTo);else{
+  if(f.dateTo)max=parseDateLocal(f.dateTo)||new Date(today);else{
     max=new Date(today);max.setDate(max.getDate()+60);
-    rows.forEach(r=>{if(r.phase.end){const d=new Date(r.phase.end);if(d>max)max=d;}});
+    rows.forEach(r=>{const d=parseDateLocal(r.phase.end);if(d&&d>max)max=d;});
     max.setDate(max.getDate()+5);
   }
   min.setHours(0,0,0,0);max.setHours(0,0,0,0);
@@ -2383,8 +2623,9 @@ function renderTotalGantt(){
     wps.forEach(({wp,phases})=>{
       h+=`<tr class="gantt-machine-hdr"><td colspan="${tc+1}" style="background:${MC[wpIdx%5]};color:#aac8ff;font-weight:600;font-size:11px;padding:4px 10px 4px 22px;border-top:1px solid var(--border);border-bottom:1px solid var(--border)">⚙ ${escHtml(wp.name)} <span style="font-size:9px;opacity:0.7">${escHtml(wp.rnCode)}</span></td></tr>`;
       phases.forEach(row=>{
-        const sMs=row.start?new Date(row.start).setHours(0,0,0,0):null;
-        const eMs=row.end?new Date(row.end).setHours(0,0,0,0):null;
+        const _sD=parseDateLocal(row.start),_eD=parseDateLocal(row.end);
+        const sMs=_sD?_sD.getTime():null;
+        const eMs=_eD?_eD.getTime():null;
         const rk=calcRisk(row),rkC=rk.level!=='none'?' gantt-row-risk':'';
         const eng=row.engineer?row.engineer.split(' ').pop():'';
         const ld=row.person?row.person.split(' ').pop():'';
@@ -2404,7 +2645,8 @@ function renderTotalGantt(){
             else if(isS)cls+=' bar-phase bar-phase-start';
             else if(isE)cls+=' bar-phase bar-phase-end';
             else cls+=' bar-phase';
-            bar=`style="background:${locColor}"`;
+            cls+=(normalizePhaseType(row.type)==='electrical')?' bar-elec':' bar-mech';
+            bar=`style="background-color:${locColor} !important"`;
           }
           let handles='';
           if(inB&&canEdit()){
@@ -2473,14 +2715,17 @@ function onGantDragMove(ev){
   const delta=Math.round((ev.clientX-gantDrag.originX)/gantDrag.cellWidth);
   if(delta===gantDrag.lastDelta)return;
   gantDrag.lastDelta=delta;
-  const sD=new Date(gantDrag.startISO),eD=new Date(gantDrag.endISO);
+  /* FIX: use parseDateLocal + dateToYMD to avoid UTC shift */
+  const sD=parseDateLocal(gantDrag.startISO),eD=parseDateLocal(gantDrag.endISO);
+  if(!sD||!eD)return;
   let newS=new Date(sD),newE=new Date(eD);
   if(gantDrag.mode==='move'){newS.setDate(sD.getDate()+delta);newE.setDate(eD.getDate()+delta);}
   else if(gantDrag.mode==='start'){newS.setDate(sD.getDate()+delta);if(newS>eD){newS=new Date(eD);}}
   else if(gantDrag.mode==='end'){newE.setDate(eD.getDate()+delta);if(newE<sD){newE=new Date(sD);}}
-  showGantDragTip(ev,newS.toISOString().slice(0,10),newE.toISOString().slice(0,10));
-  gantDrag.pendingStartISO=newS.toISOString().slice(0,10);
-  gantDrag.pendingEndISO=newE.toISOString().slice(0,10);
+  const sYMD=dateToYMD(newS),eYMD=dateToYMD(newE);
+  showGantDragTip(ev,sYMD,eYMD);
+  gantDrag.pendingStartISO=sYMD;
+  gantDrag.pendingEndISO=eYMD;
   gantDrag.changed=delta!==0;
 }
 function onGantDragEnd(){
@@ -2524,7 +2769,7 @@ function hideGantDragTip(){const tip=document.getElementById('ganttDragTip');if(
    RENDER: Summary + Reminders
    ═══════════════════════════════════════════════════════════ */
 function renderSummary(){const state=getPhases(),p=getProject(),wp=getWP();const total=state.length,done=state.filter(r=>r.status===2).length,inP=state.filter(r=>r.status===1).length,onH=state.filter(r=>r.status===3).length;const rdyC=state.filter(r=>calcReadiness(r).ready).length,notR=total-rdyC-done,noD=state.filter(r=>!r.start||!r.end).length,wRk=state.filter(r=>calcRisk(r).level!=='none').length,avg=total>0?Math.round(state.reduce((a,r)=>a+r.pct,0)/total):0;const kpi=(l,v,s,c)=>`<div class="kpi-card ${c}"><div class="kpi-label">${l}</div><div class="kpi-value">${v}</div>${s?`<div class="kpi-sub">${s}</div>`:''}</div>`;const mb=document.getElementById('projectMetaBar');if(mb&&p){mb.innerHTML=`<span>📌 <strong style="color:var(--text)">${escHtml(p.code)}</strong> ${escHtml(p.name)}</span><span>PM: ${escHtml(p.projectM)||'—'}</span><span>Rok: ${p.deadline?formatDate(p.deadline):'—'}</span><span>Pozicija: <strong style="color:var(--accent)">${wp?escHtml(wp.name):'—'}</strong> ${wp?escHtml(wp.rnCode):''}</span>`;}document.getElementById('summaryBar').innerHTML=kpi('Ukupno',total,'','kpi-neutral')+kpi('Završeno',done,`od ${total}`,'kpi-ok')+kpi('U toku',inP,'','kpi-info')+kpi('Na čekanju',onH,'',onH>0?'kpi-warn':'kpi-neutral')+kpi('Spremne',rdyC,'',rdyC>0?'kpi-ok':'kpi-neutral')+kpi('Nespremne',notR,'',notR>0?'kpi-warn':'kpi-neutral')+kpi('Bez datuma',noD,'',noD>0?'kpi-warn':'kpi-neutral')+kpi('Rizik',wRk,'',wRk>0?'kpi-danger':'kpi-neutral')+kpi('Prosek',avg+'%','','kpi-info');}
-function renderReminders(){const z=document.getElementById('reminderZone');if(!z)return;z.innerHTML='';const p=getProject();if(!p)return;p.workPackages.forEach(wp=>{wp.phases.forEach(row=>{if(row.status===2||!row.start)return;const d=Math.round((new Date(row.start)-today)/864e5);if(d<0||d>7)return;const rd=calcReadiness(row);if(rd.ready)return;const urg=d<=3,c=document.createElement('div');c.className='reminder-card '+(urg?'rc-red':'rc-yellow');c.innerHTML=`<div class="rc-title">${urg?'🔴':'🟡'} ${escHtml(row.name)}</div><div class="rc-sub">${escHtml(p.code)} / ${escHtml(wp.name)} · ${formatDate(row.start)} · Za ${d}d</div><div class="rc-sub">${rd.reasons.slice(0,3).join(', ')}</div>`;z.appendChild(c);});});}
+function renderReminders(){const z=document.getElementById('reminderZone');if(!z)return;z.innerHTML='';const p=getProject();if(!p)return;p.workPackages.forEach(wp=>{wp.phases.forEach(row=>{if(row.status===2||!row.start)return;const d=dayDiffFromToday(row.start);if(d===null||d<0||d>7)return;const rd=calcReadiness(row);if(rd.ready)return;const urg=d<=3,c=document.createElement('div');c.className='reminder-card '+(urg?'rc-red':'rc-yellow');c.innerHTML=`<div class="rc-title">${urg?'🔴':'🟡'} ${escHtml(row.name)}</div><div class="rc-sub">${escHtml(p.code)} / ${escHtml(wp.name)} · ${formatDate(row.start)} · Za ${d}d</div><div class="rc-sub">${rd.reasons.slice(0,3).join(', ')}</div>`;z.appendChild(c);});});}
 
 /* ═══════════════════════════════════════════════════════════
    EXPORT/IMPORT/RESET
@@ -2552,6 +2797,7 @@ function _xlsxPhaseRows(){
           'Pozicija': wp.name,
           'RN': wp.rnCode||'',
           'Faza': ph.name,
+          'Tip': normalizePhaseType(ph.type)==='electrical'?'Elektro':'Mašinska',
           'Lokacija': ph.loc||'',
           'Datum početka': ph.start||'',
           'Datum kraja': ph.end||'',
@@ -2578,7 +2824,7 @@ function exportAsXLSX(){
   const wb=XLSX.utils.book_new();
   const ws=XLSX.utils.json_to_sheet(rows);
   /* Column widths */
-  ws['!cols']=[{wch:28},{wch:24},{wch:10},{wch:36},{wch:14},{wch:13},{wch:13},{wch:10},{wch:22},{wch:22},{wch:14},{wch:10},{wch:14},{wch:30},{wch:24},{wch:30}];
+  ws['!cols']=[{wch:28},{wch:24},{wch:10},{wch:36},{wch:10},{wch:14},{wch:13},{wch:13},{wch:10},{wch:22},{wch:22},{wch:14},{wch:10},{wch:14},{wch:30},{wch:24},{wch:30}];
   XLSX.utils.book_append_sheet(wb,ws,'Plan montaze');
 
   /* Summary sheet per project */
@@ -2695,7 +2941,7 @@ function closeModelDialog(){modelEditing=null;document.getElementById('modelOver
 /* ═══════════════════════════════════════════════════════════
    MASTER RENDER + INIT
    ═══════════════════════════════════════════════════════════ */
-function render(){ensureProjectLocations(getProject());ensureLocationColorsForProjects();buildLocationFilter();renderPlan();renderReminders();renderSummary();buildPersonFilter();if(activeView==='gantt')renderGantt();if(activeView==='total'){buildTotalGanttFilters();renderGanttWpFilter();renderTotalGantt();}}
+function render(){ensureProjectLocations(getProject());ensureLocationColorsForProjects();ensurePeopleFromProjects();buildLocationFilter();renderPlan();renderReminders();renderSummary();buildPersonFilter();renderGanttToggleBars();if(activeView==='gantt')renderGantt();if(activeView==='total'){buildTotalGanttFilters();renderGanttWpFilter();renderTotalGantt();}}
 
 /* ═══════════════════════════════════════════════════════════
    PRINT / PDF
