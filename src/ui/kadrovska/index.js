@@ -27,14 +27,26 @@ import {
   renderEmployeesTab,
   wireEmployeesTab,
 } from './employeesTab.js';
+import {
+  renderAbsencesTab,
+  wireAbsencesTab,
+} from './absencesTab.js';
+import {
+  renderWorkHoursTab,
+  wireWorkHoursTab,
+} from './workHoursTab.js';
+import {
+  renderContractsTab,
+  wireContractsTab,
+} from './contractsTab.js';
 import { renderComingSoonTab } from './comingSoon.js';
 
 const TABS = [
   { id: 'employees', label: 'Zaposleni' },
-  { id: 'absences', label: 'Odsustva', plannedPhase: 'F4.1' },
+  { id: 'absences', label: 'Odsustva' },
   { id: 'grid', label: 'Mesečni grid', plannedPhase: 'F4.2' },
-  { id: 'hours', label: 'Sati (pojedinačno)', plannedPhase: 'F4.1' },
-  { id: 'contracts', label: 'Ugovori', plannedPhase: 'F4.1' },
+  { id: 'hours', label: 'Sati (pojedinačno)' },
+  { id: 'contracts', label: 'Ugovori' },
   { id: 'reports', label: 'Izveštaji', plannedPhase: 'F4.3' },
 ];
 
@@ -112,17 +124,28 @@ function mountTabBody(id) {
   host.innerHTML = `<div class="kadr-panel active" id="kadrPanel-${id}" role="tabpanel" aria-label="${id}"></div>`;
   const panel = host.firstElementChild;
 
-  if (id === 'employees') {
-    panel.innerHTML = renderEmployeesTab();
-    /* wire async — fetch sa Supabase, pa render */
-    wireEmployeesTab(panel).catch(e => {
-      console.error('[kadrovska] employees wire failed', e);
-      showToast('⚠ Greška pri učitavanju zaposlenih');
-    });
+  /* Mapa tab → render + wire (async). Wire može biti async — error u promise-u
+     se hvata i logguje. */
+  const tabImpl = {
+    employees: { render: renderEmployeesTab, wire: wireEmployeesTab },
+    absences: { render: renderAbsencesTab, wire: wireAbsencesTab },
+    hours: { render: renderWorkHoursTab, wire: wireWorkHoursTab },
+    contracts: { render: renderContractsTab, wire: wireContractsTab },
+  };
+
+  const impl = tabImpl[id];
+  if (impl) {
+    panel.innerHTML = impl.render();
+    Promise.resolve()
+      .then(() => impl.wire(panel))
+      .catch(e => {
+        console.error(`[kadrovska] ${id} wire failed`, e);
+        showToast(`⚠ Greška pri učitavanju (${id})`);
+      });
     return;
   }
 
-  /* Ostali tabovi: placeholder + auth status info */
+  /* Ostali tabovi (grid, reports): placeholder dok ne stignu u F4.2 / F4.3. */
   const meta = TABS.find(t => t.id === id);
   panel.innerHTML = renderComingSoonTab(
     meta?.label || id,

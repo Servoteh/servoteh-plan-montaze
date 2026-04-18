@@ -11,6 +11,7 @@
 
 import { escHtml } from '../../lib/dom.js';
 import { getAuth, canEdit } from '../../state/auth.js';
+import { kadrovskaState } from '../../state/kadrovska.js';
 
 /** Stranica jedne kartice u summary strip-u. */
 export function summaryChipHtml(label, value, tone) {
@@ -55,6 +56,33 @@ export function kadrovskaHeaderHtml() {
         <button class="hub-logout" id="kadrLogoutBtn">Odjavi se</button>
       </div>
     </header>`;
+}
+
+/**
+ * HTML <option> liste svih zaposlenih (sortirano po imenu, sr-locale).
+ *  - includeBlank: doda prazan top option ('Svi zaposleni' / '— izaberi —').
+ *  - blankLabel: tekst praznog opciona.
+ *  - selectedId: prefilled value.
+ *  - activeOnly: ako true, samo isActive.
+ */
+export function employeeOptionsHtml({
+  includeBlank = true,
+  blankLabel = '— izaberi —',
+  selectedId = '',
+  activeOnly = false,
+} = {}) {
+  let list = kadrovskaState.employees.slice();
+  if (activeOnly) list = list.filter(e => e.isActive);
+  list.sort((a, b) => String(a.fullName || '').localeCompare(String(b.fullName || ''), 'sr'));
+  const opts = [];
+  if (includeBlank) {
+    opts.push(`<option value="">${escHtml(blankLabel)}</option>`);
+  }
+  for (const e of list) {
+    const sel = String(e.id) === String(selectedId) ? ' selected' : '';
+    opts.push(`<option value="${escHtml(e.id)}"${sel}>${escHtml(e.fullName || '—')}</option>`);
+  }
+  return opts.join('');
 }
 
 /** Tab bar sa badge-ovima. Active tab se kontroliše classList.add('active'). */
