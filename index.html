@@ -1474,6 +1474,143 @@ body.module-kadrovska > .filter-bar { display:none !important; }
   .emp-form-grid { grid-template-columns:1fr; }
   .kadrovska-table .col-hide-sm { display:none; }
 }
+
+/* ═══ KADROVSKA TABS (phase 1) ═══ */
+.kadrovska-tabs {
+  display:flex; align-items:flex-end; gap:2px;
+  padding:0 24px;
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  overflow-x:auto;
+}
+.kadrovska-tab {
+  padding:10px 16px;
+  font-size:12px; font-weight:500;
+  color:var(--text3);
+  background:transparent; border:none;
+  border-bottom:2px solid transparent;
+  cursor:pointer; font-family:var(--font);
+  transition:color 0.15s, border-color 0.15s, background 0.15s;
+  white-space:nowrap;
+  display:inline-flex; align-items:center; gap:6px;
+}
+.kadrovska-tab .kadr-tab-badge {
+  font-size:10px; font-weight:600; font-family:var(--mono);
+  padding:1px 7px; border-radius:999px;
+  background:var(--surface3); color:var(--text3);
+  border:1px solid var(--border2);
+}
+.kadrovska-tab:hover { color:var(--text); background:var(--surface2); }
+.kadrovska-tab.active {
+  color:var(--accent);
+  border-bottom-color:var(--accent);
+  font-weight:600;
+}
+.kadrovska-tab.active .kadr-tab-badge {
+  background:var(--accent-dim);
+  color:var(--accent);
+  border-color:color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+/* Tab panels — only active one visible */
+.kadr-panel { display:none; }
+.kadr-panel.active { display:block; }
+
+/* Shared modal styles (reuses the look of emp-modal) */
+.kadr-modal-overlay {
+  position:fixed; inset:0; z-index:2500;
+  background:rgba(0,0,0,0.6); backdrop-filter:blur(6px);
+  display:flex; align-items:center; justify-content:center;
+  padding:20px;
+}
+[data-theme="light"] .kadr-modal-overlay { background:rgba(17,24,39,0.45); }
+.kadr-modal-overlay.hidden { display:none; }
+.kadr-modal {
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:12px;
+  width:100%; max-width:520px;
+  padding:24px 24px 20px;
+  box-shadow:var(--shadow-lg);
+  max-height:90vh; overflow-y:auto;
+}
+.kadr-modal-title {
+  font-size:16px; font-weight:700; color:var(--text);
+  letter-spacing:-0.01em; margin-bottom:4px;
+}
+.kadr-modal-subtitle {
+  font-size:11px; color:var(--text3); margin-bottom:18px;
+  letter-spacing:0.3px;
+}
+.kadr-modal-err {
+  font-size:12px; color:var(--red);
+  background:color-mix(in srgb, var(--red) 10%, transparent);
+  border:1px solid color-mix(in srgb, var(--red) 35%, transparent);
+  padding:8px 12px; border-radius:6px;
+  margin-bottom:10px; display:none;
+}
+.kadr-modal-err.visible { display:block; }
+.kadr-modal-actions {
+  display:flex; justify-content:flex-end; gap:10px;
+  padding-top:14px; border-top:1px solid var(--border);
+  margin-top:6px;
+}
+
+/* Badges for absence type / contract type */
+.kadr-type-badge {
+  display:inline-block;
+  padding:3px 9px; border-radius:6px;
+  font-size:10px; font-weight:600;
+  letter-spacing:0.3px; text-transform:uppercase;
+  border:1px solid var(--border2);
+  background:var(--surface3); color:var(--text2);
+}
+.kadr-type-badge.t-godisnji  { background:color-mix(in srgb, #27AE60 16%, var(--surface)); color:#27AE60; border-color:color-mix(in srgb, #27AE60 40%, transparent); }
+.kadr-type-badge.t-bolovanje { background:color-mix(in srgb, var(--red) 14%, var(--surface)); color:var(--red); border-color:color-mix(in srgb, var(--red) 40%, transparent); }
+.kadr-type-badge.t-slobodan  { background:color-mix(in srgb, #2D9CDB 14%, var(--surface)); color:#2D9CDB; border-color:color-mix(in srgb, #2D9CDB 40%, transparent); }
+.kadr-type-badge.t-placeno   { background:color-mix(in srgb, #F2994A 14%, var(--surface)); color:#F2994A; border-color:color-mix(in srgb, #F2994A 40%, transparent); }
+.kadr-type-badge.t-neplaceno { background:var(--surface3); color:var(--text3); border-color:var(--border2); }
+.kadr-type-badge.t-sluzbeno  { background:color-mix(in srgb, var(--accent) 14%, var(--surface)); color:var(--accent); border-color:color-mix(in srgb, var(--accent) 40%, transparent); }
+.kadr-type-badge.t-ostalo    { background:var(--surface3); color:var(--text3); border-color:var(--border2); }
+
+.kadr-type-badge.c-neodredjeno { background:color-mix(in srgb, #27AE60 16%, var(--surface)); color:#27AE60; border-color:color-mix(in srgb, #27AE60 40%, transparent); }
+.kadr-type-badge.c-odredjeno   { background:color-mix(in srgb, #F2994A 14%, var(--surface)); color:#F2994A; border-color:color-mix(in srgb, #F2994A 40%, transparent); }
+.kadr-type-badge.c-privremeno  { background:color-mix(in srgb, #2D9CDB 14%, var(--surface)); color:#2D9CDB; border-color:color-mix(in srgb, #2D9CDB 40%, transparent); }
+.kadr-type-badge.c-delo        { background:color-mix(in srgb, #9B51E0 14%, var(--surface)); color:#9B51E0; border-color:color-mix(in srgb, #9B51E0 40%, transparent); }
+.kadr-type-badge.c-student     { background:color-mix(in srgb, #2D9CDB 12%, var(--surface)); color:#2D9CDB; border-color:color-mix(in srgb, #2D9CDB 35%, transparent); }
+.kadr-type-badge.c-praksa      { background:var(--surface3); color:var(--text2); border-color:var(--border2); }
+.kadr-type-badge.c-ostalo      { background:var(--surface3); color:var(--text3); border-color:var(--border2); }
+
+/* Contract row — expiry states */
+.kadrovska-table tr.row-expired td { background:color-mix(in srgb, var(--red) 8%, transparent); }
+.kadrovska-table tr.row-expiring td { background:color-mix(in srgb, #F2994A 9%, transparent); }
+.kadr-expiry-hint {
+  font-size:10px; font-family:var(--mono); letter-spacing:0.3px;
+  color:var(--text3); margin-top:2px;
+}
+.kadr-expiry-hint.warn { color:#F2994A; }
+.kadr-expiry-hint.danger { color:var(--red); }
+
+/* Hours totals footer */
+.kadr-totals {
+  display:flex; gap:14px; align-items:center;
+  padding:10px 14px; margin-top:12px;
+  background:var(--surface2); border:1px solid var(--border);
+  border-radius:8px;
+  font-size:12px; color:var(--text2);
+  flex-wrap:wrap;
+}
+.kadr-totals .kadr-total-item { display:flex; align-items:center; gap:6px; }
+.kadr-totals .kadr-total-label {
+  font-size:10px; color:var(--text3); text-transform:uppercase;
+  letter-spacing:0.5px; font-weight:600;
+}
+.kadr-totals .kadr-total-value {
+  font-family:var(--mono); font-weight:600;
+  font-size:14px; color:var(--text);
+}
+.kadr-totals .kadr-total-item.accent .kadr-total-value { color:var(--accent); }
+.kadr-totals .kadr-total-item.overtime .kadr-total-value { color:#F2994A; }
 .user-bar { display:flex; align-items:center; gap:6px; font-size:10px; color:var(--text3); }
 .user-bar .user-email { font-family:var(--mono); color:var(--text2); max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .user-bar .btn-logout { padding:3px 8px; font-size:9px; border-radius:4px; cursor:pointer; border:1px solid var(--border2); background:var(--surface3); color:var(--text3); font-family:var(--font); }
@@ -2112,42 +2249,203 @@ td.td-loc .loc-select { border-left: 3px solid transparent; }
     </div>
   </header>
 
-  <div class="kadrovska-toolbar">
-    <input type="text" class="kadrovska-search" id="kadrovskaSearch" placeholder="Pretraga po imenu, poziciji, email-u…" oninput="renderKadrovska()">
-    <select class="kadrovska-filter" id="kadrovskaDeptFilter" onchange="renderKadrovska()">
-      <option value="">Sva odeljenja</option>
-    </select>
-    <select class="kadrovska-filter" id="kadrovskaStatusFilter" onchange="renderKadrovska()">
-      <option value="">Svi statusi</option>
-      <option value="active">Aktivni</option>
-      <option value="inactive">Neaktivni</option>
-    </select>
-    <div class="kadrovska-toolbar-spacer"></div>
-    <span class="kadrovska-count" id="kadrovskaCount">0 zaposlenih</span>
-    <button class="btn btn-primary" id="kadrovskaAddBtn" onclick="openEmployeeModal()">+ Novi zaposleni</button>
+  <div class="kadrovska-tabs" role="tablist" aria-label="Kadrovska - sekcije">
+    <button class="kadrovska-tab active" role="tab" aria-selected="true" data-kadr-tab="employees" onclick="switchKadrovskaTab('employees')">
+      Zaposleni <span class="kadr-tab-badge" id="kadrTabCountEmployees">0</span>
+    </button>
+    <button class="kadrovska-tab" role="tab" aria-selected="false" data-kadr-tab="absences" onclick="switchKadrovskaTab('absences')">
+      Odsustva <span class="kadr-tab-badge" id="kadrTabCountAbsences">0</span>
+    </button>
+    <button class="kadrovska-tab" role="tab" aria-selected="false" data-kadr-tab="hours" onclick="switchKadrovskaTab('hours')">
+      Sati rada <span class="kadr-tab-badge" id="kadrTabCountHours">0</span>
+    </button>
+    <button class="kadrovska-tab" role="tab" aria-selected="false" data-kadr-tab="contracts" onclick="switchKadrovskaTab('contracts')">
+      Ugovori <span class="kadr-tab-badge" id="kadrTabCountContracts">0</span>
+    </button>
   </div>
 
-  <main class="kadrovska-main">
-    <table class="kadrovska-table" id="kadrovskaTable">
-      <thead>
-        <tr>
-          <th>Ime i prezime</th>
-          <th>Pozicija</th>
-          <th class="col-hide-sm">Odeljenje</th>
-          <th class="col-hide-sm">Telefon</th>
-          <th class="col-hide-sm">Email</th>
-          <th class="col-hide-sm">Zaposlen od</th>
-          <th>Status</th>
-          <th class="col-actions">Akcije</th>
-        </tr>
-      </thead>
-      <tbody id="kadrovskaTbody"></tbody>
-    </table>
-    <div class="kadrovska-empty" id="kadrovskaEmpty" style="display:none;margin-top:16px;">
-      <div class="kadrovska-empty-title">Nema zaposlenih</div>
-      <div>Dodaj prvog zaposlenog preko dugmeta <strong>+ Novi zaposleni</strong>.</div>
+  <!-- ── TAB: ZAPOSLENI ───────────────────────────────── -->
+  <div class="kadr-panel active" id="kadrPanel-employees" role="tabpanel" aria-label="Zaposleni">
+    <div class="kadrovska-toolbar">
+      <input type="text" class="kadrovska-search" id="kadrovskaSearch" placeholder="Pretraga po imenu, poziciji, email-u…" oninput="renderKadrovska()">
+      <select class="kadrovska-filter" id="kadrovskaDeptFilter" onchange="renderKadrovska()">
+        <option value="">Sva odeljenja</option>
+      </select>
+      <select class="kadrovska-filter" id="kadrovskaStatusFilter" onchange="renderKadrovska()">
+        <option value="">Svi statusi</option>
+        <option value="active">Aktivni</option>
+        <option value="inactive">Neaktivni</option>
+      </select>
+      <div class="kadrovska-toolbar-spacer"></div>
+      <span class="kadrovska-count" id="kadrovskaCount">0 zaposlenih</span>
+      <button class="btn btn-primary" id="kadrovskaAddBtn" onclick="openEmployeeModal()">+ Novi zaposleni</button>
     </div>
-  </main>
+    <main class="kadrovska-main">
+      <table class="kadrovska-table" id="kadrovskaTable">
+        <thead>
+          <tr>
+            <th>Ime i prezime</th>
+            <th>Pozicija</th>
+            <th class="col-hide-sm">Odeljenje</th>
+            <th class="col-hide-sm">Telefon</th>
+            <th class="col-hide-sm">Email</th>
+            <th class="col-hide-sm">Zaposlen od</th>
+            <th>Status</th>
+            <th class="col-actions">Akcije</th>
+          </tr>
+        </thead>
+        <tbody id="kadrovskaTbody"></tbody>
+      </table>
+      <div class="kadrovska-empty" id="kadrovskaEmpty" style="display:none;margin-top:16px;">
+        <div class="kadrovska-empty-title">Nema zaposlenih</div>
+        <div>Dodaj prvog zaposlenog preko dugmeta <strong>+ Novi zaposleni</strong>.</div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ── TAB: ODSUSTVA ────────────────────────────────── -->
+  <div class="kadr-panel" id="kadrPanel-absences" role="tabpanel" aria-label="Odsustva">
+    <div class="kadrovska-toolbar">
+      <select class="kadrovska-filter" id="absEmpFilter" onchange="renderAbsences()">
+        <option value="">Svi zaposleni</option>
+      </select>
+      <select class="kadrovska-filter" id="absTypeFilter" onchange="renderAbsences()">
+        <option value="">Svi tipovi</option>
+        <option value="godisnji">Godišnji</option>
+        <option value="bolovanje">Bolovanje</option>
+        <option value="slobodan">Slobodan dan</option>
+        <option value="placeno">Plaćeno</option>
+        <option value="neplaceno">Neplaćeno</option>
+        <option value="sluzbeno">Službeno</option>
+        <option value="ostalo">Ostalo</option>
+      </select>
+      <input type="date" class="kadrovska-filter" id="absFromFilter" title="Od" onchange="renderAbsences()">
+      <input type="date" class="kadrovska-filter" id="absToFilter" title="Do" onchange="renderAbsences()">
+      <div class="kadrovska-toolbar-spacer"></div>
+      <span class="kadrovska-count" id="absCount">0 odsustava</span>
+      <button class="btn btn-primary" onclick="openAbsenceModal()">+ Novo odsustvo</button>
+    </div>
+    <main class="kadrovska-main">
+      <table class="kadrovska-table" id="absTable">
+        <thead>
+          <tr>
+            <th>Zaposleni</th>
+            <th>Tip</th>
+            <th class="col-hide-sm">Od</th>
+            <th class="col-hide-sm">Do</th>
+            <th>Dana</th>
+            <th class="col-hide-sm">Napomena</th>
+            <th class="col-actions">Akcije</th>
+          </tr>
+        </thead>
+        <tbody id="absTbody"></tbody>
+      </table>
+      <div class="kadrovska-empty" id="absEmpty" style="display:none;margin-top:16px;">
+        <div class="kadrovska-empty-title">Nema odsustava</div>
+        <div>Dodaj prvo odsustvo preko dugmeta <strong>+ Novo odsustvo</strong>.</div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ── TAB: SATI RADA ───────────────────────────────── -->
+  <div class="kadr-panel" id="kadrPanel-hours" role="tabpanel" aria-label="Sati rada">
+    <div class="kadrovska-toolbar">
+      <select class="kadrovska-filter" id="whEmpFilter" onchange="renderWorkHours()">
+        <option value="">Svi zaposleni</option>
+      </select>
+      <input type="month" class="kadrovska-filter" id="whMonthFilter" title="Mesec" onchange="renderWorkHours()">
+      <div class="kadrovska-toolbar-spacer"></div>
+      <span class="kadrovska-count" id="whCount">0 unosa</span>
+      <button class="btn btn-primary" onclick="openWorkHourModal()">+ Unesi sate</button>
+    </div>
+    <main class="kadrovska-main">
+      <table class="kadrovska-table" id="whTable">
+        <thead>
+          <tr>
+            <th>Datum</th>
+            <th>Zaposleni</th>
+            <th>Sati</th>
+            <th class="col-hide-sm">Prekovremeni</th>
+            <th class="col-hide-sm">Projekat / Napomena</th>
+            <th class="col-actions">Akcije</th>
+          </tr>
+        </thead>
+        <tbody id="whTbody"></tbody>
+      </table>
+      <div class="kadr-totals" id="whTotals" style="display:none;">
+        <div class="kadr-total-item">
+          <span class="kadr-total-label">Redovni</span>
+          <span class="kadr-total-value" id="whTotalRegular">0</span>
+        </div>
+        <div class="kadr-total-item overtime">
+          <span class="kadr-total-label">Prekovremeni</span>
+          <span class="kadr-total-value" id="whTotalOvertime">0</span>
+        </div>
+        <div class="kadr-total-item accent">
+          <span class="kadr-total-label">Ukupno</span>
+          <span class="kadr-total-value" id="whTotalAll">0</span>
+        </div>
+        <div class="kadr-total-item">
+          <span class="kadr-total-label">Dana</span>
+          <span class="kadr-total-value" id="whTotalDays">0</span>
+        </div>
+      </div>
+      <div class="kadrovska-empty" id="whEmpty" style="display:none;margin-top:16px;">
+        <div class="kadrovska-empty-title">Nema unetih sati</div>
+        <div>Unesi prvi zapis preko dugmeta <strong>+ Unesi sate</strong>.</div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ── TAB: UGOVORI ─────────────────────────────────── -->
+  <div class="kadr-panel" id="kadrPanel-contracts" role="tabpanel" aria-label="Ugovori">
+    <div class="kadrovska-toolbar">
+      <select class="kadrovska-filter" id="conEmpFilter" onchange="renderContracts()">
+        <option value="">Svi zaposleni</option>
+      </select>
+      <select class="kadrovska-filter" id="conTypeFilter" onchange="renderContracts()">
+        <option value="">Svi tipovi</option>
+        <option value="neodredjeno">Neodređeno</option>
+        <option value="odredjeno">Određeno</option>
+        <option value="privremeno">Privremeni</option>
+        <option value="delo">Ugovor o delu</option>
+        <option value="student">Student</option>
+        <option value="praksa">Praksa</option>
+        <option value="ostalo">Ostalo</option>
+      </select>
+      <select class="kadrovska-filter" id="conStatusFilter" onchange="renderContracts()">
+        <option value="active">Aktivni</option>
+        <option value="all">Svi</option>
+        <option value="inactive">Neaktivni</option>
+        <option value="expiring">Ističu &lt; 30 dana</option>
+        <option value="expired">Istekli</option>
+      </select>
+      <div class="kadrovska-toolbar-spacer"></div>
+      <span class="kadrovska-count" id="conCount">0 ugovora</span>
+      <button class="btn btn-primary" onclick="openContractModal()">+ Novi ugovor</button>
+    </div>
+    <main class="kadrovska-main">
+      <table class="kadrovska-table" id="conTable">
+        <thead>
+          <tr>
+            <th>Zaposleni</th>
+            <th>Tip</th>
+            <th class="col-hide-sm">Br. ugovora</th>
+            <th class="col-hide-sm">Pozicija</th>
+            <th>Od</th>
+            <th>Do</th>
+            <th>Status</th>
+            <th class="col-actions">Akcije</th>
+          </tr>
+        </thead>
+        <tbody id="conTbody"></tbody>
+      </table>
+      <div class="kadrovska-empty" id="conEmpty" style="display:none;margin-top:16px;">
+        <div class="kadrovska-empty-title">Nema ugovora</div>
+        <div>Dodaj prvi ugovor preko dugmeta <strong>+ Novi ugovor</strong>.</div>
+      </div>
+    </main>
+  </div>
 </section>
 
 <!-- Employee modal (new / edit) -->
@@ -2212,6 +2510,156 @@ td.td-loc .loc-select { border-left: 3px solid transparent; }
       <div class="emp-modal-actions">
         <button type="button" class="btn" onclick="closeEmployeeModal()">Otkaži</button>
         <button type="submit" class="btn btn-primary" id="empSubmitBtn">Sačuvaj</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Absence modal (new / edit) -->
+<div class="kadr-modal-overlay hidden" id="absModal" role="dialog" aria-labelledby="absModalTitle" aria-modal="true">
+  <div class="kadr-modal">
+    <div class="kadr-modal-title" id="absModalTitle">Novo odsustvo</div>
+    <div class="kadr-modal-subtitle">Unesi zaposlenog, tip i period odsustva.</div>
+    <div class="kadr-modal-err" id="absModalErr"></div>
+    <form id="absForm" onsubmit="event.preventDefault(); submitAbsenceForm();">
+      <input type="hidden" id="absId" value="">
+      <div class="emp-form-grid">
+        <div class="emp-field col-full">
+          <label for="absEmpId">Zaposleni *</label>
+          <select id="absEmpId" required></select>
+        </div>
+        <div class="emp-field">
+          <label for="absType">Tip odsustva *</label>
+          <select id="absType" required>
+            <option value="godisnji">Godišnji odmor</option>
+            <option value="bolovanje">Bolovanje</option>
+            <option value="slobodan">Slobodan dan</option>
+            <option value="placeno">Plaćeno odsustvo</option>
+            <option value="neplaceno">Neplaćeno odsustvo</option>
+            <option value="sluzbeno">Službeno putovanje</option>
+            <option value="ostalo">Ostalo</option>
+          </select>
+        </div>
+        <div class="emp-field">
+          <label for="absDays">Dana</label>
+          <input type="number" id="absDays" min="0" max="365" step="1" placeholder="Auto iz datuma">
+        </div>
+        <div class="emp-field">
+          <label for="absFrom">Od *</label>
+          <input type="date" id="absFrom" required>
+        </div>
+        <div class="emp-field">
+          <label for="absTo">Do *</label>
+          <input type="date" id="absTo" required>
+        </div>
+        <div class="emp-field col-full">
+          <label for="absNote">Napomena</label>
+          <textarea id="absNote" maxlength="500" placeholder="Opcioni komentar…"></textarea>
+        </div>
+      </div>
+      <div class="kadr-modal-actions">
+        <button type="button" class="btn" onclick="closeAbsenceModal()">Otkaži</button>
+        <button type="submit" class="btn btn-primary" id="absSubmitBtn">Sačuvaj</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Work hours modal (new / edit) -->
+<div class="kadr-modal-overlay hidden" id="whModal" role="dialog" aria-labelledby="whModalTitle" aria-modal="true">
+  <div class="kadr-modal">
+    <div class="kadr-modal-title" id="whModalTitle">Novi unos sati</div>
+    <div class="kadr-modal-subtitle">Ručni unos. Kasnije zamenjuje Excel tabele.</div>
+    <div class="kadr-modal-err" id="whModalErr"></div>
+    <form id="whForm" onsubmit="event.preventDefault(); submitWorkHourForm();">
+      <input type="hidden" id="whId" value="">
+      <div class="emp-form-grid">
+        <div class="emp-field col-full">
+          <label for="whEmpId">Zaposleni *</label>
+          <select id="whEmpId" required></select>
+        </div>
+        <div class="emp-field">
+          <label for="whDate">Datum *</label>
+          <input type="date" id="whDate" required>
+        </div>
+        <div class="emp-field">
+          <label for="whHours">Sati *</label>
+          <input type="number" id="whHours" min="0" max="24" step="0.25" value="8" required>
+        </div>
+        <div class="emp-field">
+          <label for="whOvertime">Prekovremeni</label>
+          <input type="number" id="whOvertime" min="0" max="24" step="0.25" value="0">
+        </div>
+        <div class="emp-field">
+          <label for="whProject">Projekat / ref.</label>
+          <input type="text" id="whProject" maxlength="120" placeholder="npr. INA-2025-03 ili opština Novi Sad">
+        </div>
+        <div class="emp-field col-full">
+          <label for="whNote">Napomena</label>
+          <textarea id="whNote" maxlength="300" placeholder="Opcioni komentar…"></textarea>
+        </div>
+      </div>
+      <div class="kadr-modal-actions">
+        <button type="button" class="btn" onclick="closeWorkHourModal()">Otkaži</button>
+        <button type="submit" class="btn btn-primary" id="whSubmitBtn">Sačuvaj</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Contract modal (new / edit) -->
+<div class="kadr-modal-overlay hidden" id="conModal" role="dialog" aria-labelledby="conModalTitle" aria-modal="true">
+  <div class="kadr-modal">
+    <div class="kadr-modal-title" id="conModalTitle">Novi ugovor</div>
+    <div class="kadr-modal-subtitle">Osnovni kadrovski podaci ugovora. Platu ne čuvamo u ovoj fazi.</div>
+    <div class="kadr-modal-err" id="conModalErr"></div>
+    <form id="conForm" onsubmit="event.preventDefault(); submitContractForm();">
+      <input type="hidden" id="conId" value="">
+      <div class="emp-form-grid">
+        <div class="emp-field col-full">
+          <label for="conEmpId">Zaposleni *</label>
+          <select id="conEmpId" required></select>
+        </div>
+        <div class="emp-field">
+          <label for="conType">Tip ugovora *</label>
+          <select id="conType" required>
+            <option value="neodredjeno">Neodređeno vreme</option>
+            <option value="odredjeno">Određeno vreme</option>
+            <option value="privremeno">Privremeni</option>
+            <option value="delo">Ugovor o delu</option>
+            <option value="student">Student</option>
+            <option value="praksa">Praksa</option>
+            <option value="ostalo">Ostalo</option>
+          </select>
+        </div>
+        <div class="emp-field">
+          <label for="conNumber">Broj ugovora</label>
+          <input type="text" id="conNumber" maxlength="60" placeholder="npr. 2025-0123">
+        </div>
+        <div class="emp-field">
+          <label for="conPosition">Pozicija</label>
+          <input type="text" id="conPosition" list="empPositionList" maxlength="80" placeholder="npr. Vođa montaže">
+        </div>
+        <div class="emp-field">
+          <label for="conFrom">Datum od</label>
+          <input type="date" id="conFrom">
+        </div>
+        <div class="emp-field">
+          <label for="conTo">Datum do</label>
+          <input type="date" id="conTo">
+        </div>
+        <div class="emp-field emp-field-check">
+          <input type="checkbox" id="conActive" checked>
+          <label for="conActive">Aktivan ugovor</label>
+        </div>
+        <div class="emp-field col-full">
+          <label for="conNote">Napomena</label>
+          <textarea id="conNote" maxlength="500" placeholder="Opcioni komentar…"></textarea>
+        </div>
+      </div>
+      <div class="kadr-modal-actions">
+        <button type="button" class="btn" onclick="closeContractModal()">Otkaži</button>
+        <button type="submit" class="btn btn-primary" id="conSubmitBtn">Sačuvaj</button>
       </div>
     </form>
   </div>
@@ -2904,6 +3352,8 @@ function renderKadrovska(){
   }
 
   const filtered=_kadrApplyFilters(kadrovskaState.employees);
+  const tabBadge=document.getElementById('kadrTabCountEmployees');
+  if(tabBadge)tabBadge.textContent=String(kadrovskaState.employees.length);
   if(countEl){
     const total=kadrovskaState.employees.length;
     countEl.textContent=filtered.length===total
@@ -3074,6 +3524,723 @@ async function confirmDeleteEmployee(id){
   }
 }
 
+/* ═══════════════════════════════════════════════════════════
+   KADROVSKA PHASE 1 — absences / work_hours / contracts
+   ═══════════════════════════════════════════════════════════ */
+const KADR_ABS_CACHE='plan_montaze_kadr_absences_v1';
+const KADR_WH_CACHE ='plan_montaze_kadr_work_hours_v1';
+const KADR_CON_CACHE='plan_montaze_kadr_contracts_v1';
+const KADR_TAB_KEY  ='plan_montaze_kadr_active_tab_v1';
+
+let kadrAbsencesState ={items:[],loaded:false,_schema:true};
+let kadrWorkHoursState={items:[],loaded:false,_schema:true};
+let kadrContractsState={items:[],loaded:false,_schema:true};
+let kadrActiveTab='employees';
+
+const KADR_ABS_TYPE_LABELS={
+  godisnji:'Godišnji',bolovanje:'Bolovanje',slobodan:'Slobodan dan',
+  placeno:'Plaćeno',neplaceno:'Neplaćeno',sluzbeno:'Službeno',ostalo:'Ostalo'
+};
+const KADR_CON_TYPE_LABELS={
+  neodredjeno:'Neodređeno',odredjeno:'Određeno',privremeno:'Privremeni',
+  delo:'Ugovor o delu',student:'Student',praksa:'Praksa',ostalo:'Ostalo'
+};
+
+function _kadrLoadCacheKey(key){
+  try{const raw=localStorage.getItem(key);if(!raw)return [];const a=JSON.parse(raw);return Array.isArray(a)?a:[];}catch(e){return [];}
+}
+function _kadrSaveCacheKey(key,list){
+  try{localStorage.setItem(key,JSON.stringify(list||[]));}catch(e){}
+}
+function _kadrEmployeeName(id){
+  const e=kadrovskaState.employees.find(x=>x.id===id);
+  return e?(e.fullName||'—'):'—';
+}
+function _kadrDaysInclusive(fromStr,toStr){
+  if(!fromStr||!toStr)return 0;
+  const a=parseDateLocal(fromStr), b=parseDateLocal(toStr);
+  if(!a||!b)return 0;
+  const ms=b.getTime()-a.getTime();
+  if(ms<0)return 0;
+  return Math.floor(ms/86400000)+1;
+}
+function _kadrPopulateEmpSelects(){
+  const sortedEmp=kadrovskaState.employees.slice()
+    .sort((a,b)=>String(a.fullName||'').localeCompare(String(b.fullName||''),'sr'));
+  const filterOptions='<option value="">Svi zaposleni</option>'
+    +sortedEmp.map(e=>`<option value="${escHtml(e.id)}">${escHtml(e.fullName||'—')}${e.isActive?'':' (neaktivan)'}</option>`).join('');
+  const modalOptions='<option value="">— Izaberi —</option>'
+    +sortedEmp.map(e=>`<option value="${escHtml(e.id)}">${escHtml(e.fullName||'—')}${e.isActive?'':' (neaktivan)'}</option>`).join('');
+  ['absEmpFilter','whEmpFilter','conEmpFilter'].forEach(id=>{
+    const s=document.getElementById(id);
+    if(!s)return;
+    const prev=s.value;
+    s.innerHTML=filterOptions;
+    if(prev&&Array.from(s.options).some(o=>o.value===prev))s.value=prev;
+  });
+  ['absEmpId','whEmpId','conEmpId'].forEach(id=>{
+    const s=document.getElementById(id);
+    if(!s)return;
+    const prev=s.value;
+    s.innerHTML=modalOptions;
+    if(prev&&Array.from(s.options).some(o=>o.value===prev))s.value=prev;
+  });
+}
+
+/* ─── ABSENCES ─── */
+function mapDbAbsence(d){
+  return{
+    id:d.id,employeeId:d.employee_id,type:d.type||'godisnji',
+    dateFrom:d.date_from||'',dateTo:d.date_to||'',
+    daysCount:(d.days_count==null?null:Number(d.days_count)),
+    note:d.note||'',createdAt:d.created_at||null,updatedAt:d.updated_at||null
+  };
+}
+function buildAbsencePayload(a){
+  const p={
+    employee_id:a.employeeId,type:a.type||'godisnji',
+    date_from:a.dateFrom,date_to:a.dateTo,
+    days_count:a.daysCount==null?null:Number(a.daysCount),
+    note:a.note||'',updated_at:new Date().toISOString()
+  };
+  if(a.id)p.id=a.id;
+  return p;
+}
+async function loadAbsencesFromDb(){
+  if(!isOnline)return null;
+  const data=await sbReq('absences?select=*&order=date_from.desc');
+  if(!data)return null;
+  return data.map(mapDbAbsence);
+}
+async function saveAbsenceToDb(a){
+  if(!isOnline||!canEdit())return null;
+  const res=await sbReq('absences','POST',buildAbsencePayload(a));
+  if(res===null){kadrAbsencesState._schema=false;console.warn('[kadrovska] absences save failed — run sql/migrations/add_kadrovska_phase1.sql');}
+  return res;
+}
+async function updateAbsenceInDb(a){
+  if(!isOnline||!canEdit()||!a.id)return null;
+  const {id,...rest}=buildAbsencePayload(a);
+  return await sbReq(`absences?id=eq.${encodeURIComponent(a.id)}`,'PATCH',rest);
+}
+async function deleteAbsenceFromDb(id){
+  if(!isOnline||!canEdit()||!id)return false;
+  return (await sbReq(`absences?id=eq.${encodeURIComponent(id)}`,'DELETE'))!==null;
+}
+
+/* ─── WORK HOURS ─── */
+function mapDbWorkHour(d){
+  return{
+    id:d.id,employeeId:d.employee_id,workDate:d.work_date||'',
+    hours:Number(d.hours||0),overtimeHours:Number(d.overtime_hours||0),
+    projectRef:d.project_ref||'',note:d.note||'',
+    createdAt:d.created_at||null,updatedAt:d.updated_at||null
+  };
+}
+function buildWorkHourPayload(w){
+  const p={
+    employee_id:w.employeeId,work_date:w.workDate,
+    hours:Number(w.hours||0),overtime_hours:Number(w.overtimeHours||0),
+    project_ref:w.projectRef||'',note:w.note||'',
+    updated_at:new Date().toISOString()
+  };
+  if(w.id)p.id=w.id;
+  return p;
+}
+async function loadWorkHoursFromDb(){
+  if(!isOnline)return null;
+  const data=await sbReq('work_hours?select=*&order=work_date.desc');
+  if(!data)return null;
+  return data.map(mapDbWorkHour);
+}
+async function saveWorkHourToDb(w){
+  if(!isOnline||!canEdit())return null;
+  const res=await sbReq('work_hours','POST',buildWorkHourPayload(w));
+  if(res===null){kadrWorkHoursState._schema=false;console.warn('[kadrovska] work_hours save failed — run sql/migrations/add_kadrovska_phase1.sql');}
+  return res;
+}
+async function updateWorkHourInDb(w){
+  if(!isOnline||!canEdit()||!w.id)return null;
+  const {id,...rest}=buildWorkHourPayload(w);
+  return await sbReq(`work_hours?id=eq.${encodeURIComponent(w.id)}`,'PATCH',rest);
+}
+async function deleteWorkHourFromDb(id){
+  if(!isOnline||!canEdit()||!id)return false;
+  return (await sbReq(`work_hours?id=eq.${encodeURIComponent(id)}`,'DELETE'))!==null;
+}
+
+/* ─── CONTRACTS ─── */
+function mapDbContract(d){
+  return{
+    id:d.id,employeeId:d.employee_id,type:d.contract_type||'neodredjeno',
+    number:d.contract_number||'',position:d.position||'',
+    dateFrom:d.date_from||'',dateTo:d.date_to||'',
+    isActive:d.is_active!==false,note:d.note||'',
+    createdAt:d.created_at||null,updatedAt:d.updated_at||null
+  };
+}
+function buildContractPayload(c){
+  const p={
+    employee_id:c.employeeId,contract_type:c.type||'neodredjeno',
+    contract_number:c.number||'',position:c.position||'',
+    date_from:c.dateFrom||null,date_to:c.dateTo||null,
+    is_active:c.isActive!==false,note:c.note||'',
+    updated_at:new Date().toISOString()
+  };
+  if(c.id)p.id=c.id;
+  return p;
+}
+async function loadContractsFromDb(){
+  if(!isOnline)return null;
+  const data=await sbReq('contracts?select=*&order=date_from.desc.nullslast');
+  if(!data)return null;
+  return data.map(mapDbContract);
+}
+async function saveContractToDb(c){
+  if(!isOnline||!canEdit())return null;
+  const res=await sbReq('contracts','POST',buildContractPayload(c));
+  if(res===null){kadrContractsState._schema=false;console.warn('[kadrovska] contracts save failed — run sql/migrations/add_kadrovska_phase1.sql');}
+  return res;
+}
+async function updateContractInDb(c){
+  if(!isOnline||!canEdit()||!c.id)return null;
+  const {id,...rest}=buildContractPayload(c);
+  return await sbReq(`contracts?id=eq.${encodeURIComponent(c.id)}`,'PATCH',rest);
+}
+async function deleteContractFromDb(id){
+  if(!isOnline||!canEdit()||!id)return false;
+  return (await sbReq(`contracts?id=eq.${encodeURIComponent(id)}`,'DELETE'))!==null;
+}
+
+/* ─── Ensure loaded helpers ─── */
+async function ensureAbsencesLoaded(force){
+  if(kadrAbsencesState.loaded&&!force)return;
+  kadrAbsencesState.items=_kadrLoadCacheKey(KADR_ABS_CACHE);
+  kadrAbsencesState.loaded=true;
+  if(isOnline&&hasSupabaseConfig()){
+    const fresh=await loadAbsencesFromDb();
+    if(fresh){kadrAbsencesState.items=fresh;_kadrSaveCacheKey(KADR_ABS_CACHE,fresh);}
+    else kadrAbsencesState._schema=false;
+  }
+}
+async function ensureWorkHoursLoaded(force){
+  if(kadrWorkHoursState.loaded&&!force)return;
+  kadrWorkHoursState.items=_kadrLoadCacheKey(KADR_WH_CACHE);
+  kadrWorkHoursState.loaded=true;
+  if(isOnline&&hasSupabaseConfig()){
+    const fresh=await loadWorkHoursFromDb();
+    if(fresh){kadrWorkHoursState.items=fresh;_kadrSaveCacheKey(KADR_WH_CACHE,fresh);}
+    else kadrWorkHoursState._schema=false;
+  }
+}
+async function ensureContractsLoaded(force){
+  if(kadrContractsState.loaded&&!force)return;
+  kadrContractsState.items=_kadrLoadCacheKey(KADR_CON_CACHE);
+  kadrContractsState.loaded=true;
+  if(isOnline&&hasSupabaseConfig()){
+    const fresh=await loadContractsFromDb();
+    if(fresh){kadrContractsState.items=fresh;_kadrSaveCacheKey(KADR_CON_CACHE,fresh);}
+    else kadrContractsState._schema=false;
+  }
+}
+
+/* ═══ TAB SWITCHER ═══ */
+function switchKadrovskaTab(name){
+  if(!['employees','absences','hours','contracts'].includes(name))name='employees';
+  kadrActiveTab=name;
+  try{sessionStorage.setItem(KADR_TAB_KEY,name);}catch(e){}
+
+  document.querySelectorAll('.kadrovska-tab').forEach(t=>{
+    const on=t.dataset.kadrTab===name;
+    t.classList.toggle('active',on);
+    t.setAttribute('aria-selected',on?'true':'false');
+  });
+  document.querySelectorAll('.kadr-panel').forEach(p=>{
+    p.classList.toggle('active',p.id==='kadrPanel-'+name);
+  });
+
+  if(name==='employees'){renderKadrovska();}
+  else if(name==='absences'){
+    (async()=>{
+      await ensureKadrovskaLoaded();
+      await ensureAbsencesLoaded();
+      _kadrPopulateEmpSelects();
+      renderAbsences();
+    })();
+  }else if(name==='hours'){
+    (async()=>{
+      await ensureKadrovskaLoaded();
+      await ensureWorkHoursLoaded();
+      _kadrPopulateEmpSelects();
+      const monthEl=document.getElementById('whMonthFilter');
+      if(monthEl&&!monthEl.value){
+        const now=new Date();
+        monthEl.value=String(now.getFullYear())+'-'+String(now.getMonth()+1).padStart(2,'0');
+      }
+      renderWorkHours();
+    })();
+  }else if(name==='contracts'){
+    (async()=>{
+      await ensureKadrovskaLoaded();
+      await ensureContractsLoaded();
+      _kadrPopulateEmpSelects();
+      renderContracts();
+    })();
+  }
+}
+
+/* ═══ ABSENCES RENDER + MODAL ═══ */
+function renderAbsences(){
+  const tbody=document.getElementById('absTbody');
+  const emptyBox=document.getElementById('absEmpty');
+  const countEl=document.getElementById('absCount');
+  const badge=document.getElementById('kadrTabCountAbsences');
+  if(!tbody)return;
+
+  const empFilter=document.getElementById('absEmpFilter')?.value||'';
+  const typeFilter=document.getElementById('absTypeFilter')?.value||'';
+  const fromFilter=document.getElementById('absFromFilter')?.value||'';
+  const toFilter=document.getElementById('absToFilter')?.value||'';
+
+  const filtered=kadrAbsencesState.items.filter(a=>{
+    if(empFilter&&a.employeeId!==empFilter)return false;
+    if(typeFilter&&a.type!==typeFilter)return false;
+    if(fromFilter&&a.dateTo&&a.dateTo<fromFilter)return false;
+    if(toFilter&&a.dateFrom&&a.dateFrom>toFilter)return false;
+    return true;
+  });
+
+  if(badge)badge.textContent=String(kadrAbsencesState.items.length);
+  const total=kadrAbsencesState.items.length;
+  if(countEl)countEl.textContent=filtered.length===total
+    ? `${total} ${total===1?'odsustvo':'odsustava'}`
+    : `${filtered.length} / ${total} odsustava`;
+
+  if(filtered.length===0){
+    tbody.innerHTML='';
+    if(emptyBox){
+      emptyBox.style.display='block';
+      emptyBox.querySelector('.kadrovska-empty-title').textContent=
+        total===0?'Nema odsustava':'Nijedan rezultat ne odgovara filterima';
+    }
+    return;
+  }
+  if(emptyBox)emptyBox.style.display='none';
+
+  const edit=canEdit();
+  tbody.innerHTML=filtered.map(a=>{
+    const days=a.daysCount!=null?a.daysCount:_kadrDaysInclusive(a.dateFrom,a.dateTo);
+    const typeLbl=KADR_ABS_TYPE_LABELS[a.type]||a.type;
+    const id=escHtml(a.id||'');
+    return `<tr data-id="${id}">
+      <td><div class="emp-name">${escHtml(_kadrEmployeeName(a.employeeId))}</div></td>
+      <td><span class="kadr-type-badge t-${escHtml(a.type)}">${escHtml(typeLbl)}</span></td>
+      <td class="col-hide-sm">${a.dateFrom?formatDate(a.dateFrom):'—'}</td>
+      <td class="col-hide-sm">${a.dateTo?formatDate(a.dateTo):'—'}</td>
+      <td>${days}</td>
+      <td class="col-hide-sm">${escHtml(a.note||'—')}</td>
+      <td class="col-actions">
+        <button class="btn-row-act" onclick="openAbsenceModal('${id}')" ${edit?'':'disabled'}>Izmeni</button>
+        <button class="btn-row-act danger" onclick="confirmDeleteAbsence('${id}')" ${edit?'':'disabled'}>Obriši</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function openAbsenceModal(id){
+  if(!canEdit()){showToast('⚠ Samo PM/LeadPM može da dodaje/menja');return;}
+  if(kadrovskaState.employees.length===0){showToast('⚠ Prvo dodaj zaposlenog u tab "Zaposleni"');return;}
+  const modal=document.getElementById('absModal');
+  if(!modal)return;
+  _kadrPopulateEmpSelects();
+  const err=document.getElementById('absModalErr');
+  err.textContent='';err.classList.remove('visible');
+
+  let a=null;
+  if(id){
+    a=kadrAbsencesState.items.find(x=>x.id===id);
+    if(!a){showToast('⚠ Odsustvo nije pronađeno');return;}
+  }
+  document.getElementById('absId').value=a?a.id:'';
+  document.getElementById('absEmpId').value=a?a.employeeId:'';
+  document.getElementById('absType').value=a?a.type:'godisnji';
+  document.getElementById('absFrom').value=a?a.dateFrom:'';
+  document.getElementById('absTo').value=a?a.dateTo:'';
+  document.getElementById('absDays').value=a&&a.daysCount!=null?a.daysCount:'';
+  document.getElementById('absNote').value=a?a.note||'':'';
+  document.getElementById('absModalTitle').textContent=a?'Izmeni odsustvo':'Novo odsustvo';
+  modal.classList.remove('hidden');
+  setTimeout(()=>document.getElementById('absEmpId')?.focus(),50);
+}
+function closeAbsenceModal(){document.getElementById('absModal')?.classList.add('hidden');}
+
+async function submitAbsenceForm(){
+  const err=document.getElementById('absModalErr');
+  const btn=document.getElementById('absSubmitBtn');
+  err.textContent='';err.classList.remove('visible');
+  const empId=document.getElementById('absEmpId').value;
+  const type=document.getElementById('absType').value;
+  const dateFrom=document.getElementById('absFrom').value;
+  const dateTo=document.getElementById('absTo').value;
+  let daysCount=document.getElementById('absDays').value;
+  const note=document.getElementById('absNote').value.trim();
+  const id=document.getElementById('absId').value||null;
+  if(!empId){err.textContent='Izaberi zaposlenog.';err.classList.add('visible');return;}
+  if(!dateFrom||!dateTo){err.textContent='Datumi su obavezni.';err.classList.add('visible');return;}
+  if(dateTo<dateFrom){err.textContent='"Do" ne može biti pre "Od".';err.classList.add('visible');return;}
+  if(daysCount===''||daysCount==null)daysCount=_kadrDaysInclusive(dateFrom,dateTo);
+  else daysCount=parseInt(daysCount,10);
+
+  const payload={id,employeeId:empId,type,dateFrom,dateTo,daysCount,note};
+  btn.disabled=true;btn.textContent='Čuvanje…';
+  try{
+    if(isOnline&&hasSupabaseConfig()){
+      let res;
+      if(id&&!String(id).startsWith('local_'))res=await updateAbsenceInDb(payload);
+      else res=await saveAbsenceToDb(payload);
+      if(!res||!res.length){err.textContent='Supabase čuvanje nije uspelo. Primeni migraciju add_kadrovska_phase1.sql.';err.classList.add('visible');return;}
+      const saved=mapDbAbsence(res[0]);
+      const idx=kadrAbsencesState.items.findIndex(x=>x.id===saved.id);
+      if(idx>=0)kadrAbsencesState.items[idx]=saved;
+      else kadrAbsencesState.items.unshift(saved);
+    }else{
+      if(!payload.id)payload.id='local_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
+      const idx=kadrAbsencesState.items.findIndex(x=>x.id===payload.id);
+      if(idx>=0)kadrAbsencesState.items[idx]=payload;
+      else kadrAbsencesState.items.unshift(payload);
+    }
+    kadrAbsencesState.items.sort((a,b)=>String(b.dateFrom||'').localeCompare(String(a.dateFrom||'')));
+    _kadrSaveCacheKey(KADR_ABS_CACHE,kadrAbsencesState.items);
+    closeAbsenceModal();
+    renderAbsences();
+    showToast(id?'✏️ Odsustvo izmenjeno':'✅ Odsustvo dodato');
+  }catch(e){console.error('[abs] submit',e);err.textContent='Greška pri čuvanju.';err.classList.add('visible');}
+  finally{btn.disabled=false;btn.textContent='Sačuvaj';}
+}
+async function confirmDeleteAbsence(id){
+  if(!canEdit())return;
+  if(!confirm('Obrisati odsustvo?'))return;
+  try{
+    if(isOnline&&hasSupabaseConfig()&&!String(id).startsWith('local_')){
+      if(!await deleteAbsenceFromDb(id)){showToast('⚠ Supabase brisanje nije uspelo');return;}
+    }
+    kadrAbsencesState.items=kadrAbsencesState.items.filter(x=>x.id!==id);
+    _kadrSaveCacheKey(KADR_ABS_CACHE,kadrAbsencesState.items);
+    renderAbsences();
+    showToast('🗑 Odsustvo obrisano');
+  }catch(e){console.error(e);showToast('⚠ Greška');}
+}
+
+/* ═══ WORK HOURS RENDER + MODAL ═══ */
+function renderWorkHours(){
+  const tbody=document.getElementById('whTbody');
+  const emptyBox=document.getElementById('whEmpty');
+  const countEl=document.getElementById('whCount');
+  const badge=document.getElementById('kadrTabCountHours');
+  const totalsBox=document.getElementById('whTotals');
+  if(!tbody)return;
+
+  const empFilter=document.getElementById('whEmpFilter')?.value||'';
+  const monthFilter=document.getElementById('whMonthFilter')?.value||''; // yyyy-mm
+
+  const filtered=kadrWorkHoursState.items.filter(w=>{
+    if(empFilter&&w.employeeId!==empFilter)return false;
+    if(monthFilter&&(!w.workDate||w.workDate.slice(0,7)!==monthFilter))return false;
+    return true;
+  });
+
+  if(badge)badge.textContent=String(kadrWorkHoursState.items.length);
+  const total=kadrWorkHoursState.items.length;
+  if(countEl)countEl.textContent=filtered.length===total
+    ? `${total} ${total===1?'unos':'unosa'}`
+    : `${filtered.length} / ${total} unosa`;
+
+  if(filtered.length===0){
+    tbody.innerHTML='';
+    if(totalsBox)totalsBox.style.display='none';
+    if(emptyBox){
+      emptyBox.style.display='block';
+      emptyBox.querySelector('.kadrovska-empty-title').textContent=
+        total===0?'Nema unetih sati':'Nijedan rezultat ne odgovara filterima';
+    }
+    return;
+  }
+  if(emptyBox)emptyBox.style.display='none';
+
+  let totReg=0,totOt=0;
+  const uniqDays=new Set();
+  const edit=canEdit();
+  tbody.innerHTML=filtered.map(w=>{
+    totReg+=Number(w.hours||0);
+    totOt+=Number(w.overtimeHours||0);
+    if(w.workDate&&w.employeeId)uniqDays.add(w.employeeId+'|'+w.workDate);
+    const id=escHtml(w.id||'');
+    const sub=[w.projectRef,w.note].filter(x=>x).join(' · ');
+    return `<tr data-id="${id}">
+      <td><strong>${w.workDate?formatDate(w.workDate):'—'}</strong></td>
+      <td><div class="emp-name">${escHtml(_kadrEmployeeName(w.employeeId))}</div></td>
+      <td><span style="font-family:var(--mono);font-weight:600;">${Number(w.hours||0).toFixed(2)}</span></td>
+      <td class="col-hide-sm">${Number(w.overtimeHours||0)>0?`<span style="color:#F2994A;font-family:var(--mono);font-weight:600;">+${Number(w.overtimeHours).toFixed(2)}</span>`:'—'}</td>
+      <td class="col-hide-sm">${escHtml(sub||'—')}</td>
+      <td class="col-actions">
+        <button class="btn-row-act" onclick="openWorkHourModal('${id}')" ${edit?'':'disabled'}>Izmeni</button>
+        <button class="btn-row-act danger" onclick="confirmDeleteWorkHour('${id}')" ${edit?'':'disabled'}>Obriši</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  if(totalsBox){
+    totalsBox.style.display='flex';
+    document.getElementById('whTotalRegular').textContent=totReg.toFixed(2);
+    document.getElementById('whTotalOvertime').textContent=totOt.toFixed(2);
+    document.getElementById('whTotalAll').textContent=(totReg+totOt).toFixed(2);
+    document.getElementById('whTotalDays').textContent=String(uniqDays.size);
+  }
+}
+
+function openWorkHourModal(id){
+  if(!canEdit()){showToast('⚠ Samo PM/LeadPM može da dodaje/menja');return;}
+  if(kadrovskaState.employees.length===0){showToast('⚠ Prvo dodaj zaposlenog u tab "Zaposleni"');return;}
+  const modal=document.getElementById('whModal');
+  if(!modal)return;
+  _kadrPopulateEmpSelects();
+  const err=document.getElementById('whModalErr');
+  err.textContent='';err.classList.remove('visible');
+
+  let w=null;
+  if(id){
+    w=kadrWorkHoursState.items.find(x=>x.id===id);
+    if(!w){showToast('⚠ Zapis nije pronađen');return;}
+  }
+  document.getElementById('whId').value=w?w.id:'';
+  document.getElementById('whEmpId').value=w?w.employeeId:(document.getElementById('whEmpFilter')?.value||'');
+  const today=new Date(); const todayStr=formatYMD(today.getFullYear(),today.getMonth()+1,today.getDate());
+  document.getElementById('whDate').value=w?w.workDate:todayStr;
+  document.getElementById('whHours').value=w?w.hours:8;
+  document.getElementById('whOvertime').value=w?w.overtimeHours:0;
+  document.getElementById('whProject').value=w?w.projectRef||'':'';
+  document.getElementById('whNote').value=w?w.note||'':'';
+  document.getElementById('whModalTitle').textContent=w?'Izmeni unos sati':'Novi unos sati';
+  modal.classList.remove('hidden');
+  setTimeout(()=>document.getElementById('whEmpId')?.focus(),50);
+}
+function closeWorkHourModal(){document.getElementById('whModal')?.classList.add('hidden');}
+
+async function submitWorkHourForm(){
+  const err=document.getElementById('whModalErr');
+  const btn=document.getElementById('whSubmitBtn');
+  err.textContent='';err.classList.remove('visible');
+  const empId=document.getElementById('whEmpId').value;
+  const workDate=document.getElementById('whDate').value;
+  const hours=parseFloat(document.getElementById('whHours').value||'0');
+  const ot=parseFloat(document.getElementById('whOvertime').value||'0');
+  const projectRef=document.getElementById('whProject').value.trim();
+  const note=document.getElementById('whNote').value.trim();
+  const id=document.getElementById('whId').value||null;
+  if(!empId){err.textContent='Izaberi zaposlenog.';err.classList.add('visible');return;}
+  if(!workDate){err.textContent='Datum je obavezan.';err.classList.add('visible');return;}
+  if(isNaN(hours)||hours<0||hours>24){err.textContent='Sati moraju biti 0–24.';err.classList.add('visible');return;}
+  if(isNaN(ot)||ot<0||ot>24){err.textContent='Prekovremeni moraju biti 0–24.';err.classList.add('visible');return;}
+
+  const payload={id,employeeId:empId,workDate,hours,overtimeHours:ot,projectRef,note};
+  btn.disabled=true;btn.textContent='Čuvanje…';
+  try{
+    if(isOnline&&hasSupabaseConfig()){
+      let res;
+      if(id&&!String(id).startsWith('local_'))res=await updateWorkHourInDb(payload);
+      else res=await saveWorkHourToDb(payload);
+      if(!res||!res.length){err.textContent='Supabase čuvanje nije uspelo. Primeni migraciju add_kadrovska_phase1.sql.';err.classList.add('visible');return;}
+      const saved=mapDbWorkHour(res[0]);
+      const idx=kadrWorkHoursState.items.findIndex(x=>x.id===saved.id);
+      if(idx>=0)kadrWorkHoursState.items[idx]=saved;
+      else kadrWorkHoursState.items.unshift(saved);
+    }else{
+      if(!payload.id)payload.id='local_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
+      const idx=kadrWorkHoursState.items.findIndex(x=>x.id===payload.id);
+      if(idx>=0)kadrWorkHoursState.items[idx]=payload;
+      else kadrWorkHoursState.items.unshift(payload);
+    }
+    kadrWorkHoursState.items.sort((a,b)=>String(b.workDate||'').localeCompare(String(a.workDate||'')));
+    _kadrSaveCacheKey(KADR_WH_CACHE,kadrWorkHoursState.items);
+    closeWorkHourModal();
+    renderWorkHours();
+    showToast(id?'✏️ Unos izmenjen':'✅ Sati uneti');
+  }catch(e){console.error('[wh] submit',e);err.textContent='Greška pri čuvanju.';err.classList.add('visible');}
+  finally{btn.disabled=false;btn.textContent='Sačuvaj';}
+}
+async function confirmDeleteWorkHour(id){
+  if(!canEdit())return;
+  if(!confirm('Obrisati unos sati?'))return;
+  try{
+    if(isOnline&&hasSupabaseConfig()&&!String(id).startsWith('local_')){
+      if(!await deleteWorkHourFromDb(id)){showToast('⚠ Supabase brisanje nije uspelo');return;}
+    }
+    kadrWorkHoursState.items=kadrWorkHoursState.items.filter(x=>x.id!==id);
+    _kadrSaveCacheKey(KADR_WH_CACHE,kadrWorkHoursState.items);
+    renderWorkHours();
+    showToast('🗑 Unos obrisan');
+  }catch(e){console.error(e);showToast('⚠ Greška');}
+}
+
+/* ═══ CONTRACTS RENDER + MODAL ═══ */
+function _kadrContractStatus(c){
+  const today=new Date(); const todayStr=formatYMD(today.getFullYear(),today.getMonth()+1,today.getDate());
+  if(!c.isActive)return{key:'inactive',label:'Neaktivan',cls:'inactive'};
+  if(c.dateTo){
+    if(c.dateTo<todayStr)return{key:'expired',label:'Istekao',cls:'expired'};
+    const diff=_kadrDaysInclusive(todayStr,c.dateTo)-1;
+    if(diff<=30)return{key:'expiring',label:`Ističe za ${diff} d`,cls:'expiring',days:diff};
+  }
+  return{key:'active',label:'Aktivan',cls:'active'};
+}
+function renderContracts(){
+  const tbody=document.getElementById('conTbody');
+  const emptyBox=document.getElementById('conEmpty');
+  const countEl=document.getElementById('conCount');
+  const badge=document.getElementById('kadrTabCountContracts');
+  if(!tbody)return;
+
+  const empFilter=document.getElementById('conEmpFilter')?.value||'';
+  const typeFilter=document.getElementById('conTypeFilter')?.value||'';
+  const statusFilter=document.getElementById('conStatusFilter')?.value||'active';
+
+  const enriched=kadrContractsState.items.map(c=>({c,status:_kadrContractStatus(c)}));
+  const filtered=enriched.filter(({c,status})=>{
+    if(empFilter&&c.employeeId!==empFilter)return false;
+    if(typeFilter&&c.type!==typeFilter)return false;
+    if(statusFilter==='active'&&status.key!=='active'&&status.key!=='expiring')return false;
+    if(statusFilter==='inactive'&&status.key!=='inactive')return false;
+    if(statusFilter==='expiring'&&status.key!=='expiring')return false;
+    if(statusFilter==='expired'&&status.key!=='expired')return false;
+    return true;
+  });
+
+  if(badge)badge.textContent=String(kadrContractsState.items.length);
+  const total=kadrContractsState.items.length;
+  if(countEl)countEl.textContent=filtered.length===total
+    ? `${total} ${total===1?'ugovor':'ugovora'}`
+    : `${filtered.length} / ${total} ugovora`;
+
+  if(filtered.length===0){
+    tbody.innerHTML='';
+    if(emptyBox){
+      emptyBox.style.display='block';
+      emptyBox.querySelector('.kadrovska-empty-title').textContent=
+        total===0?'Nema ugovora':'Nijedan rezultat ne odgovara filterima';
+    }
+    return;
+  }
+  if(emptyBox)emptyBox.style.display='none';
+
+  const edit=canEdit();
+  tbody.innerHTML=filtered.map(({c,status})=>{
+    const typeLbl=KADR_CON_TYPE_LABELS[c.type]||c.type;
+    const rowCls=status.key==='expired'?'row-expired':(status.key==='expiring'?'row-expiring':'');
+    const id=escHtml(c.id||'');
+    let expiryHint='';
+    if(status.key==='expiring')expiryHint=`<div class="kadr-expiry-hint warn">ISTIČE ZA ${status.days} DANA</div>`;
+    else if(status.key==='expired')expiryHint=`<div class="kadr-expiry-hint danger">ISTEKAO</div>`;
+    return `<tr data-id="${id}" class="${rowCls}">
+      <td><div class="emp-name">${escHtml(_kadrEmployeeName(c.employeeId))}</div></td>
+      <td><span class="kadr-type-badge c-${escHtml(c.type)}">${escHtml(typeLbl)}</span></td>
+      <td class="col-hide-sm">${escHtml(c.number||'—')}</td>
+      <td class="col-hide-sm">${escHtml(c.position||'—')}</td>
+      <td>${c.dateFrom?formatDate(c.dateFrom):'—'}</td>
+      <td>${c.dateTo?formatDate(c.dateTo):'—'}${expiryHint}</td>
+      <td><span class="emp-status-badge ${status.cls==='expired'||status.cls==='expiring'?'active':status.cls}" title="${escHtml(status.label)}">${escHtml(status.label)}</span></td>
+      <td class="col-actions">
+        <button class="btn-row-act" onclick="openContractModal('${id}')" ${edit?'':'disabled'}>Izmeni</button>
+        <button class="btn-row-act danger" onclick="confirmDeleteContract('${id}')" ${edit?'':'disabled'}>Obriši</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function openContractModal(id){
+  if(!canEdit()){showToast('⚠ Samo PM/LeadPM može da dodaje/menja');return;}
+  if(kadrovskaState.employees.length===0){showToast('⚠ Prvo dodaj zaposlenog u tab "Zaposleni"');return;}
+  const modal=document.getElementById('conModal');
+  if(!modal)return;
+  _kadrPopulateEmpSelects();
+  const err=document.getElementById('conModalErr');
+  err.textContent='';err.classList.remove('visible');
+
+  let c=null;
+  if(id){
+    c=kadrContractsState.items.find(x=>x.id===id);
+    if(!c){showToast('⚠ Ugovor nije pronađen');return;}
+  }
+  document.getElementById('conId').value=c?c.id:'';
+  document.getElementById('conEmpId').value=c?c.employeeId:'';
+  document.getElementById('conType').value=c?c.type:'neodredjeno';
+  document.getElementById('conNumber').value=c?c.number||'':'';
+  document.getElementById('conPosition').value=c?c.position||'':'';
+  document.getElementById('conFrom').value=c?c.dateFrom||'':'';
+  document.getElementById('conTo').value=c?c.dateTo||'':'';
+  document.getElementById('conActive').checked=c?c.isActive!==false:true;
+  document.getElementById('conNote').value=c?c.note||'':'';
+  document.getElementById('conModalTitle').textContent=c?'Izmeni ugovor':'Novi ugovor';
+  modal.classList.remove('hidden');
+  setTimeout(()=>document.getElementById('conEmpId')?.focus(),50);
+}
+function closeContractModal(){document.getElementById('conModal')?.classList.add('hidden');}
+
+async function submitContractForm(){
+  const err=document.getElementById('conModalErr');
+  const btn=document.getElementById('conSubmitBtn');
+  err.textContent='';err.classList.remove('visible');
+  const empId=document.getElementById('conEmpId').value;
+  const type=document.getElementById('conType').value;
+  const number=document.getElementById('conNumber').value.trim();
+  const position=document.getElementById('conPosition').value.trim();
+  const dateFrom=document.getElementById('conFrom').value||null;
+  const dateTo=document.getElementById('conTo').value||null;
+  const isActive=document.getElementById('conActive').checked;
+  const note=document.getElementById('conNote').value.trim();
+  const id=document.getElementById('conId').value||null;
+  if(!empId){err.textContent='Izaberi zaposlenog.';err.classList.add('visible');return;}
+  if(dateFrom&&dateTo&&dateTo<dateFrom){err.textContent='"Do" ne može biti pre "Od".';err.classList.add('visible');return;}
+
+  const payload={id,employeeId:empId,type,number,position,dateFrom,dateTo,isActive,note};
+  btn.disabled=true;btn.textContent='Čuvanje…';
+  try{
+    if(isOnline&&hasSupabaseConfig()){
+      let res;
+      if(id&&!String(id).startsWith('local_'))res=await updateContractInDb(payload);
+      else res=await saveContractToDb(payload);
+      if(!res||!res.length){err.textContent='Supabase čuvanje nije uspelo. Primeni migraciju add_kadrovska_phase1.sql.';err.classList.add('visible');return;}
+      const saved=mapDbContract(res[0]);
+      const idx=kadrContractsState.items.findIndex(x=>x.id===saved.id);
+      if(idx>=0)kadrContractsState.items[idx]=saved;
+      else kadrContractsState.items.unshift(saved);
+    }else{
+      if(!payload.id)payload.id='local_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
+      const idx=kadrContractsState.items.findIndex(x=>x.id===payload.id);
+      if(idx>=0)kadrContractsState.items[idx]=payload;
+      else kadrContractsState.items.unshift(payload);
+    }
+    kadrContractsState.items.sort((a,b)=>String(b.dateFrom||'').localeCompare(String(a.dateFrom||'')));
+    _kadrSaveCacheKey(KADR_CON_CACHE,kadrContractsState.items);
+    closeContractModal();
+    renderContracts();
+    showToast(id?'✏️ Ugovor izmenjen':'✅ Ugovor dodat');
+  }catch(e){console.error('[con] submit',e);err.textContent='Greška pri čuvanju.';err.classList.add('visible');}
+  finally{btn.disabled=false;btn.textContent='Sačuvaj';}
+}
+async function confirmDeleteContract(id){
+  if(!canEdit())return;
+  if(!confirm('Obrisati ugovor?'))return;
+  try{
+    if(isOnline&&hasSupabaseConfig()&&!String(id).startsWith('local_')){
+      if(!await deleteContractFromDb(id)){showToast('⚠ Supabase brisanje nije uspelo');return;}
+    }
+    kadrContractsState.items=kadrContractsState.items.filter(x=>x.id!==id);
+    _kadrSaveCacheKey(KADR_CON_CACHE,kadrContractsState.items);
+    renderContracts();
+    showToast('🗑 Ugovor obrisan');
+  }catch(e){console.error(e);showToast('⚠ Greška');}
+}
+
 /* ═══ Module hub routing ═══ */
 const MODULE_HUB_KEY='plan_montaze_v51_active_module';
 let activeModule=null;
@@ -3110,7 +4277,18 @@ function enterModule(name){
     document.body.classList.add('module-kadrovska');
     (async()=>{
       await ensureKadrovskaLoaded(true);
+      /* Preload all three phase-1 datasets in parallel so tab switches are instant */
+      await Promise.all([
+        ensureAbsencesLoaded(true),
+        ensureWorkHoursLoaded(true),
+        ensureContractsLoaded(true)
+      ]);
       renderKadrovska();
+      _kadrPopulateEmpSelects();
+      /* Restore last active tab (or default to Zaposleni) */
+      let last='employees';
+      try{const saved=sessionStorage.getItem(KADR_TAB_KEY);if(saved)last=saved;}catch(e){}
+      switchKadrovskaTab(last);
     })();
   }else{
     // Placeholder modules — keep user on hub
@@ -3169,8 +4347,11 @@ async function doLogout(){
   document.body.classList.remove('hub-active');
   const hub=document.getElementById('moduleHub');
   if(hub)hub.classList.add('hidden');
-  /* Close employee modal if open */
+  /* Close all Kadrovska modals if open */
   document.getElementById('empModal')?.classList.add('hidden');
+  document.getElementById('absModal')?.classList.add('hidden');
+  document.getElementById('whModal')?.classList.add('hidden');
+  document.getElementById('conModal')?.classList.add('hidden');
   document.getElementById('authOverlay').classList.remove('hidden');
   updateAuthUI();
 }
@@ -4293,12 +5474,19 @@ document.addEventListener('keydown', function(e){
     if (ov && ov.classList.contains('open')) closeStatusPanel();
     const emp = document.getElementById('empModal');
     if (emp && !emp.classList.contains('hidden')) closeEmployeeModal();
+    const abs = document.getElementById('absModal');
+    if (abs && !abs.classList.contains('hidden')) closeAbsenceModal();
+    const wh = document.getElementById('whModal');
+    if (wh && !wh.classList.contains('hidden')) closeWorkHourModal();
+    const con = document.getElementById('conModal');
+    if (con && !con.classList.contains('hidden')) closeContractModal();
   }
 });
-/* Close employee modal on backdrop click */
-document.getElementById('empModal')?.addEventListener('click',function(e){
-  if(e.target===this)closeEmployeeModal();
-});
+/* Close modals on backdrop click */
+document.getElementById('empModal')?.addEventListener('click',function(e){ if(e.target===this)closeEmployeeModal(); });
+document.getElementById('absModal')?.addEventListener('click',function(e){ if(e.target===this)closeAbsenceModal(); });
+document.getElementById('whModal')?.addEventListener('click',function(e){ if(e.target===this)closeWorkHourModal(); });
+document.getElementById('conModal')?.addEventListener('click',function(e){ if(e.target===this)closeContractModal(); });
 
 /* Try session restore first */
 (function init(){

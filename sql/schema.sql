@@ -125,6 +125,61 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_employees_email
   ON employees(lower(email))
   WHERE email IS NOT NULL AND email <> '';
 
+-- ABSENCES (Kadrovska phase 1)
+CREATE TABLE IF NOT EXISTS absences (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  employee_id  UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  type         TEXT NOT NULL DEFAULT 'godisnji'
+               CHECK (type IN ('godisnji','bolovanje','slobodan','placeno','neplaceno','sluzbeno','ostalo')),
+  date_from    DATE NOT NULL,
+  date_to      DATE NOT NULL,
+  days_count   INT,
+  note         TEXT DEFAULT '',
+  created_at   TIMESTAMPTZ DEFAULT now(),
+  updated_at   TIMESTAMPTZ DEFAULT now(),
+  CONSTRAINT absences_dates_valid CHECK (date_to >= date_from)
+);
+CREATE INDEX IF NOT EXISTS idx_absences_employee ON absences(employee_id);
+CREATE INDEX IF NOT EXISTS idx_absences_range    ON absences(date_from, date_to);
+CREATE INDEX IF NOT EXISTS idx_absences_type     ON absences(type);
+
+-- WORK_HOURS (Kadrovska phase 1 — ručni unos umesto Excel-a)
+CREATE TABLE IF NOT EXISTS work_hours (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  employee_id     UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  work_date       DATE NOT NULL,
+  hours           NUMERIC(5,2) NOT NULL DEFAULT 0
+                  CHECK (hours >= 0 AND hours <= 24),
+  overtime_hours  NUMERIC(5,2) NOT NULL DEFAULT 0
+                  CHECK (overtime_hours >= 0 AND overtime_hours <= 24),
+  project_ref     TEXT DEFAULT '',
+  note            TEXT DEFAULT '',
+  created_at      TIMESTAMPTZ DEFAULT now(),
+  updated_at      TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_work_hours_employee ON work_hours(employee_id);
+CREATE INDEX IF NOT EXISTS idx_work_hours_date     ON work_hours(work_date);
+CREATE INDEX IF NOT EXISTS idx_work_hours_emp_date ON work_hours(employee_id, work_date);
+
+-- CONTRACTS (Kadrovska phase 1)
+CREATE TABLE IF NOT EXISTS contracts (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  employee_id     UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  contract_type   TEXT NOT NULL DEFAULT 'neodredjeno'
+                  CHECK (contract_type IN ('neodredjeno','odredjeno','privremeno','delo','student','praksa','ostalo')),
+  contract_number TEXT DEFAULT '',
+  position        TEXT DEFAULT '',
+  date_from       DATE,
+  date_to         DATE,
+  is_active       BOOLEAN DEFAULT true,
+  note            TEXT DEFAULT '',
+  created_at      TIMESTAMPTZ DEFAULT now(),
+  updated_at      TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_contracts_employee ON contracts(employee_id);
+CREATE INDEX IF NOT EXISTS idx_contracts_active   ON contracts(is_active);
+CREATE INDEX IF NOT EXISTS idx_contracts_dateto   ON contracts(date_to);
+
 -- ═══════════════════════════════════════════════════════════
 -- UPDATED_AT TRIGGER (auto-update timestamp)
 -- ═══════════════════════════════════════════════════════════
@@ -141,6 +196,12 @@ CREATE TRIGGER trg_wp_updated BEFORE UPDATE ON work_packages FOR EACH ROW EXECUT
 CREATE TRIGGER trg_phases_updated BEFORE UPDATE ON phases FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 DROP TRIGGER IF EXISTS trg_employees_updated ON employees;
 CREATE TRIGGER trg_employees_updated BEFORE UPDATE ON employees FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS trg_absences_updated ON absences;
+CREATE TRIGGER trg_absences_updated BEFORE UPDATE ON absences FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS trg_work_hours_updated ON work_hours;
+CREATE TRIGGER trg_work_hours_updated BEFORE UPDATE ON work_hours FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS trg_contracts_updated ON contracts;
+CREATE TRIGGER trg_contracts_updated BEFORE UPDATE ON contracts FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- ═══════════════════════════════════════════════════════════
 -- ROW LEVEL SECURITY (RLS)
@@ -151,6 +212,9 @@ ALTER TABLE phases ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_roles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reminder_log ENABLE ROW LEVEL SECURITY;
 ALTER TABLE employees ENABLE ROW LEVEL SECURITY;
+ALTER TABLE absences ENABLE ROW LEVEL SECURITY;
+ALTER TABLE work_hours ENABLE ROW LEVEL SECURITY;
+ALTER TABLE contracts ENABLE ROW LEVEL SECURITY;
 
 -- Helper: check if current user has edit role
 CREATE OR REPLACE FUNCTION has_edit_role(proj_id UUID DEFAULT NULL)
@@ -212,3 +276,19 @@ CREATE POLICY "employees_select" ON employees FOR SELECT TO authenticated USING 
 CREATE POLICY "employees_insert" ON employees FOR INSERT TO authenticated WITH CHECK (has_edit_role());
 CREATE POLICY "employees_update" ON employees FOR UPDATE TO authenticated USING (has_edit_role()) WITH CHECK (has_edit_role());
 CREATE POLICY "employees_delete" ON employees FOR DELETE TO authenticated USING (has_edit_role());
+
+-- ABSENCES / WORK_HOURS / CONTRACTS (Kadrovska phase 1)
+CREATE POLICY "absences_select" ON absences FOR SELECT TO authenticated USING (true);
+CREATE POLICY "absences_insert" ON absences FOR INSERT TO authenticated WITH CHECK (has_edit_role());
+CREATE POLICY "absences_update" ON absences FOR UPDATE TO authenticated USING (has_edit_role()) WITH CHECK (has_edit_role());
+CREATE POLICY "absences_delete" ON absences FOR DELETE TO authenticated USING (has_edit_role());
+
+CREATE POLICY "work_hours_select" ON work_hours FOR SELECT TO authenticated USING (true);
+CREATE POLICY "work_hours_insert" ON work_hours FOR INSERT TO authenticated WITH CHECK (has_edit_role());
+CREATE POLICY "work_hours_update" ON work_hours FOR UPDATE TO authenticated USING (has_edit_role()) WITH CHECK (has_edit_role());
+CREATE POLICY "work_hours_delete" ON work_hours FOR DELETE TO authenticated USING (has_edit_role());
+
+CREATE POLICY "contracts_select" ON contracts FOR SELECT TO authenticated USING (true);
+CREATE POLICY "contracts_insert" ON contracts FOR INSERT TO authenticated WITH CHECK (has_edit_role());
+CREATE POLICY "contracts_update" ON contracts FOR UPDATE TO authenticated USING (has_edit_role()) WITH CHECK (has_edit_role());
+CREATE POLICY "contracts_delete" ON contracts FOR DELETE TO authenticated USING (has_edit_role());
