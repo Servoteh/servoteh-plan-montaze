@@ -66,8 +66,31 @@ export function persistPhaseModels() {
 }
 
 export function setPhaseModel(phaseId, model) {
-  phaseModels[phaseId] = model;
+  if (!phaseId) return;
+  /* Ako je sve prazno → ukloni umesto da čuvamo prazan zapis */
+  const clean = {
+    name: String(model?.name || '').trim(),
+    imageUrl: String(model?.imageUrl || '').trim(),
+    fileUrl: String(model?.fileUrl || '').trim(),
+    note: String(model?.note || '').trim(),
+  };
+  if (!clean.name && !clean.imageUrl && !clean.fileUrl && !clean.note) {
+    delete phaseModels[phaseId];
+  } else {
+    phaseModels[phaseId] = clean;
+  }
   persistPhaseModels();
+}
+
+export function getPhaseModel(phaseId) {
+  return (phaseId && phaseModels[phaseId]) || null;
+}
+
+export function deletePhaseModel(phaseId) {
+  if (phaseId && phaseModels[phaseId]) {
+    delete phaseModels[phaseId];
+    persistPhaseModels();
+  }
 }
 
 /* ── Mobile expand state (NIJE perzistovan — samo session in-memory) ── */

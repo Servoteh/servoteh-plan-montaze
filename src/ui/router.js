@@ -20,7 +20,7 @@ import { renderLoginScreen } from './auth/loginScreen.js';
 import { renderModuleHub } from './hub/moduleHub.js';
 import { renderModulePlaceholder } from './modulePlaceholder.js';
 import { renderKadrovskaModule } from './kadrovska/index.js';
-import { renderPlanMontazeModule } from './planMontaze/index.js';
+import { renderPlanMontazeModule, teardownPlanMontazeModule } from './planMontaze/index.js';
 import { getAuth, canAccessKadrovska, canManageUsers } from '../state/auth.js';
 import { resetKadrovskaState } from '../state/kadrovska.js';
 import { showToast } from '../lib/dom.js';
@@ -32,6 +32,10 @@ let mountEl = null;
 let currentScreen = null;
 
 function clearMount() {
+  /* Cleanup za plan modul (status panel singleton, auth subscription). */
+  if (currentScreen === 'plan-montaze') {
+    try { teardownPlanMontazeModule(); } catch (e) { /* ignore */ }
+  }
   if (mountEl) mountEl.innerHTML = '';
   /* Skidamo SVE legacy + nove module klase sa body-ja da ne bismo
      ostavili stari display-toggle koji ide preko CSS-a. */

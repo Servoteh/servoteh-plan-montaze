@@ -17,6 +17,8 @@ import { escHtml } from '../../lib/dom.js';
 import { dayDiffFromToday, formatDate } from '../../lib/date.js';
 import { calcReadiness } from '../../lib/phase.js';
 import { getActiveProject } from '../../state/planMontaze.js';
+import { canEdit } from '../../state/auth.js';
+import { openReminderDialog } from './reminderModal.js';
 
 /** @returns {string} HTML — niz reminder cards ili prazan div. */
 export function reminderZoneHtml() {
@@ -43,15 +45,32 @@ export function reminderZoneHtml() {
     });
   });
   if (!cards.length) return '<div class="reminder-zone" id="reminderZone"></div>';
+  const sendBtn = canEdit() && p.reminderEnabled
+    ? `<button type="button" class="btn btn-primary rz-send-btn" id="rzSendBtn">📧 Pošalji email podsetnike (${cards.length})</button>`
+    : '';
   return `
     <div class="reminder-zone" id="reminderZone">
-      ${cards.map(c => `
-        <div class="reminder-card ${c.urg ? 'rc-red' : 'rc-yellow'}">
-          <div class="rc-title">${c.urg ? '🔴' : '🟡'} ${escHtml(c.title)}</div>
-          <div class="rc-sub">${escHtml(c.projectCode)} / ${escHtml(c.wpName)} · ${escHtml(formatDate(c.start))} · Za ${c.days}d</div>
-          <div class="rc-sub">${escHtml(c.reasons.slice(0, 3).join(', '))}</div>
-        </div>
-      `).join('')}
+      <div class="reminder-zone-head">
+        <span class="rz-title">⚠ Podsetnici (${cards.length})</span>
+        ${sendBtn}
+      </div>
+      <div class="reminder-zone-body">
+        ${cards.map(c => `
+          <div class="reminder-card ${c.urg ? 'rc-red' : 'rc-yellow'}">
+            <div class="rc-title">${c.urg ? '🔴' : '🟡'} ${escHtml(c.title)}</div>
+            <div class="rc-sub">${escHtml(c.projectCode)} / ${escHtml(c.wpName)} · ${escHtml(formatDate(c.start))} · Za ${c.days}d</div>
+            <div class="rc-sub">${escHtml(c.reasons.slice(0, 3).join(', '))}</div>
+          </div>
+        `).join('')}
+      </div>
     </div>
   `;
+}
+
+/** Wire-uje "Pošalji" dugme u reminder zone. Idempotentan. */
+export function wireReminderZone(root) {
+  const btn = root?.querySelector('#rzSendBtn');
+  if (!btn || btn.dataset.wired) return;
+  btn.dataset.wired = '1';
+  btn.addEventListener('click', () => openReminderDialog());
 }

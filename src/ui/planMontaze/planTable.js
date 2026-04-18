@@ -24,9 +24,11 @@ import {
   getActivePhases,
   getProjectLocations,
   getLocationColor,
+  getPhaseModel,
   ENGINEERS,
   VODJA,
 } from '../../state/planMontaze.js';
+import { openModelDialog } from './modelDialog.js';
 import {
   STATUSES,
   CHECK_LABELS,
@@ -340,6 +342,7 @@ function _planRowHtml(row, i) {
         <textarea class="note-area" rows="2" data-field="note" ${dis}>${escHtml(row.note || '')}</textarea>
       </td>
       <td class="td-actions">
+        <button type="button" class="row-btn btn-3d ${getPhaseModel(row.id) ? 'has-model' : ''}" data-row-action="model" data-ri="${i}" title="${getPhaseModel(row.id) ? '3D: ' + escHtml(getPhaseModel(row.id).name || 'model dodeljen') : '3D model (nema)'}">🧩</button>
         <button type="button" class="row-btn btn-up" data-row-action="up" data-ri="${i}" title="Pomeri gore">▲</button>
         <button type="button" class="row-btn btn-dn" data-row-action="down" data-ri="${i}" title="Pomeri dole">▼</button>
         <button type="button" class="row-btn btn-del" data-row-action="del" data-ri="${i}" title="Obriši">✕</button>
@@ -499,6 +502,12 @@ function _wireTbody(root) {
       if (action === 'up') moveRow(i, -1);
       else if (action === 'down') moveRow(i, 1);
       else if (action === 'del') deleteRow(i);
+      else if (action === 'model') {
+        const tr = btn.closest('tr');
+        const phaseId = tr?.dataset.phaseId;
+        if (phaseId) openModelDialog(phaseId, () => _onChangeRoot?.());
+        return;
+      }
       _onChangeRoot?.();
     });
   });

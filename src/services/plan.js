@@ -38,6 +38,60 @@ import {
 } from '../state/planMontaze.js';
 import { SAVE_DEBOUNCE_MS } from '../lib/constants.js';
 
+/* ── SAVE STATUS TRACKER (F5.5) ──────────────────────────────────────── */
+/* Drži broj queued (debouncing) i inflight (network in-progress) save-ova.
+   UI status panel se subscribe-uje preko `subscribeSaveStatus()`. */
+
+const _saveStatus = {
+  queued: 0,    /* Broj aktivnih timer-a (projectSave, phaseSaveTimers, wpSync) */
+  inflight: 0,  /* Broj POST/PATCH zahteva u flight-u */
+  lastError: null,
+  lastSavedAt: null,
+};
+const _saveListeners = new Set();
+
+export function subscribeSaveStatus(fn) {
+  _saveListeners.add(fn);
+  fn(_saveStatus);
+  return () => _saveListeners.delete(fn);
+}
+
+export function getSaveStatus() {
+  return { ..._saveStatus };
+}
+
+function _emitSaveStatus() {
+  for (const fn of _saveListeners) {
+    try { fn(_saveStatus); } catch (e) { /* ignore */ }
+  }
+}
+
+function _recountQueued() {
+  let n = 0;
+  if (planMontazeState.projectSaveTimer) n++;
+  if (planMontazeState.wpSyncTimer) n++;
+  n += planMontazeState.phaseSaveTimers?.size || 0;
+  _saveStatus.queued = n;
+  _emitSaveStatus();
+}
+
+async function _trackInflight(fn) {
+  _saveStatus.inflight++;
+  _emitSaveStatus();
+  try {
+    const r = await fn();
+    _saveStatus.lastSavedAt = Date.now();
+    _saveStatus.lastError = null;
+    return r;
+  } catch (e) {
+    _saveStatus.lastError = String(e?.message || e);
+    throw e;
+  } finally {
+    _saveStatus.inflight--;
+    _emitSaveStatus();
+  }
+}
+
 /* ── LOAD: kompletna hijerarhija projects → WP → phases ──────────────── */
 
 /**
@@ -77,9 +131,11 @@ export function queueProjectSave() {
   }
   planMontazeState.projectSaveTimer = setTimeout(async () => {
     const proj = getActiveProject();
-    if (proj) await saveProjectToDb(proj);
+    if (proj) await _trackInflight(() => saveProjectToDb(proj));
     planMontazeState.projectSaveTimer = null;
+    _recountQueued();
   }, SAVE_DEBOUNCE_MS);
+  _recountQueued();
 }
 
 /**
@@ -98,13 +154,23 @@ export function queuePhaseSaveByIndex(i) {
   const timer = setTimeout(async () => {
     const liveProj = getActiveProject();
     const liveWp = getActiveWP();
-    if (!liveProj || !liveWp) return;
+    if (!liveProj || !liveWp) {
+      planMontazeState.phaseSaveTimers.delete(ph.id);
+      _recountQueued();
+      return;
+    }
     const liveIndex = liveWp.phases.findIndex(x => x.id === ph.id);
-    if (liveIndex === -1) return;
-    await savePhaseToDb(liveWp.phases[liveIndex], liveProj.id, liveWp.id, liveIndex);
+    if (liveIndex === -1) {
+      planMontazeState.phaseSaveTimers.delete(ph.id);
+      _recountQueued();
+      return;
+    }
+    await _trackInflight(() => savePhaseToDb(liveWp.phases[liveIndex], liveProj.id, liveWp.id, liveIndex));
     planMontazeState.phaseSaveTimers.delete(ph.id);
+    _recountQueued();
   }, SAVE_DEBOUNCE_MS);
   planMontazeState.phaseSaveTimers.set(ph.id, timer);
+  _recountQueued();
 }
 
 /**
@@ -115,9 +181,11 @@ export function queueCurrentWpSync() {
   if (!getIsOnline() || !canEdit()) return;
   if (planMontazeState.wpSyncTimer) clearTimeout(planMontazeState.wpSyncTimer);
   planMontazeState.wpSyncTimer = setTimeout(async () => {
-    await saveAllCurrentPhases();
+    await _trackInflight(() => saveAllCurrentPhases());
     planMontazeState.wpSyncTimer = null;
+    _recountQueued();
   }, SAVE_DEBOUNCE_MS);
+  _recountQueued();
 }
 
 /** Forsiran upsert svih faza iz aktivnog WP-a (sekvencijalno). */
@@ -129,6 +197,22 @@ export async function saveAllCurrentPhases() {
   for (let i = 0; i < wp.phases.length; i++) {
     await savePhaseToDb(wp.phases[i], p.id, wp.id, i);
   }
+}
+
+/* Online/offline tracking — UI status panel može da se subscribe-uje */
+const _connListeners = new Set();
+export function subscribeConnState(fn) {
+  _connListeners.add(fn);
+  fn(getIsOnline());
+  const onOnline = () => fn(true);
+  const onOffline = () => fn(false);
+  window.addEventListener('online', onOnline);
+  window.addEventListener('offline', onOffline);
+  return () => {
+    _connListeners.delete(fn);
+    window.removeEventListener('online', onOnline);
+    window.removeEventListener('offline', onOffline);
+  };
 }
 
 /* ── DELETE wrappers — UI poziva ove, ne direktno services/projects.js ─ */

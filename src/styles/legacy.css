@@ -2350,6 +2350,78 @@ body.module-plan > .filter-bar { display:none !important; }
 .plan-body .tg-wp-hdr .tg-wp-rn { font-size:9px; opacity:0.7; }
 .plan-body .tg-phase-label { background:var(--surface2); border-right:2px solid var(--border2); padding-left:24px; }
 
+/* ── F5.5 — Reminder zone head + send button + modal list ───────────── */
+.plan-body .reminder-zone .reminder-zone-head {
+  display:flex; justify-content:space-between; align-items:center; gap:10px;
+  padding:6px 10px; margin-bottom:8px; border:1px solid var(--border);
+  border-radius:8px; background:var(--surface);
+}
+.plan-body .reminder-zone .rz-title { font-size:11px; font-weight:600; color:var(--text2); text-transform:uppercase; letter-spacing:0.6px; }
+.plan-body .reminder-zone .rz-send-btn { padding:5px 12px; font-size:11px; }
+.plan-body .reminder-zone .reminder-zone-body { display:flex; flex-wrap:wrap; gap:8px; }
+
+.modal-panel.modal-panel-wide { max-width: 720px; width: 95vw; }
+.modal-panel .reminder-list { display:flex; flex-direction:column; gap:6px; max-height:50vh; overflow:auto; padding:4px 2px; }
+.modal-panel .reminder-row { padding:8px 10px; border-radius:6px; border-left:3px solid; background:var(--surface2); }
+.modal-panel .reminder-row.rr-crit { border-left-color:#ff6b6b; background:rgba(255,107,107,0.06); }
+.modal-panel .reminder-row.rr-warn { border-left-color:#ffd96a; background:rgba(255,217,106,0.05); }
+.modal-panel .reminder-row .rr-head { display:flex; align-items:center; gap:8px; font-size:12px; }
+.modal-panel .reminder-row .rr-icon { font-size:12px; }
+.modal-panel .reminder-row .rr-title { font-weight:600; color:var(--text); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.modal-panel .reminder-row .rr-days { font-size:10px; color:var(--text3); white-space:nowrap; }
+.modal-panel .reminder-row .rr-meta { margin-top:3px; font-size:10.5px; color:var(--text2); }
+.modal-panel .reminder-row .rr-reasons { margin-top:3px; font-size:10.5px; color:var(--text3); font-style:italic; }
+
+/* ── F5.5 — 3D model dialog ─────────────────────────────────────────── */
+.modal-panel .model-thumb { width:100%; aspect-ratio:4/3; background:var(--surface2); border:1px solid var(--border2); border-radius:var(--radius); display:flex; align-items:center; justify-content:center; overflow:hidden; margin-bottom:10px; }
+.modal-panel .model-thumb img { max-width:100%; max-height:100%; object-fit:contain; }
+.modal-panel .model-empty { width:100%; aspect-ratio:4/3; max-height:160px; background:var(--surface2); border:1px dashed var(--border2); border-radius:var(--radius); display:flex; align-items:center; justify-content:center; color:var(--text3); font-size:12px; margin-bottom:10px; }
+@media (max-width: 767px) {
+  .modal-panel .model-thumb, .modal-panel .model-empty { aspect-ratio:16/9; }
+}
+
+/* 3D model row button — has-model = sa modelom (highlight) */
+.row-btn.btn-3d { background:var(--surface2); border:1px solid var(--border2); color:var(--text2); }
+.row-btn.btn-3d:hover { border-color:var(--accent); color:var(--accent); }
+.row-btn.btn-3d.has-model { background:rgba(110, 160, 255, 0.18); border-color:#4b79c8; color:#aac8ff; box-shadow:0 0 0 1px rgba(110, 160, 255, 0.25) inset; }
+
+/* ── F5.5 — Status panel (fixed bottom-right) ───────────────────────── */
+.plan-status-panel {
+  position: fixed;
+  right: 14px;
+  bottom: 14px;
+  z-index: 1500;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-family: var(--mono, monospace);
+  color: var(--text2);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+  user-select: none;
+  pointer-events: auto;
+}
+.plan-status-panel .psp-conn { display:inline-flex; align-items:center; gap:6px; }
+.plan-status-panel .psp-dot { width:8px; height:8px; border-radius:50%; background:#888; box-shadow:0 0 6px rgba(255,255,255,0.1); }
+.plan-status-panel .psp-conn.psp-on .psp-dot { background:#3ddc84; box-shadow:0 0 8px rgba(61,220,132,0.55); }
+.plan-status-panel .psp-conn.psp-off .psp-dot { background:#ff6b6b; box-shadow:0 0 8px rgba(255,107,107,0.55); }
+.plan-status-panel .psp-conn.psp-on .psp-conn-lbl { color:#3ddc84; }
+.plan-status-panel .psp-conn.psp-off .psp-conn-lbl { color:#ff6b6b; }
+.plan-status-panel .psp-sep { width:1px; height:14px; background:var(--border2, #333); }
+.plan-status-panel .psp-save { font-size:11px; }
+.plan-status-panel .psp-save.psp-idle { color:var(--text3); }
+.plan-status-panel .psp-save.psp-busy { color:#ffd96a; animation:pspBlink 1.4s ease-in-out infinite; }
+.plan-status-panel .psp-save.psp-done { color:#3ddc84; }
+.plan-status-panel .psp-save.psp-err { color:#ff6b6b; font-weight:600; }
+@keyframes pspBlink { 0%, 100% { opacity:1; } 50% { opacity:0.55; } }
+@media (max-width: 480px) {
+  .plan-status-panel { right:8px; bottom:8px; padding:5px 9px; font-size:10.5px; }
+}
+
 /* Mobilne kartice — hide na desktopu, prikazi na mobile, sakrij desktop tabelu */
 .plan-body .mobile-cards { display:none; }
 .plan-body .m-empty { padding:18px; text-align:center; color:var(--text3); font-size:12px; }

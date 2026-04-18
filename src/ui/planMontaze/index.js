@@ -34,9 +34,10 @@ import { projectBarHtml, wpTabsHtml, wireProjectBar } from './projectBar.js';
 import { openProjectMetaModal, openWpMetaModal } from './metaModals.js';
 import { planSectionHtml, wirePlanSection } from './planTable.js';
 import { mobileCardsHtml, wireMobileCards } from './mobileCards.js';
-import { reminderZoneHtml } from './reminderZone.js';
+import { reminderZoneHtml, wireReminderZone } from './reminderZone.js';
 import { ganttSectionHtml, wireGanttSection } from './gantt.js';
 import { totalGanttSectionHtml, wireTotalGanttSection } from './totalGantt.js';
+import { mountStatusPanel, unmountStatusPanel } from './statusPanel.js';
 
 let _mountEl = null;
 let _onLogoutCb = null;
@@ -80,6 +81,15 @@ export async function renderPlanMontazeModule(mountEl, options = {}) {
   /* Subscribe na auth promene da osvežimo role indicator + dugmad. */
   if (_authUnsubscribe) _authUnsubscribe();
   _authUnsubscribe = onAuthChange(() => _renderShell());
+
+  /* Status panel (singleton) — online/offline + save queue. */
+  mountStatusPanel();
+}
+
+/* Eksportujemo opcioni cleanup hook za router (kada se modul napušta). */
+export function teardownPlanMontazeModule() {
+  unmountStatusPanel();
+  if (_authUnsubscribe) { _authUnsubscribe(); _authUnsubscribe = null; }
 }
 
 /* ── INTERNAL: render + wire ─────────────────────────────────────────── */
@@ -112,6 +122,7 @@ function _wireBody() {
   if (!body) return;
   const onChange = () => _renderShell();
   if (planMontazeState.activeView === 'plan') {
+    wireReminderZone(body);
     wirePlanSection(body, { onChange });
     wireMobileCards(body, { onChange });
   } else if (planMontazeState.activeView === 'gantt') {

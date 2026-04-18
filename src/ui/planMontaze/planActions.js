@@ -25,6 +25,7 @@ import {
   createBlankPhase,
   expandedMobileCards,
   persistState,
+  deletePhaseModel,
 } from '../../state/planMontaze.js';
 import { applyBusinessRules, normalizePhaseType } from '../../lib/phase.js';
 import {
@@ -109,7 +110,10 @@ export function deleteRow(i) {
   const deletedId = ph.id;
   phases.splice(i, 1);
   planMontazeState.filteredIndices = null;
-  if (deletedId) expandedMobileCards.delete(deletedId);
+  if (deletedId) {
+    expandedMobileCards.delete(deletedId);
+    deletePhaseModel(deletedId);
+  }
   persistState();
   if (deletedId) deletePhaseAndPersist(deletedId);
   queueCurrentWpSync();
