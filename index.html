@@ -1611,6 +1611,39 @@ body.module-kadrovska > .filter-bar { display:none !important; }
 }
 .kadr-totals .kadr-total-item.accent .kadr-total-value { color:var(--accent); }
 .kadr-totals .kadr-total-item.overtime .kadr-total-value { color:#F2994A; }
+
+/* Summary strip shown at the top of each Kadrovska tab */
+.kadr-summary-strip {
+  display:flex; flex-wrap:wrap; gap:10px;
+  padding:10px 24px 0;
+  background:var(--surface);
+}
+.kadr-summary-chip {
+  display:inline-flex; align-items:center; gap:8px;
+  padding:7px 13px;
+  background:var(--surface2);
+  border:1px solid var(--border);
+  border-radius:8px;
+  font-size:11px; color:var(--text2);
+  letter-spacing:0.2px;
+}
+.kadr-summary-chip .kscl {
+  font-size:10px; font-weight:600; letter-spacing:0.5px;
+  text-transform:uppercase; color:var(--text3);
+}
+.kadr-summary-chip .kscv {
+  font-family:var(--mono); font-size:13px; font-weight:700; color:var(--text);
+}
+.kadr-summary-chip.ok    { border-color:color-mix(in srgb, #27AE60 35%, transparent); }
+.kadr-summary-chip.ok .kscv    { color:#27AE60; }
+.kadr-summary-chip.warn  { border-color:color-mix(in srgb, #F2994A 45%, transparent); background:color-mix(in srgb, #F2994A 6%, var(--surface2)); }
+.kadr-summary-chip.warn .kscv  { color:#F2994A; }
+.kadr-summary-chip.danger{ border-color:color-mix(in srgb, var(--red) 45%, transparent); background:color-mix(in srgb, var(--red) 7%, var(--surface2)); }
+.kadr-summary-chip.danger .kscv{ color:var(--red); }
+.kadr-summary-chip.accent{ border-color:color-mix(in srgb, var(--accent) 45%, transparent); background:color-mix(in srgb, var(--accent) 7%, var(--surface2)); }
+.kadr-summary-chip.accent .kscv{ color:var(--accent); }
+.kadr-summary-chip.muted .kscv { color:var(--text3); }
+@media (max-width:640px) { .kadr-summary-strip { padding:10px 16px 0; } }
 .user-bar { display:flex; align-items:center; gap:6px; font-size:10px; color:var(--text3); }
 .user-bar .user-email { font-family:var(--mono); color:var(--text2); max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .user-bar .btn-logout { padding:3px 8px; font-size:9px; border-radius:4px; cursor:pointer; border:1px solid var(--border2); background:var(--surface3); color:var(--text3); font-family:var(--font); }
@@ -2266,6 +2299,7 @@ td.td-loc .loc-select { border-left: 3px solid transparent; }
 
   <!-- ── TAB: ZAPOSLENI ───────────────────────────────── -->
   <div class="kadr-panel active" id="kadrPanel-employees" role="tabpanel" aria-label="Zaposleni">
+    <div class="kadr-summary-strip" id="empSummary"></div>
     <div class="kadrovska-toolbar">
       <input type="text" class="kadrovska-search" id="kadrovskaSearch" placeholder="Pretraga po imenu, poziciji, email-u…" oninput="renderKadrovska()">
       <select class="kadrovska-filter" id="kadrovskaDeptFilter" onchange="renderKadrovska()">
@@ -2305,6 +2339,7 @@ td.td-loc .loc-select { border-left: 3px solid transparent; }
 
   <!-- ── TAB: ODSUSTVA ────────────────────────────────── -->
   <div class="kadr-panel" id="kadrPanel-absences" role="tabpanel" aria-label="Odsustva">
+    <div class="kadr-summary-strip" id="absSummary"></div>
     <div class="kadrovska-toolbar">
       <select class="kadrovska-filter" id="absEmpFilter" onchange="renderAbsences()">
         <option value="">Svi zaposleni</option>
@@ -2349,6 +2384,7 @@ td.td-loc .loc-select { border-left: 3px solid transparent; }
 
   <!-- ── TAB: SATI RADA ───────────────────────────────── -->
   <div class="kadr-panel" id="kadrPanel-hours" role="tabpanel" aria-label="Sati rada">
+    <div class="kadr-summary-strip" id="whSummary"></div>
     <div class="kadrovska-toolbar">
       <select class="kadrovska-filter" id="whEmpFilter" onchange="renderWorkHours()">
         <option value="">Svi zaposleni</option>
@@ -2399,6 +2435,7 @@ td.td-loc .loc-select { border-left: 3px solid transparent; }
 
   <!-- ── TAB: UGOVORI ─────────────────────────────────── -->
   <div class="kadr-panel" id="kadrPanel-contracts" role="tabpanel" aria-label="Ugovori">
+    <div class="kadr-summary-strip" id="conSummary"></div>
     <div class="kadrovska-toolbar">
       <select class="kadrovska-filter" id="conEmpFilter" onchange="renderContracts()">
         <option value="">Svi zaposleni</option>
@@ -2611,7 +2648,7 @@ td.td-loc .loc-select { border-left: 3px solid transparent; }
 <div class="kadr-modal-overlay hidden" id="conModal" role="dialog" aria-labelledby="conModalTitle" aria-modal="true">
   <div class="kadr-modal">
     <div class="kadr-modal-title" id="conModalTitle">Novi ugovor</div>
-    <div class="kadr-modal-subtitle">Osnovni kadrovski podaci ugovora. Platu ne čuvamo u ovoj fazi.</div>
+    <div class="kadr-modal-subtitle">Datum početka je obavezan. Datum završetka ostavi prazno za neodređeno trajanje. Platu ne čuvamo u ovoj fazi.</div>
     <div class="kadr-modal-err" id="conModalErr"></div>
     <form id="conForm" onsubmit="event.preventDefault(); submitContractForm();">
       <input type="hidden" id="conId" value="">
@@ -2641,11 +2678,11 @@ td.td-loc .loc-select { border-left: 3px solid transparent; }
           <input type="text" id="conPosition" list="empPositionList" maxlength="80" placeholder="npr. Vođa montaže">
         </div>
         <div class="emp-field">
-          <label for="conFrom">Datum od</label>
-          <input type="date" id="conFrom">
+          <label for="conFrom">Datum od *</label>
+          <input type="date" id="conFrom" required>
         </div>
         <div class="emp-field">
-          <label for="conTo">Datum do</label>
+          <label for="conTo">Datum do <span style="color:var(--text3);font-size:10px;">(opciono)</span></label>
           <input type="date" id="conTo">
         </div>
         <div class="emp-field emp-field-check">
@@ -3354,6 +3391,16 @@ function renderKadrovska(){
   const filtered=_kadrApplyFilters(kadrovskaState.employees);
   const tabBadge=document.getElementById('kadrTabCountEmployees');
   if(tabBadge)tabBadge.textContent=String(kadrovskaState.employees.length);
+
+  /* Summary strip — total / active / inactive */
+  const totAll=kadrovskaState.employees.length;
+  const totActive=kadrovskaState.employees.filter(e=>e.isActive).length;
+  const totInactive=totAll-totActive;
+  _kadrRenderSummary('empSummary',[
+    {label:'Ukupno',value:totAll,tone:'accent'},
+    {label:'Aktivni',value:totActive,tone:'ok'},
+    {label:'Neaktivni',value:totInactive,tone:totInactive>0?'muted':'muted'}
+  ]);
   if(countEl){
     const total=kadrovskaState.employees.length;
     countEl.textContent=filtered.length===total
@@ -3564,6 +3611,17 @@ function _kadrDaysInclusive(fromStr,toStr){
   if(ms<0)return 0;
   return Math.floor(ms/86400000)+1;
 }
+function _kadrRenderSummary(containerId,chips){
+  const host=document.getElementById(containerId);
+  if(!host)return;
+  if(!chips||!chips.length){host.innerHTML='';host.style.display='none';return;}
+  host.style.display='flex';
+  host.innerHTML=chips.map(c=>{
+    const cls=c.tone?'kadr-summary-chip '+c.tone:'kadr-summary-chip';
+    return `<div class="${cls}"><span class="kscl">${escHtml(c.label)}</span><span class="kscv">${escHtml(String(c.value))}</span></div>`;
+  }).join('');
+}
+
 function _kadrPopulateEmpSelects(){
   const sortedEmp=kadrovskaState.employees.slice()
     .sort((a,b)=>String(a.fullName||'').localeCompare(String(b.fullName||''),'sr'));
@@ -3816,6 +3874,27 @@ function renderAbsences(){
     ? `${total} ${total===1?'odsustvo':'odsustava'}`
     : `${filtered.length} / ${total} odsustava`;
 
+  /* Summary strip — current month numbers */
+  const _now=new Date();
+  const _mStart=formatYMD(_now.getFullYear(),_now.getMonth()+1,1);
+  const _mEnd=formatYMD(_now.getFullYear(),_now.getMonth()+1,new Date(_now.getFullYear(),_now.getMonth()+1,0).getDate());
+  let mCount=0,mDays=0,mSick=0;
+  kadrAbsencesState.items.forEach(a=>{
+    if(!a.dateFrom||!a.dateTo)return;
+    if(a.dateTo<_mStart||a.dateFrom>_mEnd)return;
+    mCount++;
+    const from=a.dateFrom<_mStart?_mStart:a.dateFrom;
+    const to=a.dateTo>_mEnd?_mEnd:a.dateTo;
+    mDays+=_kadrDaysInclusive(from,to);
+    if(a.type==='bolovanje')mSick++;
+  });
+  _kadrRenderSummary('absSummary',[
+    {label:'Ukupno u evidenciji',value:total,tone:'accent'},
+    {label:'U tekućem mesecu',value:mCount,tone:mCount>0?'accent':'muted'},
+    {label:'Dana u mesecu',value:mDays,tone:'muted'},
+    {label:'Bolovanja (mesec)',value:mSick,tone:mSick>0?'warn':'muted'}
+  ]);
+
   if(filtered.length===0){
     tbody.innerHTML='';
     if(emptyBox){
@@ -3954,6 +4033,22 @@ function renderWorkHours(){
   if(countEl)countEl.textContent=filtered.length===total
     ? `${total} ${total===1?'unos':'unosa'}`
     : `${filtered.length} / ${total} unosa`;
+
+  /* Summary strip — current-month totals (employee-agnostic) */
+  const _now=new Date();
+  const _curMonth=String(_now.getFullYear())+'-'+String(_now.getMonth()+1).padStart(2,'0');
+  let curH=0,curOt=0;const curEmpSet=new Set();
+  kadrWorkHoursState.items.forEach(w=>{
+    if(!w.workDate||w.workDate.slice(0,7)!==_curMonth)return;
+    curH+=Number(w.hours||0); curOt+=Number(w.overtimeHours||0);
+    if(w.employeeId)curEmpSet.add(w.employeeId);
+  });
+  _kadrRenderSummary('whSummary',[
+    {label:'Ukupno unosa',value:total,tone:'accent'},
+    {label:'Redovnih sati (mesec)',value:curH.toFixed(2),tone:'accent'},
+    {label:'Prekovremenih (mesec)',value:curOt.toFixed(2),tone:curOt>0?'warn':'muted'},
+    {label:'Zaposlenih (mesec)',value:curEmpSet.size,tone:'muted'}
+  ]);
 
   if(filtered.length===0){
     tbody.innerHTML='';
@@ -4121,6 +4216,22 @@ function renderContracts(){
     ? `${total} ${total===1?'ugovor':'ugovora'}`
     : `${filtered.length} / ${total} ugovora`;
 
+  /* Summary strip — status breakdown across all contracts */
+  let sActive=0,sExpiring=0,sExpired=0,sInactive=0;
+  enriched.forEach(({status})=>{
+    if(status.key==='active')sActive++;
+    else if(status.key==='expiring'){sExpiring++;sActive++;}
+    else if(status.key==='expired')sExpired++;
+    else if(status.key==='inactive')sInactive++;
+  });
+  _kadrRenderSummary('conSummary',[
+    {label:'Ukupno',value:total,tone:'accent'},
+    {label:'Aktivni',value:sActive,tone:'ok'},
+    {label:'Ističu < 30 d',value:sExpiring,tone:sExpiring>0?'warn':'muted'},
+    {label:'Istekli',value:sExpired,tone:sExpired>0?'danger':'muted'},
+    {label:'Neaktivni',value:sInactive,tone:'muted'}
+  ]);
+
   if(filtered.length===0){
     tbody.innerHTML='';
     if(emptyBox){
@@ -4199,7 +4310,8 @@ async function submitContractForm(){
   const note=document.getElementById('conNote').value.trim();
   const id=document.getElementById('conId').value||null;
   if(!empId){err.textContent='Izaberi zaposlenog.';err.classList.add('visible');return;}
-  if(dateFrom&&dateTo&&dateTo<dateFrom){err.textContent='"Do" ne može biti pre "Od".';err.classList.add('visible');return;}
+  if(!dateFrom){err.textContent='Datum početka ugovora je obavezan.';err.classList.add('visible');return;}
+  if(dateTo&&dateTo<dateFrom){err.textContent='Datum završetka ne može biti pre datuma početka.';err.classList.add('visible');return;}
 
   const payload={id,employeeId:empId,type,number,position,dateFrom,dateTo,isActive,note};
   btn.disabled=true;btn.textContent='Čuvanje…';
