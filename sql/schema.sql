@@ -162,6 +162,8 @@ CREATE INDEX IF NOT EXISTS idx_work_hours_date     ON work_hours(work_date);
 CREATE INDEX IF NOT EXISTS idx_work_hours_emp_date ON work_hours(employee_id, work_date);
 
 -- CONTRACTS (Kadrovska phase 1)
+-- Business rules: date_from is mandatory, date_to optional (NULL = open-ended),
+-- and when date_to is present it must be >= date_from.
 CREATE TABLE IF NOT EXISTS contracts (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   employee_id     UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
@@ -169,12 +171,13 @@ CREATE TABLE IF NOT EXISTS contracts (
                   CHECK (contract_type IN ('neodredjeno','odredjeno','privremeno','delo','student','praksa','ostalo')),
   contract_number TEXT DEFAULT '',
   position        TEXT DEFAULT '',
-  date_from       DATE,
+  date_from       DATE NOT NULL,
   date_to         DATE,
   is_active       BOOLEAN DEFAULT true,
   note            TEXT DEFAULT '',
   created_at      TIMESTAMPTZ DEFAULT now(),
-  updated_at      TIMESTAMPTZ DEFAULT now()
+  updated_at      TIMESTAMPTZ DEFAULT now(),
+  CONSTRAINT contracts_dates_valid CHECK (date_to IS NULL OR date_to >= date_from)
 );
 CREATE INDEX IF NOT EXISTS idx_contracts_employee ON contracts(employee_id);
 CREATE INDEX IF NOT EXISTS idx_contracts_active   ON contracts(is_active);
