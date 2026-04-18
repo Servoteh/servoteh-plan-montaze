@@ -2925,7 +2925,18 @@ td.td-loc .loc-select { border-left: 3px solid transparent; }
       </select>
       <div class="kadrovska-toolbar-spacer"></div>
       <span class="kadrovska-count" id="usersCount">0 korisnika</span>
-      <button class="btn btn-primary" id="usersAddBtn" onclick="openUserModal()">+ Dodeli ulogu</button>
+      <!--
+        Bezbednosna odluka (2026-04-18): NE dodajemo nove user_roles redove iz UI-ja.
+        Razlog: dodavanje uloge za email koji još NIJE u Supabase Auth znači da bi
+        taj email — kad/ako se Auth nalog kasnije napravi — odmah dobio dodeljenu
+        rolu (npr. admin). Ovo je rizik koji se najlakše uklanja tako što se uloge
+        dodaju isključivo iz Supabase SQL Editor-a (audit trail + svestan korak).
+        Edit i Delete za POSTOJEĆE redove ostaju — admin može da menja rolu i
+        deaktivira nalog kroz UI.
+      -->
+      <span class="kadrovska-info" style="font-size:12px;color:var(--text3);padding:6px 10px;border:1px solid var(--border);border-radius:6px;">
+        ℹ Nove uloge se dodaju kroz Supabase SQL Editor
+      </span>
     </div>
     <main class="kadrovska-main">
       <table class="kadrovska-table" id="usersTable">
@@ -2944,8 +2955,11 @@ td.td-loc .loc-select { border-left: 3px solid transparent; }
         <tbody id="usersTbody"></tbody>
       </table>
       <div class="kadrovska-empty" id="usersEmpty" style="display:none;margin-top:16px;">
-        <div class="kadrovska-empty-title">Nema dodeljenih uloga</div>
-        <div>Dodaj prvu preko dugmeta <strong>+ Dodeli ulogu</strong>. Email mora pripadati postojećem nalogu u Supabase Auth.</div>
+        <div class="kadrovska-empty-title">Nema dodeljenih uloga (ili nemaš pravo da ih vidiš)</div>
+        <div style="margin-top:6px">Ako si <strong>Admin</strong>, listu treba da vidiš čim se RLS politika učita. Nove uloge se dodaju iz <strong>Supabase Dashboard → SQL Editor</strong>:</div>
+        <pre style="background:var(--bg2);padding:10px;border-radius:6px;margin-top:8px;font-size:11px;overflow:auto"><code>INSERT INTO user_roles (email, role, is_active, full_name, team)
+VALUES ('novi.kolega@servoteh.com', 'pm', true, 'Ime Prezime', 'Tim X');</code></pre>
+        <div style="margin-top:6px;color:var(--text3);font-size:12px">Email mora pripadati postojećem nalogu u Supabase Auth — inače red postoji ali se niko ne može ulogovati pod tim email-om.</div>
       </div>
     </main>
   </div>
@@ -3689,9 +3703,21 @@ async function loadUserRoleMatchesFromDb(){
     if(collected.length>0)break;
   }
   if(!anyQuerySucceeded){
-    lastUserRolesQueryFailed=true;
-    console.error('[user_roles] ALL queries failed. Likely causes: (1) RLS on user_roles blocks SELECT for authenticated role; (2) network/CORS issue; (3) Supabase key/URL wrong.');
-    return[];
+    /* Fallback: pokušaj preko RPC-a get_my_user_roles (SECURITY DEFINER funkcija
+       koja vraća role-ove za trenutni JWT email, bez obzira na RLS). Postoji od
+       migracije enable_user_roles_rls_proper.sql. Ako i RPC padne — onda smo
+       sigurni da je problem mreža/auth, ne RLS. */
+    console.warn('[user_roles] All direct SELECT-s failed; trying RPC get_my_user_roles fallback…');
+    const rpcData=await sbReq('rpc/get_my_user_roles','POST',{});
+    if(Array.isArray(rpcData)&&rpcData.length>=0){
+      console.log('[user_roles] RPC fallback succeeded:',rpcData);
+      collected=rpcData;
+      lastUserRolesQueryFailed=false;
+    }else{
+      lastUserRolesQueryFailed=true;
+      console.error('[user_roles] Both direct SELECT and RPC fallback failed. Likely causes: (1) network/CORS issue; (2) Supabase key/URL wrong; (3) JWT not present.');
+      return[];
+    }
   }
   const normRow=r=>({...r,email:String(r.email||'').trim().toLowerCase(),role:String(r.role||'').trim().toLowerCase()});
   const seen=new Set();
@@ -6055,7 +6081,12 @@ async function saveUserToDb(u){
   if(u.id){
     return await sbReq(`user_roles?id=eq.${encodeURIComponent(u.id)}`,'PATCH',payload);
   }
-  return await sbReq('user_roles','POST',payload);
+  /* INSERT iz UI-ja je svesno onemogućen — vidi openUserModal(). RLS politika
+     dozvoljava INSERT samo adminu, ali UI-deep blok je dodatna zaštita protiv
+     slučajnog ili namernog dodavanja role pre nego što Auth nalog postoji. */
+  console.warn('[saveUserToDb] INSERT blocked from UI. Add new roles via Supabase SQL Editor.');
+  showToast('ℹ Nove uloge se dodaju isključivo kroz Supabase SQL Editor.');
+  return null;
 }
 async function deleteUserRoleFromDb(id){
   if(!canManageUsers())return false;
@@ -6176,6 +6207,13 @@ function _populateUserProjectSelect(selectedId){
 
 function openUserModal(id){
   if(!canManageUsers()){showToast('⚠ Samo Admin može da menja uloge');return;}
+  /* Bezbednosna odluka: dodavanje novih uloga (id == falsy) je onemogućeno iz UI-ja.
+     Razlog: dodeljivanje role pre nego što Auth nalog postoji je rizik. Nove uloge
+     se dodaju kroz Supabase SQL Editor (audit trail). Edit postojećih je dozvoljen. */
+  if(!id){
+    showToast('ℹ Nove uloge se dodaju kroz Supabase SQL Editor — pogledaj uputstvo u listi.');
+    return;
+  }
   const overlay=document.getElementById('userModal');
   if(!overlay)return;
   const titleEl=document.getElementById('userModalTitle');
