@@ -1822,6 +1822,25 @@ td.col-day.cell-error .grid-cell { color:var(--red); font-weight:600; }
 .grid-cell.is-field-domestic { background:color-mix(in srgb, #F2C94C 22%, transparent); color:#B07B00; font-weight:600; }
 .grid-cell.is-field-foreign  { background:color-mix(in srgb, #2F80ED 22%, transparent); color:#1B5BB7; font-weight:600; }
 
+/* Teren ćelija — input + mali D/I toggle dugme */
+.grid-field-wrap { position:relative; display:block; width:100%; height:100%; }
+.grid-cell.grid-cell-field { padding-right:18px; }
+.fsub-btn {
+  position:absolute; top:50%; right:1px; transform:translateY(-50%);
+  width:16px; height:16px; padding:0; line-height:14px;
+  font-size:9px; font-weight:800; text-align:center;
+  border-radius:3px; border:1px solid transparent;
+  cursor:pointer; user-select:none;
+  font-family:inherit;
+  transition:transform 0.08s, background 0.15s;
+}
+.fsub-btn:hover { transform:translateY(-50%) scale(1.12); }
+.fsub-btn:active { transform:translateY(-50%) scale(0.95); }
+.fsub-btn.is-domestic { background:#B07B00; color:#fff; border-color:#8a5f00; }
+.fsub-btn.is-foreign  { background:#1B5BB7; color:#fff; border-color:#154890; }
+.fsub-btn.is-hidden   { display:none; }
+.fsub-btn:disabled    { opacity:0.55; cursor:not-allowed; }
+
 /* Rad na 2 mašine — narandžasta/crvenkasta da odskače */
 .grid-cell.is-twomach { background:color-mix(in srgb, #F2994A 22%, transparent); color:#C26B14; font-weight:700; }
 
@@ -2678,7 +2697,7 @@ td.td-loc .loc-select { border-left: 3px solid transparent; }
         <span class="grid-pill abs-sl">sl</span>
         <span class="grid-pill abs-pr">pr</span>
       </span>
-      <span class="grid-legend" title="Teren u Teren-redu: 8 = domaći, 8i = inostrani">
+      <span class="grid-legend" title="Teren: upiši broj sati. D/I dugme u ćeliji menja podtip (default D = domaći)">
         <span class="grid-pill pill-fdom">teren D</span>
         <span class="grid-pill pill-ffor">teren I</span>
         <span class="grid-pill pill-tm">2 maš.</span>
@@ -4992,27 +5011,14 @@ function _gridEffective(empId,ymd){
 }
 
 /* Parse a cell text:
-     {kind:'num',value}       — broj
+     {kind:'num',value}       — broj 0–24
      {kind:'abs',code}        — apsence šifra (samo za reg ćeliju)
-     {kind:'field',value,sub} — broj sa subtype-om za teren ćeliju
+     {kind:'field',value,sub} — interno (npr toggle u terenu)
      {kind:'empty'} | {kind:'err'} */
-function _gridParseCellText(raw,opts){
+function _gridParseCellText(raw){
   const v=String(raw||'').trim().toLowerCase();
   if(!v)return{kind:'empty'};
   if(GRID_ABS_CODES.includes(v))return{kind:'abs',code:v};
-  const allowFieldSuffix=opts&&opts.allowFieldSuffix;
-  /* Field subtype suffix: "8i" / "8d" / "8.5i" / "8,5d" */
-  if(allowFieldSuffix){
-    const m=v.match(/^([0-9]+(?:[.,][0-9]+)?)\s*([id])$/);
-    if(m){
-      const num=parseFloat(m[1].replace(',','.'));
-      if(isFinite(num)&&num>=0&&num<=24){
-        const sub=m[2]==='i'?'foreign':'domestic';
-        return{kind:'field',value:Math.round(num*100)/100,sub};
-      }
-      return{kind:'err'};
-    }
-  }
   /* Accept comma decimal separator */
   const num=parseFloat(v.replace(',','.'));
   if(isFinite(num)&&num>=0&&num<=24&&/^[0-9]+([.,][0-9]+)?$/.test(v))return{kind:'num',value:Math.round(num*100)/100};
@@ -5222,19 +5228,18 @@ function renderGrid(){
 
         cellsOt.push(`<td class="${dayBase.join(' ')}" data-emp="${empId}" data-ymd="${d.ymd}" data-kind="ot"><input class="grid-cell" type="text" value="${escHtml(_gridFormatNum(eff.overtime_hours))}" maxlength="6" ${editable?'':'disabled'}></td>`);
 
-        /* Field cell with subtype tint + suffix display */
-        const fieldCls=['grid-cell'];
-        let fieldDisplay=_gridFormatNum(eff.field_hours);
+        /* Field cell: input + tiny D/I toggle button (visible only when fH>0) */
+        const fieldInputCls=['grid-cell','grid-cell-field'];
+        const isForeign=fH>0&&eff.field_subtype==='foreign';
         if(fH>0){
-          if(eff.field_subtype==='foreign'){
-            fieldCls.push('is-field-foreign');
-            fieldDisplay=fieldDisplay+'i';
-          }else{
-            fieldCls.push('is-field-domestic');
-          }
+          fieldInputCls.push(isForeign?'is-field-foreign':'is-field-domestic');
         }
-        const fieldTdCls=dayBase.slice();
-        cellsField.push(`<td class="${fieldTdCls.join(' ')}" data-emp="${empId}" data-ymd="${d.ymd}" data-kind="field" title="Unesi npr 8 (domaći) ili 8i (inostrani)"><input class="${fieldCls.join(' ')}" type="text" value="${escHtml(fieldDisplay)}" maxlength="7" ${editable?'':'disabled'}></td>`);
+        const subBtnCls=['fsub-btn'];
+        subBtnCls.push(isForeign?'is-foreign':'is-domestic');
+        if(fH<=0)subBtnCls.push('is-hidden');
+        const subLabel=isForeign?'I':'D';
+        const subTitle=isForeign?'Inostrani teren — klikni za prebacivanje na domaći':'Domaći teren — klikni za prebacivanje na inostrani';
+        cellsField.push(`<td class="${dayBase.join(' ')}" data-emp="${empId}" data-ymd="${d.ymd}" data-kind="field" title="Unesi sate (0–24). D/I dugme menja podtip terena."><div class="grid-field-wrap"><input class="${fieldInputCls.join(' ')}" type="text" value="${escHtml(_gridFormatNum(eff.field_hours))}" maxlength="6" ${editable?'':'disabled'}><button type="button" class="${subBtnCls.join(' ')}" data-act="toggle-fsub" title="${subTitle}" ${editable?'':'disabled tabindex="-1"'}>${subLabel}</button></div></td>`);
 
         /* Two-machine cell — orange tint when > 0 */
         const tmCls=['grid-cell'];
@@ -5286,6 +5291,14 @@ function renderGrid(){
     inp.addEventListener('blur',_gridOnCellBlur);
     inp.addEventListener('keydown',_gridOnCellKeydown);
     inp.addEventListener('focus',function(){this.select();});
+  });
+  wrap.querySelectorAll('button.fsub-btn:not(:disabled)').forEach(btn=>{
+    btn.addEventListener('click',function(ev){
+      ev.preventDefault();
+      _gridOnFieldSubToggle(this);
+    });
+    /* Skip in tab-order so Tab keeps moving across day cells */
+    btn.tabIndex=-1;
   });
 
   _gridUpdateDirtyBadge();
@@ -5339,15 +5352,13 @@ function _gridOnCellInput(e){
   if(!td)return;
   const empId=td.dataset.emp, ymd=td.dataset.ymd, kind=td.dataset.kind;
   if(!empId||!ymd)return;
-  const opts=kind==='field'?{allowFieldSuffix:true}:null;
-  const parsed=_gridParseCellText(e.target.value,opts);
+  const parsed=_gridParseCellText(e.target.value);
   td.classList.remove('cell-error');
   /* Always mark dirty on change vs current effective; cheaper: just mark */
   td.classList.add('cell-dirty');
   if(parsed.kind==='err'){
     td.classList.add('cell-error');
-    if(kind==='field')e.target.title='Nevažeća vrednost: broj 0–24 ili broj sa sufiksom (npr 8 = domaći, 8i = inostrani)';
-    else if(kind==='reg')e.target.title='Nevažeća vrednost: broj 0–24 ili oznaka '+GRID_ABS_CODES.join('/');
+    if(kind==='reg')e.target.title='Nevažeća vrednost: broj 0–24 ili oznaka '+GRID_ABS_CODES.join('/');
     else e.target.title='Nevažeća vrednost: broj 0–24';
     return;
   }
@@ -5359,12 +5370,22 @@ function _gridOnCellInput(e){
       e.target.classList.add('is-absence','abs-'+parsed.code);
     }
   }
-  /* Refresh field subtype tint on FIELD cell */
+  /* Refresh field subtype tint + D/I toggle visibility on FIELD cell */
   if(kind==='field'){
+    const eff=_gridEffective(empId,ymd);
     e.target.classList.remove('is-field-domestic','is-field-foreign');
-    if((parsed.kind==='num'&&parsed.value>0)||(parsed.kind==='field'&&parsed.value>0)){
-      const sub=parsed.kind==='field'?parsed.sub:GRID_FIELD_SUBTYPE_DEFAULT;
+    const btn=td.querySelector('button.fsub-btn');
+    if(parsed.kind==='num'&&parsed.value>0){
+      /* Preserve existing subtype, default to domestic on first entry */
+      const sub=(eff.field_subtype==='foreign')?'foreign':'domestic';
       e.target.classList.add(sub==='foreign'?'is-field-foreign':'is-field-domestic');
+      if(btn){
+        btn.classList.remove('is-hidden','is-domestic','is-foreign');
+        btn.classList.add(sub==='foreign'?'is-foreign':'is-domestic');
+        btn.textContent=sub==='foreign'?'I':'D';
+      }
+    }else{
+      if(btn)btn.classList.add('is-hidden');
     }
   }
   /* Refresh two-machine tint */
@@ -5379,25 +5400,38 @@ function _gridOnCellInput(e){
 function _gridOnCellBlur(e){
   const td=e.target.closest('td');
   if(!td)return;
-  const kind=td.dataset.kind;
-  const opts=kind==='field'?{allowFieldSuffix:true}:null;
-  const parsed=_gridParseCellText(e.target.value,opts);
+  const parsed=_gridParseCellText(e.target.value);
   if(parsed.kind==='err')return;
-  /* Normalize displayed value */
-  if(parsed.kind==='num'){
-    if(kind==='field'&&parsed.value>0){
-      /* Preserve / append default subtype suffix for visibility */
-      const empId=td.dataset.emp, ymd=td.dataset.ymd;
-      const eff=_gridEffective(empId,ymd);
-      const sub=eff.field_subtype==='foreign'?'foreign':'domestic';
-      e.target.value=_gridFormatNum(parsed.value)+(sub==='foreign'?'i':'');
-    }else{
-      e.target.value=_gridFormatNum(parsed.value);
-    }
-  }
-  else if(parsed.kind==='field'){e.target.value=_gridFormatNum(parsed.value)+(parsed.sub==='foreign'?'i':'');}
+  /* Normalize displayed value (always plain number — no suffix) */
+  if(parsed.kind==='num'){e.target.value=_gridFormatNum(parsed.value);}
   else if(parsed.kind==='abs'){e.target.value=parsed.code;}
   else{e.target.value='';}
+}
+
+/* Click on the small D/I button in a Teren cell — toggles subtype */
+function _gridOnFieldSubToggle(btn){
+  const td=btn.closest('td');
+  if(!td)return;
+  if(td.dataset.kind!=='field')return;
+  const empId=td.dataset.emp, ymd=td.dataset.ymd;
+  if(!empId||!ymd)return;
+  const eff=_gridEffective(empId,ymd);
+  if(!(Number(eff.field_hours||0)>0))return; /* nothing to toggle */
+  const nextSub=eff.field_subtype==='foreign'?'domestic':'foreign';
+  /* Apply via dirty map: emulate a 'field' edit that only flips subtype */
+  _gridApplyEdit(empId,ymd,'field',{kind:'field',value:Number(eff.field_hours||0),sub:nextSub});
+  /* Update UI of this cell only */
+  const inp=td.querySelector('input.grid-cell');
+  if(inp){
+    inp.classList.remove('is-field-domestic','is-field-foreign');
+    inp.classList.add(nextSub==='foreign'?'is-field-foreign':'is-field-domestic');
+  }
+  btn.classList.remove('is-domestic','is-foreign');
+  btn.classList.add(nextSub==='foreign'?'is-foreign':'is-domestic');
+  btn.textContent=nextSub==='foreign'?'I':'D';
+  td.classList.add('cell-dirty');
+  _gridUpdateDirtyBadge();
+  _gridRefreshSums(empId);
 }
 function _gridOnCellKeydown(e){
   const k=e.key;
