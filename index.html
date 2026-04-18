@@ -1249,6 +1249,231 @@ body.hub-active > .filter-bar { display:none !important; }
   .hub-grid { grid-template-columns:1fr; gap:14px; }
   .hub-user .hub-user-email { max-width:120px; }
 }
+
+/* ═══ KADROVSKA MODULE ═══ */
+body:not(.module-kadrovska) #module-kadrovska { display:none !important; }
+body.module-kadrovska > .header,
+body.module-kadrovska > .project-bar,
+body.module-kadrovska > .view-section,
+body.module-kadrovska > .add-phase-bar,
+body.module-kadrovska > .legend,
+body.module-kadrovska > .reminder-zone,
+body.module-kadrovska > .filter-bar { display:none !important; }
+
+.kadrovska-section {
+  position:relative;
+  min-height:100vh;
+  background:var(--bg);
+  display:flex; flex-direction:column;
+}
+
+.kadrovska-header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 24px;
+  border-bottom:1px solid var(--border);
+  background:var(--surface);
+  gap:14px; flex-wrap:wrap;
+}
+.kadrovska-header-left { display:flex; align-items:center; gap:14px; }
+.kadrovska-header-right { display:flex; align-items:center; gap:10px; }
+.kadrovska-title {
+  display:flex; align-items:center; gap:10px;
+  font-size:16px; font-weight:700; color:var(--text);
+  letter-spacing:-0.01em;
+}
+.kadrovska-title .ktitle-mark {
+  width:30px; height:30px; border-radius:8px;
+  background:var(--servoteh); color:#fff;
+  display:flex; align-items:center; justify-content:center;
+  font-size:14px;
+  box-shadow:0 3px 10px rgba(232,82,58,0.3);
+}
+
+.kadrovska-toolbar {
+  display:flex; align-items:center; gap:10px;
+  padding:14px 24px;
+  flex-wrap:wrap;
+  border-bottom:1px solid var(--border);
+  background:var(--surface2);
+}
+.kadrovska-search {
+  flex:1 1 220px; max-width:320px;
+  padding:8px 12px;
+  background:var(--surface); border:1px solid var(--border2);
+  border-radius:7px; font-family:var(--font); font-size:12px;
+  color:var(--text); outline:none;
+  transition:border-color 0.15s, box-shadow 0.15s;
+}
+.kadrovska-search:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-dim); }
+.kadrovska-filter {
+  padding:8px 10px;
+  background:var(--surface); border:1px solid var(--border2);
+  border-radius:7px; font-family:var(--font); font-size:12px;
+  color:var(--text); outline:none; cursor:pointer;
+}
+.kadrovska-filter:focus { border-color:var(--accent); }
+.kadrovska-toolbar-spacer { flex:1 1 auto; }
+.kadrovska-count {
+  font-size:11px; color:var(--text3); font-family:var(--mono);
+  letter-spacing:0.3px;
+}
+
+.kadrovska-main {
+  flex:1; padding:18px 24px 40px;
+  overflow-x:auto;
+}
+
+.kadrovska-table {
+  width:100%; border-collapse:separate; border-spacing:0;
+  background:var(--surface);
+  border:1px solid var(--border); border-radius:10px;
+  overflow:hidden;
+  font-size:12px;
+}
+.kadrovska-table thead th {
+  background:var(--surface2);
+  padding:10px 14px; text-align:left;
+  font-weight:600; font-size:11px;
+  color:var(--text2); letter-spacing:0.4px; text-transform:uppercase;
+  border-bottom:1px solid var(--border);
+  position:sticky; top:0; z-index:1;
+}
+.kadrovska-table tbody td {
+  padding:11px 14px;
+  border-bottom:1px solid var(--border);
+  color:var(--text); vertical-align:middle;
+}
+.kadrovska-table tbody tr:last-child td { border-bottom:none; }
+.kadrovska-table tbody tr { transition:background 0.15s; }
+.kadrovska-table tbody tr:hover { background:var(--row-hover); }
+.kadrovska-table .col-actions { width:110px; text-align:right; white-space:nowrap; }
+.kadrovska-table .emp-name { font-weight:600; color:var(--text); }
+.kadrovska-table .emp-sub { font-size:11px; color:var(--text3); font-family:var(--mono); }
+
+.kadrovska-empty {
+  padding:60px 20px; text-align:center;
+  color:var(--text3); font-size:13px;
+  background:var(--surface); border:1px dashed var(--border2);
+  border-radius:10px;
+}
+.kadrovska-empty-title {
+  font-size:15px; font-weight:600; color:var(--text2); margin-bottom:6px;
+}
+
+.emp-status-badge {
+  display:inline-block;
+  padding:3px 9px; border-radius:999px;
+  font-size:10px; font-weight:600;
+  letter-spacing:0.4px; text-transform:uppercase;
+}
+.emp-status-badge.active {
+  background:color-mix(in srgb, var(--status-done) 18%, var(--surface));
+  color:var(--status-done);
+  border:1px solid color-mix(in srgb, var(--status-done) 45%, transparent);
+}
+.emp-status-badge.inactive {
+  background:var(--surface3); color:var(--text3);
+  border:1px solid var(--border2);
+}
+
+.btn-row-act {
+  padding:5px 10px; font-size:11px;
+  background:var(--surface2); color:var(--text2);
+  border:1px solid var(--border2); border-radius:6px;
+  cursor:pointer; font-family:var(--font);
+  transition:all 0.15s; margin-left:4px;
+}
+.btn-row-act:hover { background:var(--surface3); border-color:var(--border3); color:var(--text); }
+.btn-row-act.danger:hover { border-color:var(--red); color:var(--red); background:color-mix(in srgb, var(--red) 10%, transparent); }
+
+/* Employee modal */
+.emp-modal-overlay {
+  position:fixed; inset:0; z-index:2500;
+  background:rgba(0,0,0,0.6); backdrop-filter:blur(6px);
+  display:flex; align-items:center; justify-content:center;
+  padding:20px;
+}
+[data-theme="light"] .emp-modal-overlay { background:rgba(17,24,39,0.45); }
+.emp-modal-overlay.hidden { display:none; }
+
+.emp-modal {
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:12px;
+  width:100%; max-width:520px;
+  padding:24px 24px 20px;
+  box-shadow:var(--shadow-lg);
+  max-height:90vh; overflow-y:auto;
+}
+.emp-modal-title {
+  font-size:16px; font-weight:700; color:var(--text);
+  letter-spacing:-0.01em; margin-bottom:4px;
+}
+.emp-modal-subtitle {
+  font-size:11px; color:var(--text3); margin-bottom:18px;
+  letter-spacing:0.3px;
+}
+
+.emp-form-grid {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px 14px;
+  margin-bottom:14px;
+}
+.emp-form-grid .col-full { grid-column:1 / -1; }
+.emp-field { display:flex; flex-direction:column; gap:5px; }
+.emp-field label {
+  font-size:10px; font-weight:600; color:var(--text2);
+  text-transform:uppercase; letter-spacing:0.5px;
+}
+.emp-field input,
+.emp-field select,
+.emp-field textarea {
+  padding:9px 11px;
+  background:var(--surface2);
+  border:1px solid var(--border2);
+  border-radius:7px;
+  color:var(--text); font-family:var(--font); font-size:12px;
+  outline:none;
+  transition:border-color 0.15s, box-shadow 0.15s, background 0.15s;
+  width:100%;
+}
+.emp-field textarea { resize:vertical; min-height:60px; font-family:var(--font); }
+.emp-field input:hover,
+.emp-field select:hover,
+.emp-field textarea:hover { border-color:var(--border3); }
+.emp-field input:focus,
+.emp-field select:focus,
+.emp-field textarea:focus {
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px var(--accent-dim);
+  background:var(--surface);
+}
+.emp-field-check { flex-direction:row; align-items:center; gap:8px; }
+.emp-field-check input[type="checkbox"] { width:auto; margin:0; accent-color:var(--accent); }
+.emp-field-check label { text-transform:none; letter-spacing:0; font-size:12px; color:var(--text); }
+
+.emp-modal-actions {
+  display:flex; justify-content:flex-end; gap:10px;
+  padding-top:14px; border-top:1px solid var(--border);
+  margin-top:6px;
+}
+.emp-modal-err {
+  font-size:12px; color:var(--red);
+  background:color-mix(in srgb, var(--red) 10%, transparent);
+  border:1px solid color-mix(in srgb, var(--red) 35%, transparent);
+  padding:8px 12px; border-radius:6px;
+  margin-bottom:10px; display:none;
+}
+.emp-modal-err.visible { display:block; }
+
+@media (max-width:640px) {
+  .kadrovska-header { padding:12px 16px; }
+  .kadrovska-toolbar { padding:10px 16px; }
+  .kadrovska-main { padding:14px 16px 32px; }
+  .emp-form-grid { grid-template-columns:1fr; }
+  .kadrovska-table .col-hide-sm { display:none; }
+}
 .user-bar { display:flex; align-items:center; gap:6px; font-size:10px; color:var(--text3); }
 .user-bar .user-email { font-family:var(--mono); color:var(--text2); max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .user-bar .btn-logout { padding:3px 8px; font-size:9px; border-radius:4px; cursor:pointer; border:1px solid var(--border2); background:var(--surface3); color:var(--text3); font-family:var(--font); }
@@ -1839,13 +2064,13 @@ td.td-loc .loc-select { border-left: 3px solid transparent; }
         </div>
       </button>
 
-      <button type="button" class="hub-card is-disabled" onclick="showToast('👥 Kadrovi — u pripremi')" aria-disabled="true">
+      <button type="button" class="hub-card" onclick="enterModule('kadrovska')" aria-label="Otvori Kadrovsku">
         <div class="hub-card-icon" aria-hidden="true">👥</div>
-        <div class="hub-card-title">Kadrovi</div>
-        <div class="hub-card-desc">Inženjeri, vođe montaže i ekipe. Raspoloživost, angažovanje, prisustvo na terenu.</div>
+        <div class="hub-card-title">Kadrovska</div>
+        <div class="hub-card-desc">Evidencija zaposlenih: inženjeri, vođe montaže, montažeri. Pozicija, odeljenje, kontakt, status.</div>
         <div class="hub-card-footer">
-          <span class="hub-card-cta">Uskoro</span>
-          <span class="hub-card-badge">U pripremi</span>
+          <span class="hub-card-cta">Otvori →</span>
+          <span class="hub-card-badge badge-active">Aktivno</span>
         </div>
       </button>
 
@@ -1862,6 +2087,134 @@ td.td-loc .loc-select { border-left: 3px solid transparent; }
   </main>
 
   <footer class="hub-footer"><strong>SERVOTEH</strong> · Interni sistem · v5.1</footer>
+</div>
+
+<!-- Module: Kadrovska -->
+<section id="module-kadrovska" class="kadrovska-section" aria-label="Modul Kadrovska">
+  <header class="kadrovska-header">
+    <div class="kadrovska-header-left">
+      <button class="btn-hub-back" onclick="openModuleHub()" title="Nazad na listu modula" aria-label="Nazad na module">
+        <span class="back-icon" aria-hidden="true">←</span>
+        <span>Moduli</span>
+      </button>
+      <div class="kadrovska-title">
+        <span class="ktitle-mark" aria-hidden="true">👥</span>
+        <span>Kadrovska</span>
+      </div>
+    </div>
+    <div class="kadrovska-header-right">
+      <button class="theme-toggle" onclick="toggleTheme()" title="Promeni temu" aria-label="Promeni temu">
+        <span class="theme-icon-dark">🌙</span>
+        <span class="theme-icon-light">☀️</span>
+      </button>
+      <span class="role-indicator role-viewer" id="kadrovskaRoleLabel">—</span>
+      <button class="hub-logout" onclick="doLogout()">Odjavi se</button>
+    </div>
+  </header>
+
+  <div class="kadrovska-toolbar">
+    <input type="text" class="kadrovska-search" id="kadrovskaSearch" placeholder="Pretraga po imenu, poziciji, email-u…" oninput="renderKadrovska()">
+    <select class="kadrovska-filter" id="kadrovskaDeptFilter" onchange="renderKadrovska()">
+      <option value="">Sva odeljenja</option>
+    </select>
+    <select class="kadrovska-filter" id="kadrovskaStatusFilter" onchange="renderKadrovska()">
+      <option value="">Svi statusi</option>
+      <option value="active">Aktivni</option>
+      <option value="inactive">Neaktivni</option>
+    </select>
+    <div class="kadrovska-toolbar-spacer"></div>
+    <span class="kadrovska-count" id="kadrovskaCount">0 zaposlenih</span>
+    <button class="btn btn-primary" id="kadrovskaAddBtn" onclick="openEmployeeModal()">+ Novi zaposleni</button>
+  </div>
+
+  <main class="kadrovska-main">
+    <table class="kadrovska-table" id="kadrovskaTable">
+      <thead>
+        <tr>
+          <th>Ime i prezime</th>
+          <th>Pozicija</th>
+          <th class="col-hide-sm">Odeljenje</th>
+          <th class="col-hide-sm">Telefon</th>
+          <th class="col-hide-sm">Email</th>
+          <th class="col-hide-sm">Zaposlen od</th>
+          <th>Status</th>
+          <th class="col-actions">Akcije</th>
+        </tr>
+      </thead>
+      <tbody id="kadrovskaTbody"></tbody>
+    </table>
+    <div class="kadrovska-empty" id="kadrovskaEmpty" style="display:none;margin-top:16px;">
+      <div class="kadrovska-empty-title">Nema zaposlenih</div>
+      <div>Dodaj prvog zaposlenog preko dugmeta <strong>+ Novi zaposleni</strong>.</div>
+    </div>
+  </main>
+</section>
+
+<!-- Employee modal (new / edit) -->
+<div class="emp-modal-overlay hidden" id="empModal" role="dialog" aria-labelledby="empModalTitle" aria-modal="true">
+  <div class="emp-modal">
+    <div class="emp-modal-title" id="empModalTitle">Novi zaposleni</div>
+    <div class="emp-modal-subtitle">Popuni osnovne podatke. Samo Ime i prezime je obavezno.</div>
+    <div class="emp-modal-err" id="empModalErr"></div>
+
+    <form id="empForm" onsubmit="event.preventDefault(); submitEmployeeForm();">
+      <input type="hidden" id="empId" value="">
+      <div class="emp-form-grid">
+        <div class="emp-field col-full">
+          <label for="empFullName">Ime i prezime *</label>
+          <input type="text" id="empFullName" required maxlength="120" placeholder="npr. Dejan Ćirković">
+        </div>
+        <div class="emp-field">
+          <label for="empPosition">Pozicija</label>
+          <input type="text" id="empPosition" list="empPositionList" maxlength="80" placeholder="npr. Vođa montaže">
+          <datalist id="empPositionList">
+            <option value="Odg. inženjer"></option>
+            <option value="Vođa montaže"></option>
+            <option value="Inženjer"></option>
+            <option value="Montažer"></option>
+            <option value="Zavarivač"></option>
+            <option value="Električar"></option>
+            <option value="Admin"></option>
+          </datalist>
+        </div>
+        <div class="emp-field">
+          <label for="empDepartment">Odeljenje</label>
+          <input type="text" id="empDepartment" list="empDepartmentList" maxlength="80" placeholder="npr. Montaža">
+          <datalist id="empDepartmentList">
+            <option value="Montaža"></option>
+            <option value="Elektro"></option>
+            <option value="Proizvodnja"></option>
+            <option value="Projektovanje"></option>
+            <option value="Administracija"></option>
+          </datalist>
+        </div>
+        <div class="emp-field">
+          <label for="empPhone">Telefon</label>
+          <input type="tel" id="empPhone" maxlength="40" placeholder="npr. 064 123 4567">
+        </div>
+        <div class="emp-field">
+          <label for="empEmail">Email</label>
+          <input type="email" id="empEmail" maxlength="120" placeholder="ime@servoteh.rs">
+        </div>
+        <div class="emp-field">
+          <label for="empHireDate">Zaposlen od</label>
+          <input type="date" id="empHireDate">
+        </div>
+        <div class="emp-field emp-field-check">
+          <input type="checkbox" id="empIsActive" checked>
+          <label for="empIsActive">Aktivan zaposleni</label>
+        </div>
+        <div class="emp-field col-full">
+          <label for="empNote">Napomena</label>
+          <textarea id="empNote" maxlength="500" placeholder="Opcioni komentar…"></textarea>
+        </div>
+      </div>
+      <div class="emp-modal-actions">
+        <button type="button" class="btn" onclick="closeEmployeeModal()">Otkaži</button>
+        <button type="submit" class="btn btn-primary" id="empSubmitBtn">Sačuvaj</button>
+      </div>
+    </form>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -2405,28 +2758,360 @@ function queueCurrentWpSync(){
 /* ═══════════════════════════════════════════════════════════
    AUTH
    ═══════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════
+   KADROVSKA MODULE — phase 1: list / add / edit / delete employees
+   ═══════════════════════════════════════════════════════════ */
+const KADROVSKA_CACHE_KEY='plan_montaze_kadrovska_v1';
+let kadrovskaState={
+  employees:[],
+  loaded:false,
+  _schemaSupported:true
+};
+
+function _kadrLoadCache(){
+  try{
+    const raw=localStorage.getItem(KADROVSKA_CACHE_KEY);
+    if(!raw)return [];
+    const arr=JSON.parse(raw);
+    return Array.isArray(arr)?arr:[];
+  }catch(e){return [];}
+}
+function _kadrSaveCache(list){
+  try{localStorage.setItem(KADROVSKA_CACHE_KEY,JSON.stringify(list||[]));}catch(e){}
+}
+
+function mapDbEmployee(d){
+  return{
+    id:d.id,
+    fullName:d.full_name||'',
+    position:d.position||'',
+    department:d.department||'',
+    phone:d.phone||'',
+    email:d.email||'',
+    hireDate:d.hire_date||'',
+    isActive:d.is_active!==false,
+    note:d.note||'',
+    createdAt:d.created_at||null,
+    updatedAt:d.updated_at||null
+  };
+}
+function buildEmployeePayload(emp){
+  const p={
+    full_name:emp.fullName||'',
+    position:emp.position||'',
+    department:emp.department||'',
+    phone:emp.phone||'',
+    email:emp.email||'',
+    hire_date:emp.hireDate||null,
+    is_active:emp.isActive!==false,
+    note:emp.note||'',
+    updated_at:new Date().toISOString()
+  };
+  if(emp.id)p.id=emp.id;
+  return p;
+}
+
+async function loadEmployeesFromDb(){
+  if(!isOnline)return null;
+  const data=await sbReq('employees?select=*&order=full_name.asc');
+  if(!data)return null;
+  return data.map(mapDbEmployee);
+}
+async function saveEmployeeToDb(emp){
+  if(!isOnline||!canEdit())return null;
+  const payload=buildEmployeePayload(emp);
+  const res=await sbReq('employees','POST',payload);
+  if(res===null){
+    kadrovskaState._schemaSupported=false;
+    console.warn('[kadrovska] Save failed. Is sql/migrations/add_kadrovska_module.sql applied to Supabase?');
+  }
+  return res;
+}
+async function deleteEmployeeFromDb(id){
+  if(!isOnline||!canEdit()||!id)return false;
+  const res=await sbReq(`employees?id=eq.${encodeURIComponent(id)}`,'DELETE');
+  return res!==null;
+}
+
+async function ensureKadrovskaLoaded(force){
+  if(kadrovskaState.loaded&&!force)return;
+  /* Seed from local cache first so UI has something to show instantly */
+  kadrovskaState.employees=_kadrLoadCache();
+  kadrovskaState.loaded=true;
+  if(isOnline&&hasSupabaseConfig()){
+    const fresh=await loadEmployeesFromDb();
+    if(fresh){
+      kadrovskaState.employees=fresh;
+      _kadrSaveCache(fresh);
+    }else{
+      kadrovskaState._schemaSupported=false;
+    }
+  }
+}
+
+function _kadrDepartmentSet(){
+  const set=new Set();
+  for(const e of kadrovskaState.employees){
+    if(e.department&&String(e.department).trim())set.add(String(e.department).trim());
+  }
+  return Array.from(set).sort((a,b)=>a.localeCompare(b,'sr'));
+}
+
+function _kadrApplyFilters(list){
+  const q=(document.getElementById('kadrovskaSearch')?.value||'').trim().toLowerCase();
+  const dept=document.getElementById('kadrovskaDeptFilter')?.value||'';
+  const status=document.getElementById('kadrovskaStatusFilter')?.value||'';
+  return list.filter(e=>{
+    if(dept&&e.department!==dept)return false;
+    if(status==='active'&&!e.isActive)return false;
+    if(status==='inactive'&&e.isActive)return false;
+    if(q){
+      const hay=[e.fullName,e.position,e.department,e.email,e.phone,e.note].join(' ').toLowerCase();
+      if(!hay.includes(q))return false;
+    }
+    return true;
+  });
+}
+
+function renderKadrovska(){
+  const tbody=document.getElementById('kadrovskaTbody');
+  const emptyBox=document.getElementById('kadrovskaEmpty');
+  const countEl=document.getElementById('kadrovskaCount');
+  const addBtn=document.getElementById('kadrovskaAddBtn');
+  const roleEl=document.getElementById('kadrovskaRoleLabel');
+  if(!tbody)return;
+
+  if(roleEl){
+    roleEl.textContent=(currentRole||'viewer').toUpperCase();
+    roleEl.className='role-indicator '+(canEdit()?'role-pm':'role-viewer');
+  }
+  if(addBtn){
+    const edit=canEdit();
+    addBtn.disabled=!edit;
+    addBtn.style.opacity=edit?'1':'0.55';
+    addBtn.style.cursor=edit?'pointer':'not-allowed';
+    addBtn.title=edit?'':'Samo PM/LeadPM može da dodaje';
+  }
+
+  /* Populate department filter */
+  const deptSel=document.getElementById('kadrovskaDeptFilter');
+  if(deptSel){
+    const curr=deptSel.value;
+    const opts=['<option value="">Sva odeljenja</option>']
+      .concat(_kadrDepartmentSet().map(d=>`<option value="${escHtml(d)}">${escHtml(d)}</option>`));
+    deptSel.innerHTML=opts.join('');
+    if(curr&&Array.from(deptSel.options).some(o=>o.value===curr))deptSel.value=curr;
+  }
+
+  const filtered=_kadrApplyFilters(kadrovskaState.employees);
+  if(countEl){
+    const total=kadrovskaState.employees.length;
+    countEl.textContent=filtered.length===total
+      ? `${total} zaposlenih`
+      : `${filtered.length} / ${total} zaposlenih`;
+  }
+
+  if(filtered.length===0){
+    tbody.innerHTML='';
+    if(emptyBox){
+      emptyBox.style.display='block';
+      if(kadrovskaState.employees.length===0){
+        emptyBox.querySelector('.kadrovska-empty-title').textContent='Nema zaposlenih';
+      }else{
+        emptyBox.querySelector('.kadrovska-empty-title').textContent='Nijedan rezultat ne odgovara filterima';
+      }
+    }
+    return;
+  }
+  if(emptyBox)emptyBox.style.display='none';
+
+  const edit=canEdit();
+  const rows=filtered.map(e=>{
+    const sub=[e.email,e.phone].filter(x=>x).join(' · ');
+    const hireStr=e.hireDate?formatDate(e.hireDate):'—';
+    const statusCls=e.isActive?'active':'inactive';
+    const statusTxt=e.isActive?'Aktivan':'Neaktivan';
+    const rowId=escHtml(e.id||'');
+    return `<tr data-id="${rowId}">
+      <td>
+        <div class="emp-name">${escHtml(e.fullName||'—')}</div>
+        ${sub?`<div class="emp-sub col-hide-sm">${escHtml(sub)}</div>`:''}
+      </td>
+      <td>${escHtml(e.position||'—')}</td>
+      <td class="col-hide-sm">${escHtml(e.department||'—')}</td>
+      <td class="col-hide-sm">${escHtml(e.phone||'—')}</td>
+      <td class="col-hide-sm">${escHtml(e.email||'—')}</td>
+      <td class="col-hide-sm">${hireStr}</td>
+      <td><span class="emp-status-badge ${statusCls}">${statusTxt}</span></td>
+      <td class="col-actions">
+        <button class="btn-row-act" onclick="openEmployeeModal('${rowId}')" ${edit?'':'disabled'} title="${edit?'Izmeni':'Samo pregled'}">Izmeni</button>
+        <button class="btn-row-act danger" onclick="confirmDeleteEmployee('${rowId}')" ${edit?'':'disabled'} title="${edit?'Obriši':'Samo pregled'}">Obriši</button>
+      </td>
+    </tr>`;
+  }).join('');
+  tbody.innerHTML=rows;
+}
+
+/* ─── Modal ─── */
+function openEmployeeModal(id){
+  if(!canEdit()){showToast('⚠ Samo PM/LeadPM može da dodaje/menja');return;}
+  const modal=document.getElementById('empModal');
+  const title=document.getElementById('empModalTitle');
+  const err=document.getElementById('empModalErr');
+  if(!modal)return;
+
+  err.textContent='';err.classList.remove('visible');
+
+  let emp=null;
+  if(id){
+    emp=kadrovskaState.employees.find(x=>x.id===id);
+    if(!emp){showToast('⚠ Zaposleni nije pronađen');return;}
+  }
+
+  document.getElementById('empId').value=emp?emp.id:'';
+  document.getElementById('empFullName').value=emp?emp.fullName:'';
+  document.getElementById('empPosition').value=emp?emp.position:'';
+  document.getElementById('empDepartment').value=emp?emp.department:'';
+  document.getElementById('empPhone').value=emp?emp.phone:'';
+  document.getElementById('empEmail').value=emp?emp.email:'';
+  document.getElementById('empHireDate').value=emp?emp.hireDate||'':'';
+  document.getElementById('empIsActive').checked=emp?emp.isActive!==false:true;
+  document.getElementById('empNote').value=emp?emp.note||'':'';
+
+  title.textContent=emp?'Izmeni zaposlenog':'Novi zaposleni';
+  modal.classList.remove('hidden');
+  setTimeout(()=>document.getElementById('empFullName')?.focus(),50);
+}
+function closeEmployeeModal(){
+  document.getElementById('empModal')?.classList.add('hidden');
+}
+
+async function submitEmployeeForm(){
+  const err=document.getElementById('empModalErr');
+  const btn=document.getElementById('empSubmitBtn');
+  err.textContent='';err.classList.remove('visible');
+
+  const fullName=document.getElementById('empFullName').value.trim();
+  if(!fullName){
+    err.textContent='Ime i prezime je obavezno.';
+    err.classList.add('visible');
+    return;
+  }
+  const id=document.getElementById('empId').value||null;
+  const payload={
+    id:id,
+    fullName:fullName,
+    position:document.getElementById('empPosition').value.trim(),
+    department:document.getElementById('empDepartment').value.trim(),
+    phone:document.getElementById('empPhone').value.trim(),
+    email:document.getElementById('empEmail').value.trim().toLowerCase(),
+    hireDate:document.getElementById('empHireDate').value||null,
+    isActive:document.getElementById('empIsActive').checked,
+    note:document.getElementById('empNote').value.trim()
+  };
+
+  /* Duplicate email check (case-insensitive, excluding self) */
+  if(payload.email){
+    const dup=kadrovskaState.employees.find(e=>e.id!==id&&e.email&&e.email.toLowerCase()===payload.email);
+    if(dup){
+      err.textContent='Email već koristi zaposleni: '+(dup.fullName||dup.email);
+      err.classList.add('visible');
+      return;
+    }
+  }
+
+  btn.disabled=true;btn.textContent='Čuvanje…';
+  try{
+    if(isOnline&&hasSupabaseConfig()){
+      const res=await saveEmployeeToDb(payload);
+      if(!res||!res.length){
+        err.textContent='Supabase nije uspeo da sačuva. Proveri da li je migracija primenjena (sql/migrations/add_kadrovska_module.sql).';
+        err.classList.add('visible');
+        return;
+      }
+      const saved=mapDbEmployee(res[0]);
+      const idx=kadrovskaState.employees.findIndex(e=>e.id===saved.id);
+      if(idx>=0)kadrovskaState.employees[idx]=saved;
+      else kadrovskaState.employees.push(saved);
+    }else{
+      /* offline: assign a local UUID if new */
+      if(!payload.id)payload.id='local_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
+      const idx=kadrovskaState.employees.findIndex(e=>e.id===payload.id);
+      if(idx>=0)kadrovskaState.employees[idx]=payload;
+      else kadrovskaState.employees.push(payload);
+    }
+    kadrovskaState.employees.sort((a,b)=>String(a.fullName||'').localeCompare(String(b.fullName||''),'sr'));
+    _kadrSaveCache(kadrovskaState.employees);
+    closeEmployeeModal();
+    renderKadrovska();
+    showToast(id?'✏️ Zaposleni izmenjen':'✅ Zaposleni dodat');
+  }catch(e){
+    console.error('[kadrovska] submit error',e);
+    err.textContent='Greška pri čuvanju. Vidi konzolu.';
+    err.classList.add('visible');
+  }finally{
+    btn.disabled=false;btn.textContent='Sačuvaj';
+  }
+}
+
+async function confirmDeleteEmployee(id){
+  if(!canEdit()){showToast('⚠ Samo PM/LeadPM može da briše');return;}
+  const emp=kadrovskaState.employees.find(e=>e.id===id);
+  if(!emp)return;
+  if(!confirm(`Obrisati zaposlenog "${emp.fullName}"?\nOva akcija je trajna.`))return;
+  try{
+    if(isOnline&&hasSupabaseConfig()&&!String(id).startsWith('local_')){
+      const ok=await deleteEmployeeFromDb(id);
+      if(!ok){showToast('⚠ Supabase brisanje nije uspelo');return;}
+    }
+    kadrovskaState.employees=kadrovskaState.employees.filter(e=>e.id!==id);
+    _kadrSaveCache(kadrovskaState.employees);
+    renderKadrovska();
+    showToast('🗑 Zaposleni obrisan');
+  }catch(e){
+    console.error('[kadrovska] delete error',e);
+    showToast('⚠ Greška pri brisanju');
+  }
+}
+
 /* ═══ Module hub routing ═══ */
 const MODULE_HUB_KEY='plan_montaze_v51_active_module';
 let activeModule=null;
+function _clearModuleBodyClasses(){
+  document.body.classList.remove('module-kadrovska');
+}
 function openModuleHub(){
   activeModule=null;
   try{sessionStorage.removeItem(MODULE_HUB_KEY);}catch(e){}
   const hub=document.getElementById('moduleHub');
   if(hub)hub.classList.remove('hidden');
+  _clearModuleBodyClasses();
   document.body.classList.add('hub-active');
   updateHubUserInfo();
   // Hub is a big overlay anyway, but scroll top for cleanliness
   try{hub?.scrollTo({top:0});}catch(e){}
 }
 function enterModule(name){
+  const hub=document.getElementById('moduleHub');
   if(name==='plan-montaze'){
     activeModule='plan-montaze';
     try{sessionStorage.setItem(MODULE_HUB_KEY,'plan-montaze');}catch(e){}
-    const hub=document.getElementById('moduleHub');
     if(hub)hub.classList.add('hidden');
+    _clearModuleBodyClasses();
     document.body.classList.remove('hub-active');
     // Main content is already rendered by initAfterAuth/doOfflineMode; ensure fresh render
     try{render();}catch(e){}
+  }else if(name==='kadrovska'){
+    activeModule='kadrovska';
+    try{sessionStorage.setItem(MODULE_HUB_KEY,'kadrovska');}catch(e){}
+    if(hub)hub.classList.add('hidden');
+    _clearModuleBodyClasses();
+    document.body.classList.remove('hub-active');
+    document.body.classList.add('module-kadrovska');
+    (async()=>{
+      await ensureKadrovskaLoaded(true);
+      renderKadrovska();
+    })();
   }else{
     // Placeholder modules — keep user on hub
     showToast('ℹ Modul "'+name+'" je u pripremi');
@@ -2442,6 +3127,7 @@ function restoreModuleFromSession(){
   try{
     const last=sessionStorage.getItem(MODULE_HUB_KEY);
     if(last==='plan-montaze'){enterModule('plan-montaze');return true;}
+    if(last==='kadrovska'){enterModule('kadrovska');return true;}
   }catch(e){}
   return false;
 }
@@ -2479,9 +3165,12 @@ async function doLogout(){
   clearStoredAuthSession();
   try{sessionStorage.removeItem(MODULE_HUB_KEY);}catch(e){}
   activeModule=null;
+  _clearModuleBodyClasses();
   document.body.classList.remove('hub-active');
   const hub=document.getElementById('moduleHub');
   if(hub)hub.classList.add('hidden');
+  /* Close employee modal if open */
+  document.getElementById('empModal')?.classList.add('hidden');
   document.getElementById('authOverlay').classList.remove('hidden');
   updateAuthUI();
 }
@@ -3602,7 +4291,13 @@ document.addEventListener('keydown', function(e){
   if (e.key === 'Escape') {
     const ov = document.getElementById('statusOverlay');
     if (ov && ov.classList.contains('open')) closeStatusPanel();
+    const emp = document.getElementById('empModal');
+    if (emp && !emp.classList.contains('hidden')) closeEmployeeModal();
   }
+});
+/* Close employee modal on backdrop click */
+document.getElementById('empModal')?.addEventListener('click',function(e){
+  if(e.target===this)closeEmployeeModal();
 });
 
 /* Try session restore first */
