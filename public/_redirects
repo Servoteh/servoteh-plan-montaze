@@ -1,0 +1,15 @@
+# Cloudflare Pages — rewrite rules.
+#
+# Servoteh ERP je SPA (router u src/ui/router.js drži sve "rute" u
+# memoriji), tako da svaka navigacija mora da završi na /index.html
+# kako se ne bi videlo CF-ovo 404 kad korisnik refresh-uje stranicu na
+# nekoj "ruti".
+#
+# Pravila se primenjuju odozgo nadole. Sve što počinje sa /assets/ i
+# postojeći fajlovi (JS, CSS, fontovi, slike) se serviraju kao fajlovi.
+# Statički /legacy/ fajl ostaje pristupan na /legacy/index.html kao
+# rollback bez novog deploya (vidi MIGRATION.md).
+
+/legacy/*    /legacy/:splat   200
+/assets/*    /assets/:splat   200
+/*           /index.html      200
