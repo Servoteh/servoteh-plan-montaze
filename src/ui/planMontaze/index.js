@@ -35,6 +35,7 @@ import { openProjectMetaModal, openWpMetaModal } from './metaModals.js';
 import { planSectionHtml, wirePlanSection } from './planTable.js';
 import { mobileCardsHtml, wireMobileCards } from './mobileCards.js';
 import { reminderZoneHtml } from './reminderZone.js';
+import { ganttSectionHtml, wireGanttSection } from './gantt.js';
 
 let _mountEl = null;
 let _onLogoutCb = null;
@@ -108,10 +109,12 @@ function _renderShell() {
 function _wireBody() {
   const body = _mountEl.querySelector('#planBody');
   if (!body) return;
+  const onChange = () => _renderShell();
   if (planMontazeState.activeView === 'plan') {
-    const onChange = () => _renderShell();
     wirePlanSection(body, { onChange });
     wireMobileCards(body, { onChange });
+  } else if (planMontazeState.activeView === 'gantt') {
+    wireGanttSection(body, { onChange });
   }
 }
 
@@ -135,12 +138,7 @@ function _planBodyHtml() {
     `;
   }
   if (view === 'gantt') {
-    return `
-      <div class="form-card">
-        <h3>📊 Gantogram</h3>
-        <p class="form-hint">Gantogram će biti aktiviran u F5.3 (drag/resize, kolona-selekcija, boje po lokaciji).</p>
-      </div>
-    `;
+    return ganttSectionHtml();
   }
   if (view === 'total') {
     return `
