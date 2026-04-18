@@ -713,7 +713,91 @@ body.print-gantt, body.print-total { }
 .loc-add-row input { flex: 1; background: var(--surface3); border: 1px solid var(--border2); color: var(--text); border-radius: var(--radius); padding: 5px 8px; font-size: 11px; outline: none; }
 .loc-add-row button { background: var(--accent-dim); border: 1px solid var(--accent); color: var(--accent); border-radius: var(--radius); padding: 5px 10px; font-size: 11px; cursor: pointer; }
 
+/* ═══ LOCATION COLOR CHIPS ═══ */
+.loc-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-family: var(--mono); padding: 2px 6px; border-radius: 10px; border: 1px solid; letter-spacing: 0.2px; }
+.loc-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.gantt-label-loc-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 4px; vertical-align: middle; }
+td.td-loc .loc-select { border-left: 3px solid transparent; }
+.loc-swatch { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 6px; vertical-align: middle; }
+
+/* ═══ GANTT DAY SELECTION ═══ */
+.gantt-day-hdr { cursor: pointer; user-select: none; transition: background 0.1s; }
+.gantt-day-hdr:hover { background: rgba(77,163,255,0.08); }
+.gantt-day-hdr.col-selected { background: rgba(255,200,0,0.22) !important; color: #ffd966 !important; font-weight: 700; outline: 1px solid rgba(255,200,0,0.5); }
+.gantt-cell.col-selected { background: rgba(255,200,0,0.08); }
+.gantt-cell.col-selected.bar-phase, .gantt-cell.col-selected.bar-phase-start, .gantt-cell.col-selected.bar-phase-end { box-shadow: inset 0 0 0 1px rgba(255,200,0,0.6); }
+
+/* ═══ GANTT DRAG/RESIZE ═══ */
+.gantt-bar-wrap { position: relative; height: 100%; }
+.gantt-cell.bar-phase, .gantt-cell.bar-phase-start, .gantt-cell.bar-phase-end { position: relative; }
+.gantt-cell.bar-phase-start { cursor: grab; }
+.gantt-cell.bar-phase-end { cursor: grab; }
+.gantt-cell.bar-phase { cursor: grab; }
+.gantt-cell.bar-phase:active, .gantt-cell.bar-phase-start:active, .gantt-cell.bar-phase-end:active { cursor: grabbing; }
+.gantt-drag-handle-l, .gantt-drag-handle-r {
+  position: absolute; top: 0; bottom: 0; width: 5px; cursor: ew-resize;
+  background: rgba(255,255,255,0.35); z-index: 3;
+}
+.gantt-drag-handle-l { left: 0; }
+.gantt-drag-handle-r { right: 0; }
+.gantt-cell.bar-phase-start .gantt-drag-handle-l,
+.gantt-cell.bar-phase-end .gantt-drag-handle-r { display: block; }
+.gantt-drag-tooltip {
+  position: fixed; z-index: 3000; background: var(--surface); border: 1px solid var(--accent);
+  color: var(--accent); padding: 4px 8px; border-radius: var(--radius); font-family: var(--mono);
+  font-size: 11px; pointer-events: none; box-shadow: var(--shadow-md);
+}
+.gantt-cell.bar-dragging { opacity: 0.7; outline: 2px solid var(--accent); }
+
+/* ═══ 3D MODEL CARD ═══ */
+.model-btn {
+  display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; font-size: 9px;
+  border: 1px solid var(--border3); background: var(--surface3); color: var(--text2);
+  border-radius: 10px; cursor: pointer; font-family: var(--mono); letter-spacing: 0.3px;
+  transition: all 0.15s;
+}
+.model-btn:hover { background: var(--surface4); border-color: var(--accent); color: var(--accent); }
+.model-btn.has-model { border-color: #1e4a26; background: #0e2216; color: var(--green-light); }
+.model-panel {
+  padding: 10px 12px; border-top: 1px dashed var(--border2); background: #0d1218;
+}
+.model-panel h4 { font-size: 11px; color: var(--accent); margin-bottom: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+.model-panel .model-grid { display: grid; grid-template-columns: 160px 1fr; gap: 12px; align-items: start; }
+.model-panel .model-thumb { width: 100%; aspect-ratio: 4/3; background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.model-panel .model-thumb img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.model-panel .model-empty { color: var(--text3); font-size: 11px; text-align: center; padding: 10px; }
+.model-panel input[type="text"], .model-panel textarea { font-size: 11px; padding: 5px 8px; margin-bottom: 4px; }
+.model-panel textarea { min-height: 40px; }
+.model-panel .model-actions { display: flex; gap: 6px; margin-top: 4px; }
+.model-panel .model-link { font-size: 10px; color: var(--accent); text-decoration: underline; }
+@media (max-width: 767px) {
+  .model-panel .model-grid { grid-template-columns: 1fr; }
+  .model-panel .model-thumb { aspect-ratio: 16/9; }
+}
+
+/* ═══ EXPORT DIALOG ═══ */
+.export-box .export-opt { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+
+/* ═══ TOTAL GANT FILTERS ═══ */
+.total-gantt-filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; padding: 10px 12px; margin-bottom: 10px; background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius-lg); }
+.total-gantt-filters .filter-group { display: flex; flex-direction: column; gap: 3px; min-width: 120px; }
+.total-gantt-filters label { font-size: 9px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+.total-gantt-filters select, .total-gantt-filters input { background: var(--surface3); border: 1px solid var(--border2); color: var(--text); border-radius: var(--radius); padding: 5px 8px; font-size: 11px; font-family: var(--font); outline: none; height: 30px; }
+.total-gantt-filters select:focus, .total-gantt-filters input:focus { border-color: var(--accent); }
+.total-gantt-filters .btn-reset-tg { background: var(--surface3); border: 1px solid var(--border2); color: var(--text3); border-radius: var(--radius); padding: 5px 12px; font-size: 10px; cursor: pointer; height: 30px; text-transform: uppercase; letter-spacing: 0.3px; font-weight: 600; }
+.total-gantt-filters .btn-reset-tg:hover { background: var(--surface4); color: var(--text); }
+
+/* Tabs for drag/resize in mobile: disable by removing handles on small screens (still draggable via tap+drag on bar body) */
+@media (max-width: 767px) {
+  .gantt-drag-handle-l, .gantt-drag-handle-r { width: 8px; background: rgba(255,255,255,0.5); }
+}
+
 </style>
+
+<!-- CDN libs: SheetJS (xlsx), jsPDF + html2canvas (PDF export iz DOM-a) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
 </head>
 <body>
 
@@ -723,9 +807,9 @@ body.print-gantt, body.print-total { }
       <h1>⚙ Plan Montaže</h1>
     </div>
     <div class="toolbar">
-      <button class="btn btn-save" onclick="exportData()">💾 Export</button>
+      <button class="btn btn-save" onclick="openExportDialog()">💾 Export</button>
       <button class="btn btn-load" onclick="document.getElementById('fileInput').click()">📂 Import</button>
-      <button class="btn btn-print" onclick="openPrintDialog()">🖨 Print / PDF</button>
+      <button class="btn btn-print" onclick="openPrintDialog()">🖨 Print</button>
       <button class="btn btn-reset" onclick="resetData()">🗑 Reset</button>
       <input type="file" id="fileInput" accept=".json" style="display:none" onchange="importData(event)">
       <span class="role-indicator role-pm" id="roleLabel">—</span>
@@ -748,7 +832,8 @@ body.print-gantt, body.print-total { }
   <select id="projectSelect" onchange="switchProject(this.value)"></select>
   <button class="btn-sm" onclick="addProject()">+ Projekat</button>
   <button class="btn-sm" onclick="addWorkPackage()">+ Pozicija</button>
-  <button class="btn-sm" onclick="editProjectMeta()">⚙ Meta</button>
+  <button class="btn-sm" onclick="editProjectMeta()">⚙ Meta projekta</button>
+  <button class="btn-sm" onclick="editWpMeta()">⚙ Meta pozicije</button>
   <button class="btn-sm btn-del-project" id="btnDelProject" onclick="deleteProject()" style="display:none">🗑 Obriši projekat</button>
 </div>
 
@@ -843,6 +928,7 @@ body.print-gantt, body.print-total { }
   </div>
 
   <div id="view-total" class="view-section">
+    <div class="total-gantt-filters" id="totalGanttFilters"></div>
     <div class="gantt-machine-filter" id="ganttWpFilter"></div>
     <div class="gantt-wrap" id="totalGanttWrap"></div>
   </div>
@@ -891,6 +977,42 @@ body.print-gantt, body.print-total { }
     <button class="print-close" onclick="document.getElementById('printOverlay').classList.remove('open')">Zatvori</button>
   </div>
 </div>
+
+<!-- Export dialog -->
+<div class="print-overlay" id="exportOverlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="print-box export-box">
+    <h3>💾 Export</h3>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Izaberi format izvoza.</div>
+    <div class="export-opt">
+      <button class="print-choice" onclick="exportAsJSON()">🗂 JSON (pun backup svih projekata)</button>
+      <button class="print-choice" onclick="exportAsXLSX()">📊 Excel (.xlsx) — tabelarni Gant svih pozicija</button>
+      <button class="print-choice" onclick="exportGanttAsPDF('gantt')">📄 PDF — aktivna pozicija (Gant)</button>
+      <button class="print-choice" onclick="exportGanttAsPDF('total')">📄 PDF — ukupan Gant</button>
+    </div>
+    <button class="print-close" onclick="document.getElementById('exportOverlay').classList.remove('open')">Zatvori</button>
+  </div>
+</div>
+
+<!-- WP meta editor modal -->
+<div class="cal-overlay" id="wpMetaOverlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="cal-popup" style="width:340px">
+    <div class="cal-header"><div class="cal-title">Podešavanja pozicije</div></div>
+    <div style="padding:12px;display:flex;flex-direction:column;gap:8px" id="wpMetaForm"></div>
+    <div class="cal-footer"><button class="cal-btn cal-btn-cancel" onclick="document.getElementById('wpMetaOverlay').classList.remove('open')">Zatvori</button></div>
+  </div>
+</div>
+
+<!-- 3D model editor modal -->
+<div class="cal-overlay" id="modelOverlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="cal-popup" style="width:380px">
+    <div class="cal-header"><div class="cal-title">3D model faze</div></div>
+    <div style="padding:12px;display:flex;flex-direction:column;gap:6px" id="modelForm"></div>
+    <div class="cal-footer"><button class="cal-btn cal-btn-cancel" onclick="closeModelDialog()">Zatvori</button></div>
+  </div>
+</div>
+
+<!-- Gantt drag tooltip -->
+<div class="gantt-drag-tooltip" id="ganttDragTip" style="display:none"></div>
 
 <!-- Auth login overlay -->
 <div class="auth-overlay" id="authOverlay">
@@ -942,6 +1064,33 @@ let wpSyncTimer=null;
 const phaseSaveTimers=new Map();
 /** Set by loadUserRoleMatchesFromDb: true when sbReq returned null (HTTP/parse failure), false when response was read successfully. */
 let lastUserRolesQueryFailed=false;
+
+/* ── NEW STATE (v5.2) ──
+   - locationColorMap: persistent, stable mapping location -> color
+   - phaseModels: sidecar store za 3D model podatke (ne u phases, jer DB šema možda ne zna za to)
+   - expandedMobileCards: Set phase ID-jeva koji su otvoreni na mobilnom prikazu (opstaje posle render())
+   - activeProjectLoadToken: sprečava async race kada korisnik brzo menja projekat
+   - selectedDateIndices/lastSelectedDateIndex: selekcija vertikale u gantu (po view-u)
+   - totalGanttFilters: filteri za Ukupan Gant (lokacija, vođa, inženjer, projekat, datumi)
+   - gantDrag: trenutno aktivna drag sesija */
+const LOC_COLOR_KEY='plan_montaze_loc_colors_v1';
+const PHASE_MODEL_KEY='plan_montaze_phase_models_v1';
+const LOC_PALETTE=[
+  '#4da3ff','#7ee787','#ffa657','#d2a8ff','#f778ba','#79c0ff',
+  '#f0b429','#56d4dd','#ff8b5d','#a5d6a7','#ce93d8','#ffcb6b',
+  '#90caf9','#ef9a9a','#80cbc4','#b39ddb','#ffab91','#c5e1a5'
+];
+let locationColorMap={};
+try{const raw=localStorage.getItem(LOC_COLOR_KEY);if(raw)locationColorMap=JSON.parse(raw)||{};}catch(e){locationColorMap={};}
+let phaseModels={};
+try{const raw=localStorage.getItem(PHASE_MODEL_KEY);if(raw)phaseModels=JSON.parse(raw)||{};}catch(e){phaseModels={};}
+const expandedMobileCards=new Set();
+let activeProjectLoadToken=0;
+const selectedDateIndices={gantt:new Set(),total:new Set()};
+let lastSelectedDateIndex={gantt:null,total:null};
+let totalGanttFilters={loc:'',lead:'',engineer:'',projectId:'',dateFrom:'',dateTo:''};
+let gantDrag=null; // {ri, wpId, projectId, mode:'move|start|end', originX, startISO, endISO, cellWidth, dayCount, startIdxInView, endIdxInView}
+let modelEditing=null; // {phaseId}
 
 /* ── HELPERS ── */
 function escHtml(s){if(s==null)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
@@ -998,7 +1147,64 @@ function renameLocationEverywhere(project,oldName,newName){
     if(wp.location===oldName)wp.location=newName;
     (wp.phases||[]).forEach(p=>{if(p.loc===oldName)p.loc=newName;});
   });
+  transferLocationColor(oldName,newName);
 }
+
+/* ── LOCATION COLORS ── */
+function persistLocationColors(){try{localStorage.setItem(LOC_COLOR_KEY,JSON.stringify(locationColorMap));}catch(e){}}
+function getLocationColor(loc){
+  const k=String(loc||'').trim();
+  if(!k)return '#5a6578';
+  if(locationColorMap[k])return locationColorMap[k];
+  const used=new Set(Object.values(locationColorMap));
+  let pick=LOC_PALETTE.find(c=>!used.has(c));
+  if(!pick){
+    // If all used, deterministic hash-based fallback from palette
+    let h=0;for(let i=0;i<k.length;i++){h=(h*31+k.charCodeAt(i))>>>0;}
+    pick=LOC_PALETTE[h%LOC_PALETTE.length];
+  }
+  locationColorMap[k]=pick;persistLocationColors();
+  return pick;
+}
+function transferLocationColor(oldName,newName){
+  const o=String(oldName||'').trim(),n=String(newName||'').trim();
+  if(!o||!n||o===n)return;
+  if(locationColorMap[o]&&!locationColorMap[n]){
+    locationColorMap[n]=locationColorMap[o];delete locationColorMap[o];
+    persistLocationColors();
+  }
+}
+function ensureLocationColorsForProjects(){
+  (allData.projects||[]).forEach(p=>{
+    (p.locations||[]).forEach(l=>getLocationColor(l));
+    (p.workPackages||[]).forEach(wp=>{
+      if(wp.location)getLocationColor(wp.location);
+      (wp.phases||[]).forEach(ph=>{if(ph.loc)getLocationColor(ph.loc);});
+    });
+  });
+}
+function locChipHtml(loc){
+  if(!loc)return '<span class="loc-chip" style="border-color:var(--border2);color:var(--text3)">—</span>';
+  const c=getLocationColor(loc);
+  return `<span class="loc-chip" style="border-color:${c};color:${c};background:${c}22"><span class="loc-dot" style="background:${c}"></span>${escHtml(loc)}</span>`;
+}
+
+/* ── PHASE 3D MODELS (sidecar store) ── */
+function persistPhaseModels(){try{localStorage.setItem(PHASE_MODEL_KEY,JSON.stringify(phaseModels));}catch(e){}}
+function getPhaseModel(phaseId){return (phaseId&&phaseModels[phaseId])||null;}
+function setPhaseModel(phaseId,m){
+  if(!phaseId)return;
+  const clean={
+    name:String(m?.name||'').trim(),
+    imageUrl:String(m?.imageUrl||'').trim(),
+    fileUrl:String(m?.fileUrl||'').trim(),
+    note:String(m?.note||'').trim()
+  };
+  if(!clean.name&&!clean.imageUrl&&!clean.fileUrl&&!clean.note){delete phaseModels[phaseId];}
+  else{phaseModels[phaseId]=clean;}
+  persistPhaseModels();
+}
+function deletePhaseModel(phaseId){if(phaseId&&phaseModels[phaseId]){delete phaseModels[phaseId];persistPhaseModels();}}
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
 function hasSupabaseConfig(){return !!(supaUrl&&supaKey);}
 function persistAuthSession(session){try{localStorage.setItem(AUTH_STORAGE_KEY,JSON.stringify(session));}catch(e){}}
@@ -1377,8 +1583,15 @@ function saveAfterDelete(deletedPhaseId){saveState();if(deletedPhaseId)deletePha
 /* ═══════════════════════════════════════════════════════════
    DATA MODEL
    ═══════════════════════════════════════════════════════════ */
-function createBlankPhase(name){return{id:crypto.randomUUID(),name:name||'',loc:defaultLocation(),start:null,end:null,engineer:'',person:'',status:0,pct:0,checks:new Array(NUM_CHECKS).fill(false),note:'',blocker:''};}
-function createBlankWP(name,rnCode,order){return{id:crypto.randomUUID(),rnCode:rnCode||'',rnOrder:order||1,name:name||'Nova pozicija',location:defaultLocation(),defaultEngineer:'',defaultLead:'',deadline:'',isActive:true,phases:DEFAULT_PHASES.map(n=>createBlankPhase(n))};}
+function createBlankPhase(name,wp){
+  const w=wp||getWP();
+  return{id:crypto.randomUUID(),name:name||'',loc:(w?.location)||defaultLocation(),start:null,end:null,engineer:(w?.defaultEngineer)||'',person:(w?.defaultLead)||'',status:0,pct:0,checks:new Array(NUM_CHECKS).fill(false),note:'',blocker:''};
+}
+function createBlankWP(name,rnCode,order){
+  const wp={id:crypto.randomUUID(),rnCode:rnCode||'',rnOrder:order||1,name:name||'Nova pozicija',location:defaultLocation(),defaultEngineer:'',defaultLead:'',deadline:'',isActive:true,phases:[]};
+  wp.phases=DEFAULT_PHASES.map(n=>createBlankPhase(n,wp));
+  return wp;
+}
 function createBlankProject(code,name){return{id:crypto.randomUUID(),code:code||'',name:name||'Novi projekat',projectM:'',deadline:'',pmEmail:'',leadPmEmail:'',reminderEnabled:false,status:'active',locations:DEFAULT_LOCATIONS.slice(),workPackages:[createBlankWP('Presa 350t',code?code+'/1':'',1)]};}
 
 /* ═══════════════════════════════════════════════════════════
@@ -1448,13 +1661,86 @@ async function addWorkPackage(){
   cacheToLocal();buildWpTabs();render();showToast('✅ Pozicija dodata');
 }
 function switchProject(id){
-  activeProjectId=id;const p=getProject();activeWpId=p?.workPackages?.[0]?.id||null;filteredIndices=null;
+  const token=++activeProjectLoadToken;
+  activeProjectId=id;const p=getProject();
+  /* Izaberi prvi WP samo ako ne postoji validan activeWpId u ovom projektu */
+  if(!p||!p.workPackages?.some(w=>w.id===activeWpId)){activeWpId=p?.workPackages?.[0]?.id||null;}
+  filteredIndices=null;
   ensureProjectLocations(p);buildLocationFilter();
-  /* If online, load WPs from DB */
-  if(isOnline&&p){loadAllProjectData(p.id).then(wps=>{if(wps){p.workPackages=wps;activeWpId=wps[0]?.id||null;ensureProjectLocations(p);buildLocationFilter();cacheToLocal();buildWpTabs();render();}});}
-  else{buildWpTabs();render();}
+  buildWpTabs();render();
+  /* Online reload — respect latest token i zadržaj aktivni WP ako je i dalje validan */
+  if(isOnline&&p){
+    loadAllProjectData(p.id).then(wps=>{
+      if(token!==activeProjectLoadToken)return; // korisnik je već prešao dalje — ignoriši
+      if(!wps)return;
+      p.workPackages=wps;
+      ensureProjectLocations(p);
+      /* Zadrži user-ov aktivni WP ako postoji u novim podacima */
+      if(!wps.some(w=>w.id===activeWpId))activeWpId=wps[0]?.id||null;
+      buildLocationFilter();cacheToLocal();buildWpTabs();render();
+    });
+  }
 }
-function switchWP(id){activeWpId=id;filteredIndices=null;render();}
+function switchWP(id){
+  const p=getProject();
+  if(!p||!p.workPackages?.some(w=>w.id===id))return;
+  activeWpId=id;filteredIndices=null;
+  /* Važno: update tabova odmah, pre render-a, da vizuelno odmah bude jasno da je kliknut WP aktivan */
+  buildWpTabs();render();
+}
+function editWpMeta(){
+  if(!canEdit()){showToast('⚠ Pregled — nema izmena');return;}
+  const wp=getWP();if(!wp){showToast('⚠ Nema aktivne pozicije');return;}
+  const _d=disabledAttr();
+  const locOpts=locationOptionsHtml(wp.location);
+  const engOpts=ENGINEERS.map(v=>`<option value="${escHtml(v)}" ${wp.defaultEngineer===v?'selected':''}>${escHtml(v)||'—'}</option>`).join('');
+  const ldOpts=VODJA.map(v=>`<option value="${escHtml(v)}" ${wp.defaultLead===v?'selected':''}>${escHtml(v)||'—'}</option>`).join('');
+  document.getElementById('wpMetaForm').innerHTML=`
+    <label style="font-size:10px;color:var(--text3)">Naziv pozicije</label><input type="text" value="${escHtml(wp.name)}" onchange="updateWpField('name',this.value)" ${_d}>
+    <label style="font-size:10px;color:var(--text3)">RN kod</label><input type="text" value="${escHtml(wp.rnCode)}" onchange="updateWpField('rnCode',this.value)" ${_d}>
+    <label style="font-size:10px;color:var(--text3)">Lokacija pozicije</label><select onchange="updateWpField('location',this.value)" ${_d}>${locOpts}</select>
+    <label style="font-size:10px;color:var(--text3)">Rok (YYYY-MM-DD)</label><input type="date" value="${wp.deadline||''}" onchange="updateWpField('deadline',this.value)" ${_d}>
+    <label style="font-size:10px;color:var(--text3)">Podrazumevani odgovorni inženjer</label><select onchange="updateWpField('defaultEngineer',this.value)" ${_d}>${engOpts}</select>
+    <label style="font-size:10px;color:var(--text3)">Podrazumevani vođa montaže</label><select onchange="updateWpField('defaultLead',this.value)" ${_d}>${ldOpts}</select>
+    <div style="font-size:10px;color:var(--text3);margin-top:4px;line-height:1.4">Napomena: kada dodaš novu fazu, automatski dobija ove podrazumevane vrednosti. Postojeće faze se ne menjaju.</div>
+    <div style="display:flex;gap:6px;margin-top:6px">
+      <button class="btn-sm" ${_d} style="flex:1" onclick="applyWpDefaultsToEmptyPhases()">↓ Primeni prazne</button>
+      <button class="btn-sm" ${_d} style="flex:1" onclick="applyWpDefaultsToAllPhases()">↓ Primeni na sve</button>
+    </div>`;
+  document.getElementById('wpMetaOverlay').classList.add('open');
+}
+function updateWpField(field,value){
+  if(!canEdit())return;
+  const wp=getWP();if(!wp)return;
+  wp[field]=value;
+  if(field==='location'&&value)getLocationColor(value);
+  saveWpStructureState();
+  if(isOnline){const p=getProject();if(p)saveWorkPackageToDb(wp,p.id);}
+  buildWpTabs();render();
+  showToast('✏️ Sačuvano');
+}
+function applyWpDefaultsToEmptyPhases(){
+  if(!canEdit())return;
+  const wp=getWP();if(!wp)return;
+  let count=0;
+  wp.phases.forEach(p=>{
+    if(!p.engineer&&wp.defaultEngineer){p.engineer=wp.defaultEngineer;count++;}
+    if(!p.person&&wp.defaultLead){p.person=wp.defaultLead;count++;}
+  });
+  saveWpStructureState();queueCurrentWpSync();render();
+  showToast(count>0?'✅ Primenjeno na prazne ('+count+')':'ℹ Nema praznih polja');
+}
+function applyWpDefaultsToAllPhases(){
+  if(!canEdit())return;
+  const wp=getWP();if(!wp)return;
+  if(!confirm('Primeniti default vođu i inženjera na SVE faze ove pozicije? Postojeće vrednosti će biti pregažene.'))return;
+  wp.phases.forEach(p=>{
+    if(wp.defaultEngineer)p.engineer=wp.defaultEngineer;
+    if(wp.defaultLead)p.person=wp.defaultLead;
+  });
+  saveWpStructureState();queueCurrentWpSync();render();
+  showToast('✅ Primenjeno na sve');
+}
 function editProjectMeta(){
   if(!canEdit()){showToast('⚠ Pregled — nema izmena');return;}
   const p=getProject();if(!p)return;ensureProjectLocations(p);const _d=disabledAttr();
@@ -1508,7 +1794,7 @@ function buildWpTabs(){const p=getProject();if(!p){document.getElementById('wpTa
 /* ═══════════════════════════════════════════════════════════
    VIEW/FILTER/CALENDAR (same as V5.0)
    ═══════════════════════════════════════════════════════════ */
-function switchView(v){activeView=v;document.querySelectorAll('.view-tab').forEach((el,i)=>el.classList.toggle('active',['plan','gantt','total'][i]===v));document.querySelectorAll('.view-section').forEach((el,i)=>el.classList.toggle('active',['plan','gantt','total'][i]===v));const ip=v==='plan';if(isMobile()){document.getElementById('filterToggleBtn').style.display=ip?'':'none';if(!ip)document.getElementById('filterBar').classList.remove('filter-open');}else{document.getElementById('filterBar').style.display=ip?'flex':'none';document.getElementById('filterToggleBtn').style.display='none';}if(v==='gantt')renderGantt();if(v==='total'){renderGanttWpFilter();renderTotalGantt();}}
+function switchView(v){activeView=v;document.querySelectorAll('.view-tab').forEach((el,i)=>el.classList.toggle('active',['plan','gantt','total'][i]===v));document.querySelectorAll('.view-section').forEach((el,i)=>el.classList.toggle('active',['plan','gantt','total'][i]===v));const ip=v==='plan';if(isMobile()){document.getElementById('filterToggleBtn').style.display=ip?'':'none';if(!ip)document.getElementById('filterBar').classList.remove('filter-open');}else{document.getElementById('filterBar').style.display=ip?'flex':'none';document.getElementById('filterToggleBtn').style.display='none';}if(v==='gantt')renderGantt();if(v==='total'){buildTotalGanttFilters();renderGanttWpFilter();renderTotalGantt();}}
 function isMobile(){return window.innerWidth<768;}
 function toggleMobileFilters(){document.getElementById('filterBar').classList.toggle('filter-open');document.getElementById('filterToggleBtn').classList.toggle('open');}
 function getFilterValues(){return{search:(document.getElementById('fSearch')?.value||'').toLowerCase().trim(),loc:document.getElementById('fLoc')?.value||'',status:document.getElementById('fStatus')?.value||'',person:document.getElementById('fPerson')?.value||'',ready:document.getElementById('fReady')?.value||'',dates:document.getElementById('fDates')?.value||'',risk:document.getElementById('fRisk')?.value||''};}
@@ -1531,33 +1817,45 @@ function renderCalendar(){document.getElementById('calTitle').textContent=`${MON
 function update(i,field,value){if(!canEdit())return;const row=getPhases()[i];if(field==='status'&&value===3&&!row.blocker.trim()){showToast('⚠ Upiši blokator pre "Na čekanju"');render();return;}row[field]=value;applyBusinessRules(row);savePhaseState(i);render();}
 function updateCheck(i,ci,value){if(!canEdit())return;getPhases()[i].checks[ci]=value;saveCheckState(i);render();}
 function addPhase(){if(!canEdit()){showToast('⚠ Pregled — nema izmena');return;}const inp=document.getElementById('newPhaseInput'),n=inp.value.trim();if(!n){showToast('⚠ Unesi naziv');inp.focus();return;}getPhases().push(createBlankPhase(n));saveWpStructureState();render();inp.value='';showToast('✅ Dodano');}
-function deleteRow(i){if(!canEdit()){showToast('⚠ Pregled — nema izmena');return;}const s=getPhases(),n=s[i].name,deletedId=s[i]?.id;if(!confirm('Obriši "'+n+'"?'))return;s.splice(i,1);filteredIndices=null;saveAfterDelete(deletedId);render();}
+function deleteRow(i){if(!canEdit()){showToast('⚠ Pregled — nema izmena');return;}const s=getPhases(),n=s[i].name,deletedId=s[i]?.id;if(!confirm('Obriši "'+n+'"?'))return;s.splice(i,1);filteredIndices=null;if(deletedId){expandedMobileCards.delete(deletedId);deletePhaseModel(deletedId);}saveAfterDelete(deletedId);render();}
 function moveRow(i,dir){if(!canEdit()){showToast('⚠ Pregled — nema izmena');return;}const s=getPhases(),j=i+dir;if(j<0||j>=s.length)return;[s[i],s[j]]=[s[j],s[i]];filteredIndices=null;saveWpStructureState();render();}
 
 /* ═══════════════════════════════════════════════════════════
    RENDER: Mobile Cards (same pattern as V5.0)
    ═══════════════════════════════════════════════════════════ */
+function toggleMobileCard(phaseId,ev){
+  if(ev){ev.stopPropagation();}
+  if(expandedMobileCards.has(phaseId))expandedMobileCards.delete(phaseId);
+  else expandedMobileCards.add(phaseId);
+  /* In-place DOM toggle (bez punog render-a), tako da input state ostane intakt */
+  const el=document.getElementById('mcd-'+phaseId);
+  if(el)el.classList.toggle('open',expandedMobileCards.has(phaseId));
+}
 function renderMobileCards(){
   const c=document.getElementById('mobileCards');if(!c)return;c.innerHTML='';
   const state=getPhases(),indices=filteredIndices!==null?filteredIndices:state.map((_,i)=>i),_dis=disabledAttr(),_edit=canEdit(),mobAct=_edit?'':' disabled';
   indices.forEach(i=>{
-    const row=state[i],dur=calcDuration(row.start,row.end),rd=calcReadiness(row),rk=calcRisk(row);
+    const row=state[i],pid=row.id,dur=calcDuration(row.start,row.end),rd=calcReadiness(row),rk=calcRisk(row);
     const eN=escHtml(row.name),eNo=escHtml(row.note),eBl=escHtml(row.blocker);
+    const locColor=getLocationColor(row.loc);
     let durT='—';if(dur===-1)durT='⚠';else if(dur!==null)durT=dur+'d';
     let rI='✅';if(rk.level==='high')rI='🔴';else if(rk.level==='med')rI='🟠';else if(rk.level==='low')rI='🟡';
     let rB;if(rd.done)rB='<span class="badge-ready badge-done">DONE</span>';else if(rd.ready)rB='<span class="badge-ready badge-yes">✔</span>';else rB='<span class="badge-ready badge-no">✘</span>';
     const stC=['st-0','st-1','st-2','st-3'][row.status],rkC=rk.level!=='none'?`m-risk-${rk.level}`:'',mF=row.status===2?' m-finished':'';
     const pC=row.status===2?'pct-fill-done':row.status===3?'pct-fill-hold':'pct-fill-normal';
     const chH=row.checks.map((c,ci)=>`<span class="m-card-check ${c?'ck-y':'ck-n'}" ${_edit?`onclick="updateCheck(${i},${ci},${!c});event.stopPropagation()" style="cursor:pointer;user-select:none;padding:4px 8px;font-size:10px"`:'style="cursor:default;opacity:0.75;user-select:none;padding:4px 8px;font-size:10px"'}>${CHECK_SHORT[ci]}${c?' ✔':' ✘'}</span>`).join('');
-    const cId='mc-'+i,card=document.createElement('div');card.className=`m-card ${rkC}${mF}`;
-    card.innerHTML=`<div class="m-card-top" onclick="document.getElementById('${cId}').classList.toggle('open')"><div><div class="m-card-name">${eN}</div><div style="font-size:10px;color:var(--text3);margin-top:2px"><span class="loc-pill" style="background:none;border:none;padding:0;width:auto;font-size:10px">${escHtml(row.loc||'')}</span> · ${STATUSES[row.status]} · ${row.pct}%</div></div><div class="m-card-badges">${rI} ${rB}</div></div>
-    <div class="m-card-row"><div class="m-card-field"><span class="m-lbl">Poč:</span> ${formatDate(row.start)||'—'}</div><div class="m-card-field"><span class="m-lbl">Kraj:</span> ${formatDate(row.end)||'—'}</div><div class="m-card-field"><span class="m-lbl">Ing:</span> ${row.engineer||'—'}</div><div class="m-card-field"><span class="m-lbl">Vođa:</span> ${row.person||'—'}</div></div>
-    <div class="m-card-pct"><div class="pct-bar"><div class="pct-bar-fill ${pC}" style="width:${row.pct}%"></div></div><span>${row.pct}%</span></div>
-    <div class="m-card-details" id="${cId}"><div style="margin-bottom:6px;font-weight:600;color:var(--text3);font-size:9px;text-transform:uppercase">Spremnost</div><div class="m-card-checks">${chH}</div>
-    <div class="m-card-detail-grid"><div class="m-card-detail-item"><span class="m-lbl">Status</span><select class="${stC}" onchange="update(${i},'status',parseInt(this.value))" style="font-size:13px;padding:6px 8px" ${_dis}>${STATUSES.map((s,si)=>`<option value="${si}" ${row.status===si?'selected':''}>${s}</option>`).join('')}</select></div><div class="m-card-detail-item"><span class="m-lbl">Ing.</span><select onchange="update(${i},'engineer',this.value)" style="font-size:13px;padding:6px 8px" ${_dis}>${ENGINEERS.map(v=>`<option value="${v}" ${row.engineer===v?'selected':''}>${v||'—'}</option>`).join('')}</select></div><div class="m-card-detail-item"><span class="m-lbl">Vođa</span><select onchange="update(${i},'person',this.value)" style="font-size:13px;padding:6px 8px" ${_dis}>${VODJA.map(v=>`<option value="${v}" ${row.person===v?'selected':''}>${v||'—'}</option>`).join('')}</select></div><div class="m-card-detail-item"><span class="m-lbl">%</span><input type="range" min="0" max="100" step="5" value="${row.pct}" style="width:100%;accent-color:var(--accent)" oninput="update(${i},'pct',parseInt(this.value))" ${_dis}></div></div>
-    ${row.blocker||row.status===3?`<div class="m-card-detail-item" style="margin-top:6px"><span class="m-lbl">Blokator</span><textarea class="note-area" rows="2" style="font-size:13px;padding:8px" onchange="update(${i},'blocker',this.value)" ${_dis}>${eBl}</textarea></div>`:''}
-    <div class="m-card-detail-item" style="margin-top:6px"><span class="m-lbl">Napomena</span><textarea class="note-area" rows="2" style="font-size:13px;padding:8px" onchange="update(${i},'note',this.value)" ${_dis}>${eNo}</textarea></div>
-    <div style="display:flex;gap:6px;margin-top:8px;padding-top:6px;border-top:1px solid var(--border)"><button class="row-btn"${mobAct} onclick="openCalendar(${i},'start')" style="padding:6px 10px;font-size:12px">📅 Poč</button><button class="row-btn"${mobAct} onclick="openCalendar(${i},'end')" style="padding:6px 10px;font-size:12px">📅 Kraj</button><button class="row-btn btn-up"${mobAct} onclick="moveRow(${i},-1)" style="padding:6px 10px">▲</button><button class="row-btn btn-dn"${mobAct} onclick="moveRow(${i},1)" style="padding:6px 10px">▼</button><button class="row-btn btn-del"${mobAct} onclick="deleteRow(${i})" style="padding:6px 10px">✕</button></div></div>`;
+    const isOpen=expandedMobileCards.has(pid);
+    const mdl=getPhaseModel(pid);
+    const card=document.createElement('div');card.className=`m-card ${rkC}${mF}`;
+    card.innerHTML=`<div class="m-card-top" onclick="toggleMobileCard('${pid}',event)"><div><div class="m-card-name">${eN}</div><div style="font-size:10px;color:var(--text3);margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span class="loc-chip" style="border-color:${locColor};color:${locColor};background:${locColor}22"><span class="loc-dot" style="background:${locColor}"></span>${escHtml(row.loc||'—')}</span> · ${STATUSES[row.status]} · ${row.pct}%</div></div><div class="m-card-badges">${rI} ${rB}</div></div>
+    <div class="m-card-row" onclick="toggleMobileCard('${pid}',event)"><div class="m-card-field"><span class="m-lbl">Poč:</span> ${formatDate(row.start)||'—'}</div><div class="m-card-field"><span class="m-lbl">Kraj:</span> ${formatDate(row.end)||'—'}</div><div class="m-card-field"><span class="m-lbl">Ing:</span> ${row.engineer||'—'}</div><div class="m-card-field"><span class="m-lbl">Vođa:</span> ${row.person||'—'}</div></div>
+    <div class="m-card-pct" onclick="toggleMobileCard('${pid}',event)"><div class="pct-bar"><div class="pct-bar-fill ${pC}" style="width:${row.pct}%"></div></div><span>${row.pct}%</span></div>
+    <div class="m-card-details ${isOpen?'open':''}" id="mcd-${pid}" onclick="event.stopPropagation()"><div style="margin-bottom:6px;font-weight:600;color:var(--text3);font-size:9px;text-transform:uppercase">Spremnost</div><div class="m-card-checks">${chH}</div>
+    <div class="m-card-detail-grid"><div class="m-card-detail-item"><span class="m-lbl">Status</span><select class="${stC}" onchange="update(${i},'status',parseInt(this.value))" onclick="event.stopPropagation()" style="font-size:13px;padding:6px 8px" ${_dis}>${STATUSES.map((s,si)=>`<option value="${si}" ${row.status===si?'selected':''}>${s}</option>`).join('')}</select></div><div class="m-card-detail-item"><span class="m-lbl">Lokacija</span><select onchange="update(${i},'loc',this.value)" onclick="event.stopPropagation()" style="font-size:13px;padding:6px 8px;border-left:3px solid ${locColor}" ${_dis}>${locationOptionsHtml(row.loc)}</select></div><div class="m-card-detail-item"><span class="m-lbl">Ing.</span><select onchange="update(${i},'engineer',this.value)" onclick="event.stopPropagation()" style="font-size:13px;padding:6px 8px" ${_dis}>${ENGINEERS.map(v=>`<option value="${v}" ${row.engineer===v?'selected':''}>${v||'—'}</option>`).join('')}</select></div><div class="m-card-detail-item"><span class="m-lbl">Vođa</span><select onchange="update(${i},'person',this.value)" onclick="event.stopPropagation()" style="font-size:13px;padding:6px 8px" ${_dis}>${VODJA.map(v=>`<option value="${v}" ${row.person===v?'selected':''}>${v||'—'}</option>`).join('')}</select></div><div class="m-card-detail-item"><span class="m-lbl">%</span><input type="range" min="0" max="100" step="5" value="${row.pct}" style="width:100%;accent-color:var(--accent)" oninput="update(${i},'pct',parseInt(this.value))" onclick="event.stopPropagation()" ${_dis}></div></div>
+    ${row.blocker||row.status===3?`<div class="m-card-detail-item" style="margin-top:6px"><span class="m-lbl">Blokator</span><textarea class="note-area" rows="2" style="font-size:13px;padding:8px" onchange="update(${i},'blocker',this.value)" onclick="event.stopPropagation()" ${_dis}>${eBl}</textarea></div>`:''}
+    <div class="m-card-detail-item" style="margin-top:6px"><span class="m-lbl">Napomena</span><textarea class="note-area" rows="2" style="font-size:13px;padding:8px" onchange="update(${i},'note',this.value)" onclick="event.stopPropagation()" ${_dis}>${eNo}</textarea></div>
+    <div class="m-card-detail-item" style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--border2)"><span class="m-lbl">3D model</span>${mdl?`<div style="display:flex;gap:8px;align-items:flex-start"><div class="model-thumb" style="width:90px;aspect-ratio:4/3;flex-shrink:0">${mdl.imageUrl?`<img src="${escHtml(mdl.imageUrl)}" alt="${escHtml(mdl.name||'')}" onerror="this.style.display='none'">`:'<span style="font-size:20px;color:var(--text3)">🧩</span>'}</div><div style="flex:1;font-size:11px;color:var(--text2)"><div style="color:var(--text);font-weight:600">${escHtml(mdl.name||'Bez imena')}</div>${mdl.note?`<div style="margin-top:2px">${escHtml(mdl.note)}</div>`:''}${mdl.fileUrl?`<div style="margin-top:4px"><a class="model-link" href="${escHtml(mdl.fileUrl)}" target="_blank" rel="noopener">Otvori fajl</a></div>`:''}</div></div>`:'<div class="model-empty" style="font-size:11px;padding:6px 0">Nema 3D modela</div>'}<button class="btn-sm" style="margin-top:6px" onclick="openModelDialog('${pid}');event.stopPropagation()">✎ Uredi 3D</button></div>
+    <div style="display:flex;gap:6px;margin-top:8px;padding-top:6px;border-top:1px solid var(--border)"><button class="row-btn"${mobAct} onclick="openCalendar(${i},'start');event.stopPropagation()" style="padding:6px 10px;font-size:12px">📅 Poč</button><button class="row-btn"${mobAct} onclick="openCalendar(${i},'end');event.stopPropagation()" style="padding:6px 10px;font-size:12px">📅 Kraj</button><button class="row-btn btn-up"${mobAct} onclick="moveRow(${i},-1);event.stopPropagation()" style="padding:6px 10px">▲</button><button class="row-btn btn-dn"${mobAct} onclick="moveRow(${i},1);event.stopPropagation()" style="padding:6px 10px">▼</button><button class="row-btn btn-del"${mobAct} onclick="deleteRow(${i});event.stopPropagation()" style="padding:6px 10px">✕</button></div></div>`;
     c.appendChild(card);
   });
 }
@@ -1569,7 +1867,8 @@ function renderPlan(){
   renderMobileCards();const tb=document.getElementById('planBody');tb.innerHTML='';
   const state=getPhases(),indices=filteredIndices!==null?filteredIndices:state.map((_,i)=>i),_dis=disabledAttr();
   indices.forEach(i=>{
-    const row=state[i],dur=calcDuration(row.start,row.end),rd=calcReadiness(row),rk=calcRisk(row);
+    const row=state[i],pid=row.id,dur=calcDuration(row.start,row.end),rd=calcReadiness(row),rk=calcRisk(row);
+    const locColor=getLocationColor(row.loc);
     let durT='—',durC='td-dur';if(dur===-1){durT='⚠ERR';durC='td-dur dur-error';}else if(dur!==null)durT=dur+' d';
     const dateErr=dur===-1;let pctC='pct-fill-normal';if(row.status===2)pctC='pct-fill-done';if(row.status===3)pctC='pct-fill-hold';
     let rI='✅';if(rk.level==='high')rI='🔴';else if(rk.level==='med')rI='🟠';else if(rk.level==='low')rI='🟡';
@@ -1578,23 +1877,364 @@ function renderPlan(){
     const blkH=(row.status===3&&!row.blocker.trim())?'blocker-highlight':'',rkC=rk.level!=='none'?`row-risk-${rk.level}`:'row-risk-none',finC=row.status===2?' row-finished':'';
     let remDot='';if(row.start&&row.status!==2){const _du=Math.round((new Date(row.start)-today)/864e5);if(_du>=0&&_du<=3&&!rd.ready)remDot='<span class="reminder-dot rd-red"></span>';else if(_du>=4&&_du<=7&&!rd.ready)remDot='<span class="reminder-dot rd-yellow"></span>';}
     const eN=escHtml(row.name),eNo=escHtml(row.note),eBl=escHtml(row.blocker);
+    const mdl=getPhaseModel(pid);
+    const mdlBtnCls=mdl?'model-btn has-model':'model-btn';
+    const mdlTitle=mdl?(mdl.name||'3D'):'Dodaj 3D model';
     const tr=document.createElement('tr');tr.className=rkC+finC;
-    tr.innerHTML=`<td class="td-num">${i+1}</td><td class="td-name">${remDot}<input class="phase-name-input" type="text" value="${eN}" onchange="update(${i},'name',this.value)" ${_dis}></td><td class="td-loc"><select onchange="update(${i},'loc',this.value)" class="loc-select" ${_dis}>${locationOptionsHtml(row.loc)}</select></td><td class="td-date ${dateErr?'date-error':''}"><div class="date-input-wrap"><input type="text" readonly value="${formatDate(row.start)}" placeholder="—" class="${row.start?'':'empty'}" onclick="openCalendar(${i},'start')"><button class="date-btn" onclick="openCalendar(${i},'start')">📅</button></div></td><td class="td-date ${dateErr?'date-error':''}"><div class="date-input-wrap"><input type="text" readonly value="${formatDate(row.end)}" placeholder="—" class="${row.end?'':'empty'}" onclick="openCalendar(${i},'end')"><button class="date-btn" onclick="openCalendar(${i},'end')">📅</button></div></td><td class="${durC}">${durT}</td><td class="td-eng"><select onchange="update(${i},'engineer',this.value)" ${_dis}>${ENGINEERS.map(v=>`<option value="${v}" ${row.engineer===v?'selected':''}>${v||'—'}</option>`).join('')}</select></td><td class="td-person"><select onchange="update(${i},'person',this.value)" ${_dis}>${VODJA.map(v=>`<option value="${v}" ${row.person===v?'selected':''}>${v||'—'}</option>`).join('')}</select></td><td class="td-status"><select class="${statusClass(row.status)}" onchange="update(${i},'status',parseInt(this.value))" ${_dis}>${STATUSES.map((s,si)=>`<option value="${si}" ${row.status===si?'selected':''}>${s}</option>`).join('')}</select></td><td class="td-pct"><div class="pct-bar-wrap"><div class="pct-bar"><div class="pct-bar-fill ${pctC}" style="width:${row.pct}%"></div></div><span style="font-family:var(--mono);font-size:10px;color:var(--text2);min-width:26px">${row.pct}%</span></div><input type="range" min="0" max="100" step="5" value="${row.pct}" style="width:100%;margin-top:2px;accent-color:var(--accent)" oninput="update(${i},'pct',parseInt(this.value))" ${_dis}></td>${row.checks.map((c,ci)=>`<td class="td-check"><select class="${c?'ck-da':'ck-ne'}" onchange="updateCheck(${i},${ci},this.value==='DA')" title="${CHECK_LABELS[ci]}" ${_dis}><option ${!c?'selected':''}>NE</option><option ${c?'selected':''}>DA</option></select></td>`).join('')}<td class="td-ready">${rdH}</td><td class="td-risk">${rkH}</td><td class="td-blocker ${blkH}"><textarea class="note-area" rows="2" placeholder="${row.status===3?'⚠!':''}" onchange="update(${i},'blocker',this.value)" ${_dis}>${eBl}</textarea></td><td class="td-note"><textarea class="note-area" rows="2" onchange="update(${i},'note',this.value)" ${_dis}>${eNo}</textarea></td><td class="td-actions"><button class="row-btn btn-up" onclick="moveRow(${i},-1)">▲</button><button class="row-btn btn-dn" onclick="moveRow(${i},1)">▼</button><button class="row-btn btn-del" onclick="deleteRow(${i})">✕</button></td>`;
+    tr.innerHTML=`<td class="td-num">${i+1}</td><td class="td-name">${remDot}<input class="phase-name-input" type="text" value="${eN}" onchange="update(${i},'name',this.value)" ${_dis}> <button class="${mdlBtnCls}" onclick="openModelDialog('${pid}')" title="${escHtml(mdlTitle)}">🧩 3D${mdl?' ✓':''}</button></td><td class="td-loc"><select onchange="update(${i},'loc',this.value)" class="loc-select" style="border-left:3px solid ${locColor}" ${_dis}>${locationOptionsHtml(row.loc)}</select></td><td class="td-date ${dateErr?'date-error':''}"><div class="date-input-wrap"><input type="text" readonly value="${formatDate(row.start)}" placeholder="—" class="${row.start?'':'empty'}" onclick="openCalendar(${i},'start')"><button class="date-btn" onclick="openCalendar(${i},'start')">📅</button></div></td><td class="td-date ${dateErr?'date-error':''}"><div class="date-input-wrap"><input type="text" readonly value="${formatDate(row.end)}" placeholder="—" class="${row.end?'':'empty'}" onclick="openCalendar(${i},'end')"><button class="date-btn" onclick="openCalendar(${i},'end')">📅</button></div></td><td class="${durC}">${durT}</td><td class="td-eng"><select onchange="update(${i},'engineer',this.value)" ${_dis}>${ENGINEERS.map(v=>`<option value="${v}" ${row.engineer===v?'selected':''}>${v||'—'}</option>`).join('')}</select></td><td class="td-person"><select onchange="update(${i},'person',this.value)" ${_dis}>${VODJA.map(v=>`<option value="${v}" ${row.person===v?'selected':''}>${v||'—'}</option>`).join('')}</select></td><td class="td-status"><select class="${statusClass(row.status)}" onchange="update(${i},'status',parseInt(this.value))" ${_dis}>${STATUSES.map((s,si)=>`<option value="${si}" ${row.status===si?'selected':''}>${s}</option>`).join('')}</select></td><td class="td-pct"><div class="pct-bar-wrap"><div class="pct-bar"><div class="pct-bar-fill ${pctC}" style="width:${row.pct}%"></div></div><span style="font-family:var(--mono);font-size:10px;color:var(--text2);min-width:26px">${row.pct}%</span></div><input type="range" min="0" max="100" step="5" value="${row.pct}" style="width:100%;margin-top:2px;accent-color:var(--accent)" oninput="update(${i},'pct',parseInt(this.value))" ${_dis}></td>${row.checks.map((c,ci)=>`<td class="td-check"><select class="${c?'ck-da':'ck-ne'}" onchange="updateCheck(${i},${ci},this.value==='DA')" title="${CHECK_LABELS[ci]}" ${_dis}><option ${!c?'selected':''}>NE</option><option ${c?'selected':''}>DA</option></select></td>`).join('')}<td class="td-ready">${rdH}</td><td class="td-risk">${rkH}</td><td class="td-blocker ${blkH}"><textarea class="note-area" rows="2" placeholder="${row.status===3?'⚠!':''}" onchange="update(${i},'blocker',this.value)" ${_dis}>${eBl}</textarea></td><td class="td-note"><textarea class="note-area" rows="2" onchange="update(${i},'note',this.value)" ${_dis}>${eNo}</textarea></td><td class="td-actions"><button class="row-btn btn-up" onclick="moveRow(${i},-1)">▲</button><button class="row-btn btn-dn" onclick="moveRow(${i},1)">▼</button><button class="row-btn btn-del" onclick="deleteRow(${i})">✕</button></td>`;
     tb.appendChild(tr);
   });
 }
 
 /* ═══════════════════════════════════════════════════════════
-   RENDER: Gantt (single WP, skip finished)
+   GANTT HELPERS (v5.2)
    ═══════════════════════════════════════════════════════════ */
-function renderGantt(){const wrap=document.getElementById('ganttWrap'),state=getPhases().filter(r=>r.status!==2);let min=new Date(today),max=new Date(today);max.setDate(max.getDate()+60);state.forEach(r=>{if(r.start){const d=new Date(r.start);if(d<min)min=d;}if(r.end){const d=new Date(r.end);if(d>max)max=d;}});min.setDate(min.getDate()-3);max.setDate(max.getDate()+5);const days=[];let cur=new Date(min);while(cur<=max){days.push(new Date(cur));cur.setDate(cur.getDate()+1);}const months={};days.forEach(d=>{const k=d.getFullYear()+'-'+d.getMonth();if(!months[k])months[k]={label:MONTHS_SR[d.getMonth()]+' '+d.getFullYear(),count:0};months[k].count++;});let h=`<table class="gantt-table"><thead><tr><th class="gantt-label" rowspan="2">Faza</th>${Object.values(months).map(m=>`<th class="gantt-month-hdr" colspan="${m.count}">${m.label}</th>`).join('')}</tr><tr>${days.map(d=>{const isT=d.getTime()===today.getTime(),isW=d.getDay()===0||d.getDay()===6;return`<th class="gantt-day-hdr ${isT?'today-col':''} ${isW?'wknd':''}">${d.getDate()}</th>`;}).join('')}</tr></thead><tbody>`;state.forEach(row=>{const sMs=row.start?new Date(row.start).setHours(0,0,0,0):null,eMs=row.end?new Date(row.end).setHours(0,0,0,0):null,rk=calcRisk(row),rkC=rk.level!=='none'?' gantt-row-risk':'',eng=row.engineer?row.engineer.split(' ').pop():'',ld=row.person?row.person.split(' ').pop():'';h+=`<tr class="gantt-row${rkC}"><td class="gantt-label" style="background:var(--surface2);border-right:2px solid var(--border2)"><div class="gantt-label-name">${escHtml(row.name)}</div><div class="gantt-label-sub">${escHtml(row.loc||'')} ${eng?'· '+eng:''} ${ld?'· '+ld:''} · <span class="gantt-label-status gs-${row.status}">${STATUSES[row.status]} ${row.pct}%</span></div></td>`;days.forEach(d=>{const dMs=d.getTime(),isT=dMs===today.getTime(),isW=d.getDay()===0||d.getDay()===6,inB=sMs!==null&&eMs!==null&&dMs>=sMs&&dMs<=eMs,isS=sMs!==null&&dMs===sMs,isE=eMs!==null&&dMs===eMs;let cls='gantt-cell';if(isW)cls+=' wknd';if(isT)cls+=' today-col';if(inB){if(isS&&isE)cls+=' bar-phase bar-phase-start bar-phase-end';else if(isS)cls+=' bar-phase-start';else if(isE)cls+=' bar-phase-end';else cls+=' bar-phase';}h+=`<td class="${cls}"></td>`;});h+=`</tr>`;});h+=`</tbody></table>`;wrap.innerHTML=h;}
+function buildDayRange(startDate,endDate){const days=[];let cur=new Date(startDate);cur.setHours(0,0,0,0);const lim=new Date(endDate);lim.setHours(0,0,0,0);while(cur<=lim){days.push(new Date(cur));cur.setDate(cur.getDate()+1);}return days;}
+function buildMonthsHeader(days){const months={};days.forEach(d=>{const k=d.getFullYear()+'-'+d.getMonth();if(!months[k])months[k]={label:MONTHS_SR[d.getMonth()]+' '+d.getFullYear(),count:0};months[k].count++;});return months;}
+function dayHeaderHtml(days,viewKey){
+  const sel=selectedDateIndices[viewKey];
+  return days.map((d,idx)=>{
+    const isT=d.getTime()===today.getTime(),isW=d.getDay()===0||d.getDay()===6;
+    const isSel=sel.has(idx);
+    return `<th class="gantt-day-hdr ${isT?'today-col':''} ${isW?'wknd':''} ${isSel?'col-selected':''}" data-view="${viewKey}" data-didx="${idx}" onclick="onGanttDayHeaderClick(event,'${viewKey}',${idx})" title="${d.getDate()}.${d.getMonth()+1}.${d.getFullYear()} (klikni za selekciju, Shift+klik za raspon)">${d.getDate()}</th>`;
+  }).join('');
+}
+function onGanttDayHeaderClick(ev,viewKey,idx){
+  const sel=selectedDateIndices[viewKey];
+  if(ev.shiftKey&&lastSelectedDateIndex[viewKey]!==null){
+    const from=Math.min(lastSelectedDateIndex[viewKey],idx),to=Math.max(lastSelectedDateIndex[viewKey],idx);
+    for(let k=from;k<=to;k++)sel.add(k);
+  }else{
+    if(sel.has(idx)&&sel.size===1){sel.clear();lastSelectedDateIndex[viewKey]=null;}
+    else{
+      if(!ev.ctrlKey&&!ev.metaKey)sel.clear();
+      sel.add(idx);lastSelectedDateIndex[viewKey]=idx;
+    }
+  }
+  applyDaySelectionStyles(viewKey);
+}
+function applyDaySelectionStyles(viewKey){
+  const wrapId=viewKey==='gantt'?'ganttWrap':'totalGanttWrap';
+  const wrap=document.getElementById(wrapId);if(!wrap)return;
+  const sel=selectedDateIndices[viewKey];
+  wrap.querySelectorAll('.gantt-day-hdr').forEach(el=>{
+    const idx=parseInt(el.dataset.didx);
+    if(isNaN(idx))return;
+    el.classList.toggle('col-selected',sel.has(idx));
+  });
+  wrap.querySelectorAll('.gantt-cell').forEach(el=>{
+    const idx=parseInt(el.dataset.didx);
+    if(isNaN(idx))return;
+    el.classList.toggle('col-selected',sel.has(idx));
+  });
+}
+function clearDaySelection(viewKey){selectedDateIndices[viewKey].clear();lastSelectedDateIndex[viewKey]=null;applyDaySelectionStyles(viewKey);}
 
 /* ═══════════════════════════════════════════════════════════
-   RENDER: Total Gantt (all WPs of project, skip finished)
+   RENDER: Gantt (single WP, skip finished) + drag/resize
    ═══════════════════════════════════════════════════════════ */
-let totalGanttWPs={};function toggleGanttWP(id){totalGanttWPs[id]=!totalGanttWPs[id];renderTotalGantt();}
-function renderGanttWpFilter(){const p=getProject();if(!p)return;p.workPackages.forEach(w=>{if(totalGanttWPs[w.id]===undefined)totalGanttWPs[w.id]=true;});document.getElementById('ganttWpFilter').innerHTML='<span style="font-size:9px;color:var(--text3);font-weight:600;text-transform:uppercase;margin-right:6px">Pozicije:</span>'+p.workPackages.map(w=>`<label><input type="checkbox" ${totalGanttWPs[w.id]?'checked':''} onchange="toggleGanttWP('${w.id}')">${escHtml(w.name)}</label>`).join('');}
-function renderTotalGantt(){const p=getProject();if(!p){document.getElementById('totalGanttWrap').innerHTML='';return;}let min=new Date(today),max=new Date(today);max.setDate(max.getDate()+60);p.workPackages.forEach(w=>{if(!totalGanttWPs[w.id])return;w.phases.forEach(r=>{if(r.start){const d=new Date(r.start);if(d<min)min=d;}if(r.end){const d=new Date(r.end);if(d>max)max=d;}});});min.setDate(min.getDate()-3);max.setDate(max.getDate()+5);const days=[];let cur=new Date(min);while(cur<=max){days.push(new Date(cur));cur.setDate(cur.getDate()+1);}const months={};days.forEach(d=>{const k=d.getFullYear()+'-'+d.getMonth();if(!months[k])months[k]={label:MONTHS_SR[d.getMonth()]+' '+d.getFullYear(),count:0};months[k].count++;});const MC=['#1f3a6e','#1a3a1a','#3a2800','#2a0a2a','#002a2a'];let h=`<table class="gantt-table"><thead><tr><th class="gantt-label" rowspan="2" style="min-width:220px">Pozicija / Faza</th>${Object.values(months).map(m=>`<th class="gantt-month-hdr" colspan="${m.count}">${m.label}</th>`).join('')}</tr><tr>${days.map(d=>{const isT=d.getTime()===today.getTime(),isW=d.getDay()===0||d.getDay()===6;return`<th class="gantt-day-hdr ${isT?'today-col':''} ${isW?'wknd':''}">${d.getDate()}</th>`;}).join('')}</tr></thead><tbody>`;p.workPackages.forEach((wp,wi)=>{if(!totalGanttWPs[wp.id])return;const active=wp.phases.filter(r=>r.status!==2),tc=days.length;h+=`<tr class="gantt-machine-hdr"><td colspan="${tc+1}" style="background:${MC[wi%5]};color:#aac8ff;font-weight:700;font-size:11px;padding:5px 10px;border-top:2px solid #2e75b6">⚙ ${escHtml(wp.name)} <span style="font-size:9px;opacity:0.7">${escHtml(wp.rnCode)}</span></td></tr>`;if(active.length===0){h+=`<tr><td colspan="${tc+1}" style="color:var(--text3);font-style:italic;padding:6px 10px;font-size:11px">Nema aktivnih faza</td></tr>`;}else active.forEach(row=>{const sMs=row.start?new Date(row.start).setHours(0,0,0,0):null,eMs=row.end?new Date(row.end).setHours(0,0,0,0):null,rk=calcRisk(row),rkC=rk.level!=='none'?' gantt-row-risk':'',eng=row.engineer?row.engineer.split(' ').pop():'',ld=row.person?row.person.split(' ').pop():'';h+=`<tr class="gantt-row${rkC}"><td class="gantt-label" style="background:var(--surface2);border-right:2px solid var(--border2);padding-left:18px"><div class="gantt-label-name">${escHtml(row.name)}</div><div class="gantt-label-sub">${escHtml(row.loc||'')} ${eng?'· '+eng:''} ${ld?'· '+ld:''} · <span class="gantt-label-status gs-${row.status}">${STATUSES[row.status]} ${row.pct}%</span></div></td>`;days.forEach(d=>{const dMs=d.getTime(),isT=dMs===today.getTime(),isW=d.getDay()===0||d.getDay()===6,inB=sMs!==null&&eMs!==null&&dMs>=sMs&&dMs<=eMs,isS=sMs!==null&&dMs===sMs,isE=eMs!==null&&dMs===eMs;let cls='gantt-cell';if(isW)cls+=' wknd';if(isT)cls+=' today-col';if(inB){if(isS&&isE)cls+=' bar-phase bar-phase-start bar-phase-end';else if(isS)cls+=' bar-phase-start';else if(isE)cls+=' bar-phase-end';else cls+=' bar-phase';}h+=`<td class="${cls}"></td>`;});h+=`</tr>`;});});h+=`</tbody></table>`;document.getElementById('totalGanttWrap').innerHTML=h;}
+function renderGantt(){
+  const wrap=document.getElementById('ganttWrap');
+  const state=getPhases().filter(r=>r.status!==2);
+  const wp=getWP();const p=getProject();
+  let min=new Date(today),max=new Date(today);max.setDate(max.getDate()+60);
+  state.forEach(r=>{if(r.start){const d=new Date(r.start);if(d<min)min=d;}if(r.end){const d=new Date(r.end);if(d>max)max=d;}});
+  min.setDate(min.getDate()-3);max.setDate(max.getDate()+5);
+  const days=buildDayRange(min,max);
+  const months=buildMonthsHeader(days);
+  const daysHeadHtml=dayHeaderHtml(days,'gantt');
+  let h=`<table class="gantt-table" data-view="gantt"><thead><tr><th class="gantt-label" rowspan="2">Faza</th>${Object.values(months).map(m=>`<th class="gantt-month-hdr" colspan="${m.count}">${m.label}</th>`).join('')}</tr><tr>${daysHeadHtml}</tr></thead><tbody>`;
+  state.forEach(row=>{
+    const origIdx=getPhases().indexOf(row);
+    const sMs=row.start?new Date(row.start).setHours(0,0,0,0):null;
+    const eMs=row.end?new Date(row.end).setHours(0,0,0,0):null;
+    const rk=calcRisk(row),rkC=rk.level!=='none'?' gantt-row-risk':'';
+    const eng=row.engineer?row.engineer.split(' ').pop():'';
+    const ld=row.person?row.person.split(' ').pop():'';
+    const locColor=getLocationColor(row.loc);
+    h+=`<tr class="gantt-row${rkC}" data-phase-id="${escHtml(row.id)}" data-ri="${origIdx}"><td class="gantt-label" style="background:var(--surface2);border-right:2px solid var(--border2);border-left:3px solid ${locColor}"><div class="gantt-label-name">${escHtml(row.name)}</div><div class="gantt-label-sub"><span class="gantt-label-loc-dot" style="background:${locColor}"></span>${escHtml(row.loc||'—')} ${eng?'· '+eng:''} ${ld?'· '+ld:''} · <span class="gantt-label-status gs-${row.status}">${STATUSES[row.status]} ${row.pct}%</span></div></td>`;
+    days.forEach((d,didx)=>{
+      const dMs=d.getTime(),isT=dMs===today.getTime(),isW=d.getDay()===0||d.getDay()===6;
+      const inB=sMs!==null&&eMs!==null&&dMs>=sMs&&dMs<=eMs;
+      const isS=sMs!==null&&dMs===sMs,isE=eMs!==null&&dMs===eMs;
+      const isColSel=selectedDateIndices.gantt.has(didx);
+      let cls='gantt-cell';
+      if(isW)cls+=' wknd';if(isT)cls+=' today-col';
+      if(isColSel)cls+=' col-selected';
+      let bar='';
+      if(inB){
+        if(isS&&isE){cls+=' bar-phase bar-phase-start bar-phase-end';}
+        else if(isS)cls+=' bar-phase bar-phase-start';
+        else if(isE)cls+=' bar-phase bar-phase-end';
+        else cls+=' bar-phase';
+        bar=`style="background:${locColor}"`;
+      }
+      let handles='';
+      if(inB&&canEdit()){
+        if(isS)handles+='<div class="gantt-drag-handle-l" onmousedown="startGantDrag(event,\'gantt\',\''+escHtml(row.id)+'\',\'start\')"></div>';
+        if(isE)handles+='<div class="gantt-drag-handle-r" onmousedown="startGantDrag(event,\'gantt\',\''+escHtml(row.id)+'\',\'end\')"></div>';
+      }
+      const moveAttr=(inB&&canEdit())?` onmousedown="startGantDrag(event,'gantt','${escHtml(row.id)}','move')"`:'';
+      h+=`<td class="${cls}" data-didx="${didx}" data-phase-id="${escHtml(row.id)}" ${bar}${moveAttr}>${handles}</td>`;
+    });
+    h+=`</tr>`;
+  });
+  h+=`</tbody></table>`;
+  wrap.innerHTML=h;
+  wrap._ganttDays=days;
+  wrap._ganttView='gantt';
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RENDER: Total Gantt (SVI projekti + filteri)
+   ═══════════════════════════════════════════════════════════ */
+function buildTotalGanttFilters(){
+  const box=document.getElementById('totalGanttFilters');if(!box)return;
+  const projOpts=['<option value="">Svi projekti</option>'].concat(
+    (allData.projects||[]).map(p=>`<option value="${p.id}" ${totalGanttFilters.projectId===p.id?'selected':''}>${escHtml(p.code)} — ${escHtml(p.name)}</option>`)
+  ).join('');
+  const allLocs=new Set();
+  (allData.projects||[]).forEach(p=>(p.locations||[]).forEach(l=>l&&allLocs.add(l)));
+  (allData.projects||[]).forEach(p=>(p.workPackages||[]).forEach(wp=>(wp.phases||[]).forEach(ph=>ph.loc&&allLocs.add(ph.loc))));
+  const locOpts=['<option value="">Sve lokacije</option>'].concat(
+    Array.from(allLocs).sort().map(l=>`<option value="${escHtml(l)}" ${totalGanttFilters.loc===l?'selected':''}>${escHtml(l)}</option>`)
+  ).join('');
+  const leadOpts=['<option value="">Svi vođe</option>'].concat(
+    VODJA.filter(v=>v).map(v=>`<option value="${escHtml(v)}" ${totalGanttFilters.lead===v?'selected':''}>${escHtml(v)}</option>`)
+  ).join('');
+  const engOpts=['<option value="">Svi inženjeri</option>'].concat(
+    ENGINEERS.filter(v=>v).map(v=>`<option value="${escHtml(v)}" ${totalGanttFilters.engineer===v?'selected':''}>${escHtml(v)}</option>`)
+  ).join('');
+  box.innerHTML=`
+    <div class="filter-group"><label>Projekat</label><select onchange="setTotalGanttFilter('projectId',this.value)">${projOpts}</select></div>
+    <div class="filter-group"><label>Lokacija</label><select onchange="setTotalGanttFilter('loc',this.value)">${locOpts}</select></div>
+    <div class="filter-group"><label>Vođa montaže</label><select onchange="setTotalGanttFilter('lead',this.value)">${leadOpts}</select></div>
+    <div class="filter-group"><label>Odg. inženjer</label><select onchange="setTotalGanttFilter('engineer',this.value)">${engOpts}</select></div>
+    <div class="filter-group"><label>Datum od</label><input type="date" value="${totalGanttFilters.dateFrom||''}" onchange="setTotalGanttFilter('dateFrom',this.value)"></div>
+    <div class="filter-group"><label>Datum do</label><input type="date" value="${totalGanttFilters.dateTo||''}" onchange="setTotalGanttFilter('dateTo',this.value)"></div>
+    <button class="btn-reset-tg" onclick="resetTotalGanttFilters()">✕ Reset</button>
+  `;
+}
+function setTotalGanttFilter(key,val){totalGanttFilters[key]=val;clearDaySelection('total');renderGanttWpFilter();renderTotalGantt();}
+function resetTotalGanttFilters(){totalGanttFilters={loc:'',lead:'',engineer:'',projectId:'',dateFrom:'',dateTo:''};clearDaySelection('total');buildTotalGanttFilters();renderGanttWpFilter();renderTotalGantt();}
+
+let totalGanttWPs={};
+function toggleGanttWP(id){totalGanttWPs[id]=!totalGanttWPs[id];renderTotalGantt();}
+function renderGanttWpFilter(){
+  const box=document.getElementById('ganttWpFilter');if(!box)return;
+  /* Spisak svih WP-ova kroz sve projekte, filtrirano po projectId ako je setovano */
+  const projects=(allData.projects||[]).filter(p=>!totalGanttFilters.projectId||p.id===totalGanttFilters.projectId);
+  const allWPs=[];
+  projects.forEach(p=>(p.workPackages||[]).forEach(wp=>{allWPs.push({wp,project:p});if(totalGanttWPs[wp.id]===undefined)totalGanttWPs[wp.id]=true;}));
+  if(allWPs.length===0){box.innerHTML='<span style="font-size:10px;color:var(--text3)">Nema pozicija</span>';return;}
+  box.innerHTML='<span style="font-size:9px;color:var(--text3);font-weight:600;text-transform:uppercase;margin-right:6px">Pozicije:</span>'+
+    allWPs.map(({wp,project})=>`<label><input type="checkbox" ${totalGanttWPs[wp.id]?'checked':''} onchange="toggleGanttWP('${wp.id}')">${escHtml(project.code)}/${escHtml(wp.name)}</label>`).join('');
+}
+function renderTotalGantt(){
+  const wrap=document.getElementById('totalGanttWrap');if(!wrap)return;
+  const f=totalGanttFilters;
+  const projects=(allData.projects||[]).filter(p=>!f.projectId||p.id===f.projectId);
+
+  /* Agregiraj faze iz svih projekata, primeni filtere (bez statusa Završeno) */
+  const rows=[]; // {project, wp, phase}
+  projects.forEach(project=>{
+    (project.workPackages||[]).forEach(wp=>{
+      if(!totalGanttWPs[wp.id])return;
+      (wp.phases||[]).forEach(ph=>{
+        if(ph.status===2)return;
+        if(f.loc&&ph.loc!==f.loc)return;
+        if(f.lead&&ph.person!==f.lead)return;
+        if(f.engineer&&ph.engineer!==f.engineer)return;
+        if(f.dateFrom||f.dateTo){
+          if(!ph.start&&!ph.end)return;
+          const s=ph.start?new Date(ph.start).setHours(0,0,0,0):null;
+          const e=ph.end?new Date(ph.end).setHours(0,0,0,0):s;
+          if(f.dateTo){const to=new Date(f.dateTo).setHours(0,0,0,0);if(s!==null&&s>to)return;}
+          if(f.dateFrom){const from=new Date(f.dateFrom).setHours(0,0,0,0);if((e??s)!==null&&(e??s)<from)return;}
+        }
+        rows.push({project,wp,phase:ph});
+      });
+    });
+  });
+
+  /* Raspon: koristi filter-datume ako su postavljeni, inače realan min/max iz filtriranih faza */
+  let min,max;
+  if(f.dateFrom)min=new Date(f.dateFrom);else{
+    min=new Date(today);
+    rows.forEach(r=>{if(r.phase.start){const d=new Date(r.phase.start);if(d<min)min=d;}});
+    min.setDate(min.getDate()-3);
+  }
+  if(f.dateTo)max=new Date(f.dateTo);else{
+    max=new Date(today);max.setDate(max.getDate()+60);
+    rows.forEach(r=>{if(r.phase.end){const d=new Date(r.phase.end);if(d>max)max=d;}});
+    max.setDate(max.getDate()+5);
+  }
+  min.setHours(0,0,0,0);max.setHours(0,0,0,0);
+  /* Guard protiv ogromnog raspona — ograniči na 730 dana (2 god.) */
+  const daysBetween=Math.round((max-min)/864e5);
+  if(daysBetween>730){max=new Date(min);max.setDate(min.getDate()+730);}
+
+  if(rows.length===0){wrap.innerHTML='<div style="padding:16px;color:var(--text3);font-size:12px;text-align:center">Nema faza po trenutnim filterima.</div>';return;}
+
+  const days=buildDayRange(min,max);
+  const months=buildMonthsHeader(days);
+  const daysHeadHtml=dayHeaderHtml(days,'total');
+
+  /* Grupiši po projektu → poziciji */
+  const grouped=new Map();
+  rows.forEach(r=>{
+    const pk=r.project.id;if(!grouped.has(pk))grouped.set(pk,{project:r.project,wps:new Map()});
+    const wpMap=grouped.get(pk).wps;
+    if(!wpMap.has(r.wp.id))wpMap.set(r.wp.id,{wp:r.wp,phases:[]});
+    wpMap.get(r.wp.id).phases.push(r.phase);
+  });
+
+  const MC=['#1f3a6e','#1a3a1a','#3a2800','#2a0a2a','#002a2a'];
+  let h=`<table class="gantt-table" data-view="total"><thead><tr><th class="gantt-label" rowspan="2" style="min-width:260px">Projekat / Pozicija / Faza</th>${Object.values(months).map(m=>`<th class="gantt-month-hdr" colspan="${m.count}">${m.label}</th>`).join('')}</tr><tr>${daysHeadHtml}</tr></thead><tbody>`;
+  const tc=days.length;
+  let projIdx=0;
+  grouped.forEach(({project,wps})=>{
+    h+=`<tr class="gantt-machine-hdr"><td colspan="${tc+1}" style="background:#0c1628;color:var(--blue-bar);font-weight:700;font-size:11px;padding:5px 10px;border-top:2px solid var(--blue-light)">📁 ${escHtml(project.code)} — ${escHtml(project.name)}</td></tr>`;
+    let wpIdx=0;
+    wps.forEach(({wp,phases})=>{
+      h+=`<tr class="gantt-machine-hdr"><td colspan="${tc+1}" style="background:${MC[wpIdx%5]};color:#aac8ff;font-weight:600;font-size:11px;padding:4px 10px 4px 22px;border-top:1px solid var(--border);border-bottom:1px solid var(--border)">⚙ ${escHtml(wp.name)} <span style="font-size:9px;opacity:0.7">${escHtml(wp.rnCode)}</span></td></tr>`;
+      phases.forEach(row=>{
+        const sMs=row.start?new Date(row.start).setHours(0,0,0,0):null;
+        const eMs=row.end?new Date(row.end).setHours(0,0,0,0):null;
+        const rk=calcRisk(row),rkC=rk.level!=='none'?' gantt-row-risk':'';
+        const eng=row.engineer?row.engineer.split(' ').pop():'';
+        const ld=row.person?row.person.split(' ').pop():'';
+        const locColor=getLocationColor(row.loc);
+        h+=`<tr class="gantt-row${rkC}" data-phase-id="${escHtml(row.id)}" data-project-id="${escHtml(project.id)}" data-wp-id="${escHtml(wp.id)}"><td class="gantt-label" style="background:var(--surface2);border-right:2px solid var(--border2);padding-left:24px;border-left:3px solid ${locColor}"><div class="gantt-label-name">${escHtml(row.name)}</div><div class="gantt-label-sub"><span class="gantt-label-loc-dot" style="background:${locColor}"></span>${escHtml(row.loc||'—')} ${eng?'· '+eng:''} ${ld?'· '+ld:''} · <span class="gantt-label-status gs-${row.status}">${STATUSES[row.status]} ${row.pct}%</span></div></td>`;
+        days.forEach((d,didx)=>{
+          const dMs=d.getTime(),isT=dMs===today.getTime(),isW=d.getDay()===0||d.getDay()===6;
+          const inB=sMs!==null&&eMs!==null&&dMs>=sMs&&dMs<=eMs;
+          const isS=sMs!==null&&dMs===sMs,isE=eMs!==null&&dMs===eMs;
+          const isColSel=selectedDateIndices.total.has(didx);
+          let cls='gantt-cell';
+          if(isW)cls+=' wknd';if(isT)cls+=' today-col';
+          if(isColSel)cls+=' col-selected';
+          let bar='';
+          if(inB){
+            if(isS&&isE)cls+=' bar-phase bar-phase-start bar-phase-end';
+            else if(isS)cls+=' bar-phase bar-phase-start';
+            else if(isE)cls+=' bar-phase bar-phase-end';
+            else cls+=' bar-phase';
+            bar=`style="background:${locColor}"`;
+          }
+          let handles='';
+          if(inB&&canEdit()){
+            if(isS)handles+='<div class="gantt-drag-handle-l" onmousedown="startGantDrag(event,\'total\',\''+escHtml(row.id)+'\',\'start\',\''+escHtml(project.id)+'\',\''+escHtml(wp.id)+'\')"></div>';
+            if(isE)handles+='<div class="gantt-drag-handle-r" onmousedown="startGantDrag(event,\'total\',\''+escHtml(row.id)+'\',\'end\',\''+escHtml(project.id)+'\',\''+escHtml(wp.id)+'\')"></div>';
+          }
+          const moveAttr=(inB&&canEdit())?` onmousedown="startGantDrag(event,'total','${escHtml(row.id)}','move','${escHtml(project.id)}','${escHtml(wp.id)}')"`:'';
+          h+=`<td class="${cls}" data-didx="${didx}" data-phase-id="${escHtml(row.id)}" ${bar}${moveAttr}>${handles}</td>`;
+        });
+        h+=`</tr>`;
+      });
+      wpIdx++;
+    });
+    projIdx++;
+  });
+  h+=`</tbody></table>`;
+  wrap.innerHTML=h;
+  wrap._ganttDays=days;
+  wrap._ganttView='total';
+}
+
+/* ═══════════════════════════════════════════════════════════
+   GANTT DRAG / RESIZE (desktop mouse events)
+   ═══════════════════════════════════════════════════════════ */
+function findPhaseAcrossAll(phaseId){
+  for(const p of allData.projects||[])for(const wp of p.workPackages||[]){
+    const idx=(wp.phases||[]).findIndex(ph=>ph.id===phaseId);
+    if(idx>=0)return{project:p,wp,phase:wp.phases[idx],idx};
+  }
+  return null;
+}
+function startGantDrag(ev,viewKey,phaseId,mode,projectId,wpId){
+  if(!canEdit())return;
+  /* Ignoriši ako korisnik klikće na handle — handle ima svoj mousedown */
+  if(ev.target&&(ev.target.classList.contains('gantt-drag-handle-l')||ev.target.classList.contains('gantt-drag-handle-r'))){
+    if(mode==='move')return; // handles handle themselves
+  }
+  ev.preventDefault();ev.stopPropagation();
+  const ref=findPhaseAcrossAll(phaseId);if(!ref)return;
+  if(!ref.phase.start||!ref.phase.end){showToast('⚠ Faza mora imati start/end pre drag-a');return;}
+  const wrap=document.getElementById(viewKey==='gantt'?'ganttWrap':'totalGanttWrap');
+  const firstCell=wrap.querySelector('.gantt-cell');
+  const cellWidth=firstCell?firstCell.getBoundingClientRect().width:22;
+  gantDrag={
+    phaseId,
+    viewKey,
+    mode,
+    projectId:projectId||ref.project.id,
+    wpId:wpId||ref.wp.id,
+    originX:ev.clientX,
+    startISO:ref.phase.start,
+    endISO:ref.phase.end,
+    cellWidth,
+    lastDelta:0,
+    changed:false
+  };
+  document.addEventListener('mousemove',onGantDragMove);
+  document.addEventListener('mouseup',onGantDragEnd);
+  showGantDragTip(ev,ref.phase.start,ref.phase.end);
+  /* Visual indicator: marks row */
+  const row=wrap.querySelector(`tr[data-phase-id="${CSS.escape(phaseId)}"]`);
+  if(row)row.querySelectorAll('.bar-phase, .bar-phase-start, .bar-phase-end').forEach(c=>c.classList.add('bar-dragging'));
+}
+function onGantDragMove(ev){
+  if(!gantDrag)return;
+  const delta=Math.round((ev.clientX-gantDrag.originX)/gantDrag.cellWidth);
+  if(delta===gantDrag.lastDelta)return;
+  gantDrag.lastDelta=delta;
+  const sD=new Date(gantDrag.startISO),eD=new Date(gantDrag.endISO);
+  let newS=new Date(sD),newE=new Date(eD);
+  if(gantDrag.mode==='move'){newS.setDate(sD.getDate()+delta);newE.setDate(eD.getDate()+delta);}
+  else if(gantDrag.mode==='start'){newS.setDate(sD.getDate()+delta);if(newS>eD){newS=new Date(eD);}}
+  else if(gantDrag.mode==='end'){newE.setDate(eD.getDate()+delta);if(newE<sD){newE=new Date(sD);}}
+  showGantDragTip(ev,newS.toISOString().slice(0,10),newE.toISOString().slice(0,10));
+  gantDrag.pendingStartISO=newS.toISOString().slice(0,10);
+  gantDrag.pendingEndISO=newE.toISOString().slice(0,10);
+  gantDrag.changed=delta!==0;
+}
+function onGantDragEnd(){
+  if(!gantDrag){return;}
+  document.removeEventListener('mousemove',onGantDragMove);
+  document.removeEventListener('mouseup',onGantDragEnd);
+  hideGantDragTip();
+  const d=gantDrag;gantDrag=null;
+  if(!d.changed){
+    /* still need to remove bar-dragging class */
+    const wrap=document.getElementById(d.viewKey==='gantt'?'ganttWrap':'totalGanttWrap');
+    if(wrap){const row=wrap.querySelector(`tr[data-phase-id="${CSS.escape(d.phaseId)}"]`);if(row)row.querySelectorAll('.bar-dragging').forEach(c=>c.classList.remove('bar-dragging'));}
+    return;
+  }
+  const ref=findPhaseAcrossAll(d.phaseId);if(!ref)return;
+  ref.phase.start=d.pendingStartISO;
+  ref.phase.end=d.pendingEndISO;
+  applyBusinessRules(ref.phase);
+  cacheToLocal();
+  /* Save to DB (find project/wp-level index for that phase) */
+  if(isOnline){savePhaseToDb(ref.phase,ref.project.id,ref.wp.id,ref.idx);}
+  /* Rerender affected view */
+  if(d.viewKey==='gantt'&&ref.project.id===activeProjectId&&ref.wp.id===activeWpId){
+    renderPlan();renderGantt();renderSummary();
+  }else{
+    render();
+  }
+  if(d.viewKey==='total'){renderTotalGantt();}
+  showToast('📅 '+formatDate(d.pendingStartISO)+' → '+formatDate(d.pendingEndISO));
+}
+function showGantDragTip(ev,sISO,eISO){
+  const tip=document.getElementById('ganttDragTip');if(!tip)return;
+  tip.textContent=formatDate(sISO)+' → '+formatDate(eISO);
+  tip.style.left=(ev.clientX+12)+'px';
+  tip.style.top=(ev.clientY+12)+'px';
+  tip.style.display='block';
+}
+function hideGantDragTip(){const tip=document.getElementById('ganttDragTip');if(tip)tip.style.display='none';}
 
 /* ═══════════════════════════════════════════════════════════
    RENDER: Summary + Reminders
@@ -1605,14 +2245,173 @@ function renderReminders(){const z=document.getElementById('reminderZone');if(!z
 /* ═══════════════════════════════════════════════════════════
    EXPORT/IMPORT/RESET
    ═══════════════════════════════════════════════════════════ */
-function exportData(){const blob=new Blob([JSON.stringify(allData,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`plan_${getProject()?.code||'export'}_${new Date().toISOString().slice(0,10)}.json`;a.click();showToast('💾 Exported');}
-function importData(event){if(!canEdit()){showToast('⚠ Pregled — nema izmena');event.target.value='';return;}const file=event.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=e=>{try{const d=JSON.parse(e.target.result);if(d.projects&&Array.isArray(d.projects)){allData=d;activeProjectId=allData.projects[0]?.id;activeWpId=allData.projects[0]?.workPackages?.[0]?.id;allData.projects.forEach(ensureProjectLocations);cacheToLocal();buildProjectSelector();buildWpTabs();render();queueCurrentWpSync();showToast('📂 Imported');}else showToast('❌ Format');}catch{showToast('❌ JSON err');}};reader.readAsText(file);event.target.value='';}
+function openExportDialog(){document.getElementById('exportOverlay').classList.add('open');}
+function exportAsJSON(){
+  document.getElementById('exportOverlay').classList.remove('open');
+  const payload={...allData,_phaseModels:phaseModels,_locationColorMap:locationColorMap,_exportedAt:new Date().toISOString(),_version:'5.2'};
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`plan_${getProject()?.code||'export'}_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();showToast('💾 JSON izvezen');
+}
+/* backward compat */
+function exportData(){exportAsJSON();}
+
+function _xlsxPhaseRows(){
+  const rows=[];
+  (allData.projects||[]).forEach(proj=>{
+    (proj.workPackages||[]).forEach(wp=>{
+      (wp.phases||[]).forEach(ph=>{
+        const rd=calcReadiness(ph);
+        rows.push({
+          'Projekat': proj.code+' — '+proj.name,
+          'Pozicija': wp.name,
+          'RN': wp.rnCode||'',
+          'Faza': ph.name,
+          'Lokacija': ph.loc||'',
+          'Datum početka': ph.start||'',
+          'Datum kraja': ph.end||'',
+          'Trajanje (d)': calcDuration(ph.start,ph.end)||'',
+          'Odgovorni inženjer': ph.engineer||'',
+          'Vođa montaže': ph.person||'',
+          'Status': STATUSES[ph.status]||'',
+          'Procenat (%)': ph.pct||0,
+          'Spremnost': rd.done?'Završeno':(rd.ready?'Spreman':'Nije spreman'),
+          'Razlog': rd.reasons.join(' | '),
+          'Blokator': ph.blocker||'',
+          'Napomena': ph.note||''
+        });
+      });
+    });
+  });
+  return rows;
+}
+function exportAsXLSX(){
+  document.getElementById('exportOverlay').classList.remove('open');
+  if(typeof XLSX==='undefined'){showToast('⏳ Učitavam XLSX...');setTimeout(exportAsXLSX,400);return;}
+  const rows=_xlsxPhaseRows();
+  if(rows.length===0){showToast('⚠ Nema podataka za export');return;}
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.json_to_sheet(rows);
+  /* Column widths */
+  ws['!cols']=[{wch:28},{wch:24},{wch:10},{wch:36},{wch:14},{wch:13},{wch:13},{wch:10},{wch:22},{wch:22},{wch:14},{wch:10},{wch:14},{wch:30},{wch:24},{wch:30}];
+  XLSX.utils.book_append_sheet(wb,ws,'Plan montaze');
+
+  /* Summary sheet per project */
+  const summary=[];
+  (allData.projects||[]).forEach(p=>{
+    let total=0,done=0,inP=0,hold=0;
+    (p.workPackages||[]).forEach(wp=>(wp.phases||[]).forEach(ph=>{total++;if(ph.status===2)done++;if(ph.status===1)inP++;if(ph.status===3)hold++;}));
+    summary.push({'Projekat':p.code+' — '+p.name,'PM':p.projectM||'','Rok':p.deadline||'','Ukupno faza':total,'Završeno':done,'U toku':inP,'Na čekanju':hold});
+  });
+  if(summary.length){const ws2=XLSX.utils.json_to_sheet(summary);ws2['!cols']=[{wch:30},{wch:20},{wch:14},{wch:12},{wch:12},{wch:12},{wch:14}];XLSX.utils.book_append_sheet(wb,ws2,'Sumarno');}
+
+  const fn=`plan_montaze_${new Date().toISOString().slice(0,10)}.xlsx`;
+  XLSX.writeFile(wb,fn);
+  showToast('📊 XLSX izvezen');
+}
+async function exportGanttAsPDF(which){
+  document.getElementById('exportOverlay').classList.remove('open');
+  if(typeof html2canvas==='undefined'||typeof window.jspdf==='undefined'){showToast('⏳ Učitavam PDF lib...');setTimeout(()=>exportGanttAsPDF(which),400);return;}
+  /* Prvo se uveri da je odgovarajući view renderovan */
+  if(which==='gantt'){renderGantt();}
+  else if(which==='total'){buildTotalGanttFilters();renderGanttWpFilter();renderTotalGantt();}
+  const wrapId=which==='gantt'?'ganttWrap':'totalGanttWrap';
+  const el=document.getElementById(wrapId);
+  if(!el){showToast('⚠ Nema Gant prikaza');return;}
+  showToast('⏳ Generišem PDF...');
+  try{
+    const canvas=await html2canvas(el,{backgroundColor:'#0a0e14',scale:1.5,windowWidth:Math.max(1400,el.scrollWidth),scrollX:0,scrollY:0,width:el.scrollWidth,height:el.scrollHeight});
+    const imgData=canvas.toDataURL('image/png');
+    const {jsPDF}=window.jspdf;
+    /* Landscape A4 */
+    const pdf=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+    const pageW=pdf.internal.pageSize.getWidth();
+    const pageH=pdf.internal.pageSize.getHeight();
+    const title=which==='gantt'?'Gant — '+(getProject()?.code||'')+' / '+(getWP()?.name||''):'Ukupan Gant (svi projekti)';
+    const date=new Date().toLocaleDateString('sr-RS');
+    pdf.setFontSize(12);pdf.text(title,10,10);
+    pdf.setFontSize(9);pdf.text('Datum: '+date,pageW-45,10);
+    const imgW=pageW-20;
+    const imgH=canvas.height*imgW/canvas.width;
+    if(imgH<=pageH-20){pdf.addImage(imgData,'PNG',10,15,imgW,imgH);}
+    else{
+      /* Podeli po stranicama po visini */
+      const pxPerMM=canvas.width/imgW;
+      const pageImgH=pageH-20;
+      const sliceHpx=pageImgH*pxPerMM;
+      let yOffset=0;let first=true;
+      while(yOffset<canvas.height){
+        const sliceH=Math.min(sliceHpx,canvas.height-yOffset);
+        const sliceCanvas=document.createElement('canvas');
+        sliceCanvas.width=canvas.width;sliceCanvas.height=sliceH;
+        const ctx=sliceCanvas.getContext('2d');
+        ctx.drawImage(canvas,0,yOffset,canvas.width,sliceH,0,0,canvas.width,sliceH);
+        const data=sliceCanvas.toDataURL('image/png');
+        if(!first){pdf.addPage();pdf.setFontSize(12);pdf.text(title,10,10);pdf.setFontSize(9);pdf.text('Datum: '+date,pageW-45,10);}
+        pdf.addImage(data,'PNG',10,15,imgW,sliceH/pxPerMM);
+        yOffset+=sliceH;first=false;
+      }
+    }
+    const fn=`gantt_${which}_${new Date().toISOString().slice(0,10)}.pdf`;
+    pdf.save(fn);
+    showToast('📄 PDF sačuvan');
+  }catch(e){console.error(e);showToast('❌ Greška pri PDF-u');}
+}
+
+function importData(event){if(!canEdit()){showToast('⚠ Pregled — nema izmena');event.target.value='';return;}const file=event.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=e=>{try{const d=JSON.parse(e.target.result);if(d.projects&&Array.isArray(d.projects)){allData={projects:d.projects};if(d._phaseModels&&typeof d._phaseModels==='object'){phaseModels={...phaseModels,...d._phaseModels};persistPhaseModels();}if(d._locationColorMap&&typeof d._locationColorMap==='object'){locationColorMap={...locationColorMap,...d._locationColorMap};persistLocationColors();}activeProjectId=allData.projects[0]?.id;activeWpId=allData.projects[0]?.workPackages?.[0]?.id;allData.projects.forEach(ensureProjectLocations);ensureLocationColorsForProjects();cacheToLocal();buildProjectSelector();buildWpTabs();render();queueCurrentWpSync();showToast('📂 Imported');}else showToast('❌ Format');}catch(err){console.error(err);showToast('❌ JSON err');}};reader.readAsText(file);event.target.value='';}
 function resetData(){if(!canEdit()){showToast('⚠ Pregled — nema izmena');return;}if(!confirm('Reset?'))return;allData={projects:[createBlankProject('RN 9000','Kovačka linija')]};activeProjectId=allData.projects[0].id;activeWpId=allData.projects[0].workPackages[0].id;filteredIndices=null;cacheToLocal();buildProjectSelector();buildWpTabs();render();showToast('🗑 Reset');}
+
+/* ═══════════════════════════════════════════════════════════
+   3D MODEL DIALOG
+   ═══════════════════════════════════════════════════════════ */
+function openModelDialog(phaseId){
+  modelEditing={phaseId};
+  const m=getPhaseModel(phaseId)||{name:'',imageUrl:'',fileUrl:'',note:''};
+  const _d=canEdit()?'':'disabled';
+  const form=document.getElementById('modelForm');
+  const previewHtml=m.imageUrl?`<div class="model-thumb" style="margin-bottom:8px"><img src="${escHtml(m.imageUrl)}" alt="preview" onerror="this.style.display='none';this.parentElement.innerHTML='<span style=&quot;color:var(--text3);font-size:11px&quot;>Slika se ne može učitati</span>'"></div>`:'<div class="model-empty" style="margin-bottom:8px">Nema preview slike</div>';
+  form.innerHTML=`
+    ${previewHtml}
+    <label style="font-size:10px;color:var(--text3)">Naziv modela</label>
+    <input type="text" id="mdlName" value="${escHtml(m.name)}" placeholder="npr. Presa 350t — rama" ${_d}>
+    <label style="font-size:10px;color:var(--text3)">URL preview slike (.png/.jpg)</label>
+    <input type="text" id="mdlImg" value="${escHtml(m.imageUrl)}" placeholder="https://..." ${_d}>
+    <label style="font-size:10px;color:var(--text3)">URL 3D fajla (.glb/.stp/.pdf...)</label>
+    <input type="text" id="mdlFile" value="${escHtml(m.fileUrl)}" placeholder="https://..." ${_d}>
+    <label style="font-size:10px;color:var(--text3)">Kratka napomena</label>
+    <textarea id="mdlNote" rows="2" class="note-area" ${_d}>${escHtml(m.note)}</textarea>
+    <div class="model-actions">
+      <button class="btn-sm" ${_d} onclick="saveModelDialog()" style="flex:1;background:var(--accent-dim);border-color:var(--accent);color:var(--accent)">💾 Sačuvaj</button>
+      <button class="btn-sm" ${_d} onclick="clearModelDialog()" style="background:var(--red-bg);border-color:#5a1e1e;color:#ff9a9a">🗑 Obriši 3D</button>
+    </div>
+    <div style="font-size:10px;color:var(--text3);line-height:1.4;margin-top:6px">Placeholder — kada backend 3D viewer bude spreman, ova kartica će prikazivati interaktivni model. Za sada koristi URL slike kao preview.</div>
+  `;
+  document.getElementById('modelOverlay').classList.add('open');
+}
+function saveModelDialog(){
+  if(!modelEditing||!canEdit())return;
+  const m={
+    name:document.getElementById('mdlName').value,
+    imageUrl:document.getElementById('mdlImg').value,
+    fileUrl:document.getElementById('mdlFile').value,
+    note:document.getElementById('mdlNote').value
+  };
+  setPhaseModel(modelEditing.phaseId,m);
+  closeModelDialog();render();showToast('✅ 3D sačuvan');
+}
+function clearModelDialog(){
+  if(!modelEditing||!canEdit())return;
+  if(!confirm('Obriši 3D podatke za ovu fazu?'))return;
+  deletePhaseModel(modelEditing.phaseId);
+  closeModelDialog();render();showToast('🗑 3D obrisan');
+}
+function closeModelDialog(){modelEditing=null;document.getElementById('modelOverlay').classList.remove('open');}
 
 /* ═══════════════════════════════════════════════════════════
    MASTER RENDER + INIT
    ═══════════════════════════════════════════════════════════ */
-function render(){ensureProjectLocations(getProject());buildLocationFilter();renderPlan();renderReminders();renderSummary();buildPersonFilter();if(activeView==='gantt')renderGantt();if(activeView==='total'){renderGanttWpFilter();renderTotalGantt();}}
+function render(){ensureProjectLocations(getProject());ensureLocationColorsForProjects();buildLocationFilter();renderPlan();renderReminders();renderSummary();buildPersonFilter();if(activeView==='gantt')renderGantt();if(activeView==='total'){buildTotalGanttFilters();renderGanttWpFilter();renderTotalGantt();}}
 
 /* ═══════════════════════════════════════════════════════════
    PRINT / PDF
