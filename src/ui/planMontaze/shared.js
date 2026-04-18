@@ -30,6 +30,10 @@ export function planHeaderHtml() {
         </div>
       </div>
       <div class="kadrovska-header-right">
+        <button class="btn-export-header" id="planExportBtn" title="Export / Import" aria-label="Export ili import podataka">
+          <span aria-hidden="true">📤</span>
+          <span class="btn-export-lbl">Export</span>
+        </button>
         <button class="theme-toggle" id="planThemeToggle" title="Promeni temu" aria-label="Promeni temu">
           <span class="theme-icon-dark">🌙</span>
           <span class="theme-icon-light">☀️</span>

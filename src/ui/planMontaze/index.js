@@ -38,6 +38,7 @@ import { reminderZoneHtml, wireReminderZone } from './reminderZone.js';
 import { ganttSectionHtml, wireGanttSection } from './gantt.js';
 import { totalGanttSectionHtml, wireTotalGanttSection } from './totalGantt.js';
 import { mountStatusPanel, unmountStatusPanel } from './statusPanel.js';
+import { openExportDialog } from './exportModal.js';
 
 let _mountEl = null;
 let _onLogoutCb = null;
@@ -169,6 +170,9 @@ function _wireHeader() {
   });
   _mountEl.querySelector('#planThemeToggle')?.addEventListener('click', () => {
     toggleTheme();
+  });
+  _mountEl.querySelector('#planExportBtn')?.addEventListener('click', () => {
+    openExportDialog({ onAfterImport: () => _renderShell() });
   });
 }
 

@@ -2350,6 +2350,79 @@ body.module-plan > .filter-bar { display:none !important; }
 .plan-body .tg-wp-hdr .tg-wp-rn { font-size:9px; opacity:0.7; }
 .plan-body .tg-phase-label { background:var(--surface2); border-right:2px solid var(--border2); padding-left:24px; }
 
+/* ── F5.6 — Export modal + header dugme ─────────────────────────────── */
+.btn-export-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text2);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+.btn-export-header:hover { color: var(--accent, #6ea0ff); border-color: var(--accent, #6ea0ff); background: rgba(110,160,255,0.08); }
+@media (max-width: 600px) {
+  .btn-export-header .btn-export-lbl { display: none; }
+  .btn-export-header { padding: 6px 10px; }
+}
+
+.modal-panel .export-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 10px 0 16px;
+}
+.modal-panel .export-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 14px 14px;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.modal-panel .export-tile:hover {
+  border-color: var(--accent, #6ea0ff);
+  background: rgba(110, 160, 255, 0.06);
+  transform: translateY(-1px);
+}
+.modal-panel .export-tile .exp-ic { font-size: 24px; line-height: 1; }
+.modal-panel .export-tile .exp-lbl { font-weight: 600; font-size: 13px; }
+.modal-panel .export-tile .exp-sub { font-size: 10.5px; color: var(--text3); line-height: 1.3; }
+@media (max-width: 480px) {
+  .modal-panel .export-grid { grid-template-columns: 1fr; }
+}
+
+.modal-panel .export-import-row {
+  margin-top: 6px;
+  padding: 10px;
+  border: 1px dashed var(--border2);
+  border-radius: 8px;
+  background: var(--surface2);
+}
+.modal-panel .export-import-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text2);
+}
+.modal-panel .export-import-label input[type="file"] {
+  font-size: 11px;
+  color: var(--text3);
+}
+
 /* ── F5.5 — Reminder zone head + send button + modal list ───────────── */
 .plan-body .reminder-zone .reminder-zone-head {
   display:flex; justify-content:space-between; align-items:center; gap:10px;
