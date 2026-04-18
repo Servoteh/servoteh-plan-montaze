@@ -43,6 +43,10 @@ import {
   renderGridTab,
   wireGridTab,
 } from './gridTab.js';
+import {
+  renderReportsTab,
+  wireReportsTab,
+} from './reportsTab.js';
 import { renderComingSoonTab } from './comingSoon.js';
 
 const TABS = [
@@ -51,7 +55,7 @@ const TABS = [
   { id: 'grid', label: 'Mesečni grid' },
   { id: 'hours', label: 'Sati (pojedinačno)' },
   { id: 'contracts', label: 'Ugovori' },
-  { id: 'reports', label: 'Izveštaji', plannedPhase: 'F4.3' },
+  { id: 'reports', label: 'Izveštaji' },
 ];
 
 let rootEl = null;
@@ -136,6 +140,7 @@ function mountTabBody(id) {
     grid: { render: renderGridTab, wire: wireGridTab },
     hours: { render: renderWorkHoursTab, wire: wireWorkHoursTab },
     contracts: { render: renderContractsTab, wire: wireContractsTab },
+    reports: { render: renderReportsTab, wire: wireReportsTab },
   };
 
   const impl = tabImpl[id];
