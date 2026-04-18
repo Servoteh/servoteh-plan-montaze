@@ -36,6 +36,7 @@ import { planSectionHtml, wirePlanSection } from './planTable.js';
 import { mobileCardsHtml, wireMobileCards } from './mobileCards.js';
 import { reminderZoneHtml } from './reminderZone.js';
 import { ganttSectionHtml, wireGanttSection } from './gantt.js';
+import { totalGanttSectionHtml, wireTotalGanttSection } from './totalGantt.js';
 
 let _mountEl = null;
 let _onLogoutCb = null;
@@ -115,6 +116,8 @@ function _wireBody() {
     wireMobileCards(body, { onChange });
   } else if (planMontazeState.activeView === 'gantt') {
     wireGanttSection(body, { onChange });
+  } else if (planMontazeState.activeView === 'total') {
+    wireTotalGanttSection(body, { onChange });
   }
 }
 
@@ -141,12 +144,7 @@ function _planBodyHtml() {
     return ganttSectionHtml();
   }
   if (view === 'total') {
-    return `
-      <div class="form-card">
-        <h3>🌐 Ukupan Gant</h3>
-        <p class="form-hint">Ukupan gant svih projekata + filteri stiže u F5.4.</p>
-      </div>
-    `;
+    return totalGanttSectionHtml();
   }
   return '';
 }

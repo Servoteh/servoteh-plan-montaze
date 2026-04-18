@@ -2337,6 +2337,19 @@ body.module-plan > .filter-bar { display:none !important; }
 /* Drag tooltip — global, body-level */
 #ganttDragTip.gantt-drag-tip { position:fixed; z-index:9999; pointer-events:none; background:var(--surface); border:1px solid var(--accent); color:var(--text); border-radius:6px; padding:6px 10px; font-size:11.5px; font-family:var(--mono); box-shadow:0 4px 12px rgba(0,0,0,0.3); display:none; }
 
+/* Total Gantt — filter bar (koristi .filter-bar/.fb-field stilove iz plan-body) i WP filter */
+.plan-body .tg-filter-bar { margin-bottom:8px; }
+.plan-body .tg-wp-filter { display:flex; flex-wrap:wrap; gap:6px 10px; padding:8px 12px; border:1px solid var(--border); border-radius:10px; background:var(--surface); margin-bottom:8px; align-items:center; }
+.plan-body .tg-wp-label { font-size:9px; color:var(--text3); font-weight:600; text-transform:uppercase; letter-spacing:0.7px; margin-right:4px; }
+.plan-body .tg-wp-empty { font-size:11px; color:var(--text3); }
+.plan-body .tg-wp-chip { display:inline-flex; gap:4px; align-items:center; font-size:11px; color:var(--text2); background:var(--surface2); border:1px solid var(--border2); border-radius:6px; padding:3px 8px; cursor:pointer; }
+.plan-body .tg-wp-chip:hover { border-color:var(--accent); color:var(--text); }
+.plan-body .tg-wp-chip input[type="checkbox"] { accent-color:var(--accent); cursor:pointer; }
+.plan-body .tg-project-hdr { background:#0c1628; color:var(--blue-bar, #6ea0ff); font-weight:700; font-size:11px; padding:5px 10px; border-top:2px solid var(--blue-light, #4b79c8); }
+.plan-body .tg-wp-hdr { color:#aac8ff; font-weight:600; font-size:11px; padding:4px 10px 4px 22px; border-top:1px solid var(--border); border-bottom:1px solid var(--border); }
+.plan-body .tg-wp-hdr .tg-wp-rn { font-size:9px; opacity:0.7; }
+.plan-body .tg-phase-label { background:var(--surface2); border-right:2px solid var(--border2); padding-left:24px; }
+
 /* Mobilne kartice — hide na desktopu, prikazi na mobile, sakrij desktop tabelu */
 .plan-body .mobile-cards { display:none; }
 .plan-body .m-empty { padding:18px; text-align:center; color:var(--text3); font-size:12px; }

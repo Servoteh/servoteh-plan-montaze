@@ -93,6 +93,18 @@ export const totalGanttFilters = {
   dateTo: '',
 };
 
+/** Per-WP toggle (id → bool). Default je sve uključeno. */
+export const totalGanttWPs = {};
+
+export function resetTotalGanttFilters() {
+  totalGanttFilters.loc = '';
+  totalGanttFilters.lead = '';
+  totalGanttFilters.engineer = '';
+  totalGanttFilters.projectId = '';
+  totalGanttFilters.dateFrom = '';
+  totalGanttFilters.dateTo = '';
+}
+
 /* ── Gantt: Prikaži završene faze (persisted bool) ── */
 export let showFinishedInGantt = lsGet(STORAGE_KEYS.GANTT_SHOW_DONE) === '1';
 
