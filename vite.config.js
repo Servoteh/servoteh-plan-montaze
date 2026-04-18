@@ -9,8 +9,12 @@ import { defineConfig } from 'vite';
  *      Build command: npm run build
  *      Build output:  dist
  *      Env vars:      VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
- *  - `legacy/index.html` se NE bundle-uje (nije u Vite ulazima). Ostaje u
- *    repo-u kao referenca tokom migracije.
+ *  - `public/` se kopira 1:1 u `dist/` na build-u (Vite default). Tu su:
+ *      - `_redirects` / `_headers` (CF Pages SPA fallback + cache rules)
+ *      - `legacy/index.html` (arhivska monolitna verzija, dostupna na
+ *        `https://<host>/legacy/` kao rollback bez novog deploya)
+ *  - `legacy/` (root) se NE bundle-uje — ostaje samo kao referenca
+ *    tokom migracije. Vidi MIGRATION.md.
  */
 export default defineConfig({
   server: {

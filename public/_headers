@@ -1,0 +1,21 @@
+# Cloudflare Pages — HTTP header rules.
+#
+# - HTML mora da bude no-cache da bi cutover (novi deploy) bio odmah
+#   vidljiv klijentima — bundleovani JS/CSS imaju content-hash u imenu
+#   pa mogu da budu agresivno keširani.
+# - Fontovi/asseti idu sa godinu dana TTL.
+# - Osnovne security header-e dodajemo da Lighthouse ne kuka i da
+#   smanjimo površinu napada (nema iframe-a, nema referer leak-a).
+
+/*
+  Cache-Control: no-cache, no-store, must-revalidate
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/legacy/*
+  Cache-Control: no-cache, no-store, must-revalidate
