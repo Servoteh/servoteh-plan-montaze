@@ -106,6 +106,18 @@ export function canManageUsers() {
 export function canAccessKadrovska() {
   return isHR() || isAdmin();
 }
+/**
+ * Plan Proizvodnje (Sprint F): šef mašinske obrade ('pm') i admin imaju
+ * pun pristup; svi ostali authenticated samo READ. UI po roli odlučuje
+ * disabled stanje na drag-drop / status / napomena dugmadima.
+ */
+export function canAccessPlanProizvodnje() {
+  /* Svi koji su ulogovani vide modul (read-only za viewer/leadpm/hr). */
+  return ['admin', 'leadpm', 'pm', 'hr', 'viewer'].includes(state.role);
+}
+export function canEditPlanProizvodnje() {
+  return ['admin', 'pm'].includes(state.role);
+}
 
 /* ── Persistencija sesije u localStorage (fallback ako Supabase ne stigne) ── */
 

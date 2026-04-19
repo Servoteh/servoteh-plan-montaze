@@ -6,29 +6,34 @@
  *   - Lokacije delova       [u pripremi]
  *   - Održavanje mašina     [u pripremi]
  *   - Sastanci              [u pripremi]
- *   - Planiranje proizvodnje [u pripremi]
+ *   - Planiranje proizvodnje [aktivno — Sprint F]
  *   - Kadrovska             [aktivno za hr/admin]
  *   - Podešavanja           [aktivno samo za admin]
  *
  * Logika vidljivosti:
  *   - Kadrovska je vidljiva svima ali "u pripremi" za role bez canAccessKadrovska
  *     (u legacy-ju je kartica vidljiva svima — toast-ova kontrola pristupa).
+ *   - Plan Proizvodnje je aktivna za sve authenticated; pm/admin pišu, ostali read-only.
  *   - Podešavanja je SAKRIVENA za ne-admin korisnike (data-hidden).
  *
- * onModuleSelect(moduleId): callback koji aktivira modul (Plan Montaže ili
- * Kadrovska placeholder; ostali kartice prikazuju samo toast).
+ * onModuleSelect(moduleId): callback koji aktivira modul (Plan Montaže,
+ * Plan Proizvodnje, Kadrovska, Podešavanja).
  */
 
 import { showToast, escHtml } from '../../lib/dom.js';
 import { toggleTheme } from '../../lib/theme.js';
 import { logout } from '../../services/auth.js';
-import { getAuth, canManageUsers, canAccessKadrovska } from '../../state/auth.js';
+import {
+  getAuth,
+  canManageUsers,
+  canAccessKadrovska,
+  canEditPlanProizvodnje,
+} from '../../state/auth.js';
 
 const PLACEHOLDER_TOAST = {
   'lokacije-delova': '📍 Lokacije delova — u pripremi',
   'odrzavanje-masina': '🛠 Održavanje mašina — u pripremi',
   'sastanci': '📅 Sastanci — u pripremi',
-  'planiranje-proizvodnje': '🏭 Planiranje proizvodnje — u pripremi',
 };
 
 export function renderModuleHub({ onModuleSelect, onLogout }) {
@@ -65,7 +70,7 @@ export function renderModuleHub({ onModuleSelect, onLogout }) {
     <main class="hub-main">
       <div class="hub-intro">
         <h2>Dobrodošli nazad</h2>
-        <p>Izaberi modul sa kojim želiš da radiš. Aktivni moduli: <strong style="color:var(--text)">Plan Montaže</strong> i <strong style="color:var(--text)">Kadrovska</strong>${canManageUsers() ? ' i <strong style="color:var(--text)">Podešavanja</strong>' : ''}.</p>
+        <p>Izaberi modul sa kojim želiš da radiš. Aktivni moduli: <strong style="color:var(--text)">Plan Montaže</strong>, <strong style="color:var(--text)">Planiranje proizvodnje</strong> i <strong style="color:var(--text)">Kadrovska</strong>${canManageUsers() ? ' i <strong style="color:var(--text)">Podešavanja</strong>' : ''}.</p>
       </div>
 
       <div class="hub-grid">
@@ -109,13 +114,13 @@ export function renderModuleHub({ onModuleSelect, onLogout }) {
           </div>
         </button>
 
-        <button type="button" class="hub-card is-disabled" data-toast="planiranje-proizvodnje" aria-disabled="true">
+        <button type="button" class="hub-card" data-module="plan-proizvodnje" aria-label="Otvori Planiranje proizvodnje">
           <div class="hub-card-icon" aria-hidden="true">🏭</div>
           <div class="hub-card-title">Planiranje proizvodnje</div>
-          <div class="hub-card-desc">Plan opterećenja mašina i operatera, redosled radnih naloga, kapaciteti po smeni i pregled uskih grla. Sinhronizacija sa Plan Montaže.</div>
+          <div class="hub-card-desc">Šef mašinske obrade postavlja redosled operacija po mašini, status, napomene i premešta posao između mašina. Podaci iz BigTehn-a (RN, crteži, rokovi) automatski.</div>
           <div class="hub-card-footer">
-            <span class="hub-card-cta">Uskoro</span>
-            <span class="hub-card-badge">U pripremi</span>
+            <span class="hub-card-cta">${canEditPlanProizvodnje() ? 'Otvori →' : 'Pregled (read-only)'}</span>
+            <span class="hub-card-badge badge-active">Aktivno</span>
           </div>
         </button>
 

@@ -3,6 +3,7 @@ node_modules/
 
 # Vite build output
 dist/
+.vite/
 
 # Local env (Supabase keys)
 .env

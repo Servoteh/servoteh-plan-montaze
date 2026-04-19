@@ -22,12 +22,21 @@ import { renderModulePlaceholder } from './modulePlaceholder.js';
 import { renderKadrovskaModule } from './kadrovska/index.js';
 import { renderPlanMontazeModule, teardownPlanMontazeModule } from './planMontaze/index.js';
 import { renderPodesavanjaModule, teardownPodesavanjaModule } from './podesavanja/index.js';
-import { getAuth, canAccessKadrovska, canManageUsers } from '../state/auth.js';
+import {
+  renderPlanProizvodnjeModule,
+  teardownPlanProizvodnjeModule,
+} from './planProizvodnje/index.js';
+import {
+  getAuth,
+  canAccessKadrovska,
+  canManageUsers,
+  canAccessPlanProizvodnje,
+} from '../state/auth.js';
 import { resetKadrovskaState } from '../state/kadrovska.js';
 import { showToast } from '../lib/dom.js';
 import { loadAndApplyUserRole } from '../services/userRoles.js';
 
-const MODULES = ['plan-montaze', 'kadrovska', 'podesavanja'];
+const MODULES = ['plan-montaze', 'plan-proizvodnje', 'kadrovska', 'podesavanja'];
 
 let mountEl = null;
 let currentScreen = null;
@@ -40,6 +49,9 @@ function clearMount() {
   if (currentScreen === 'podesavanja') {
     try { teardownPodesavanjaModule(); } catch (e) { /* ignore */ }
   }
+  if (currentScreen === 'plan-proizvodnje') {
+    try { teardownPlanProizvodnjeModule(); } catch (e) { /* ignore */ }
+  }
   if (mountEl) mountEl.innerHTML = '';
   /* Skidamo SVE legacy + nove module klase sa body-ja da ne bismo
      ostavili stari display-toggle koji ide preko CSS-a. */
@@ -50,6 +62,7 @@ function clearMount() {
     'module-settings',
     'plan-active',
     'module-plan',
+    'module-plan-proizvodnje',
   );
 }
 
@@ -109,6 +122,11 @@ function showModulePlaceholder(moduleId) {
   }
   if (moduleId === 'plan-montaze') {
     document.body.classList.add('plan-active', 'module-plan');
+  }
+  if (moduleId === 'plan-proizvodnje') {
+    /* Koristimo isti kadrovska body class jer modul deli layout primitive-e
+       (kadrovska-section, kadrovska-header, kadrovska-tabs). */
+    document.body.classList.add('kadrovska-active', 'module-plan-proizvodnje');
   }
   setStoredModule(moduleId);
 
@@ -176,6 +194,38 @@ function showModulePlaceholder(moduleId) {
     return;
   }
 
+  /* Sprint F.1: Plan Proizvodnje (skelet sa 3 taba). */
+  if (moduleId === 'plan-proizvodnje') {
+    try {
+      renderPlanProizvodnjeModule(mountEl, {
+        onBackToHub: () => showHub(),
+        onLogout: () => {
+          resetKadrovskaState();
+          showLogin();
+        },
+      });
+    } catch (e) {
+      console.error('[router] Plan Proizvodnje render failed', e);
+      mountEl.innerHTML = `
+        <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px">
+          <div class="auth-box" style="max-width:640px">
+            <div class="auth-brand">
+              <div class="auth-title">Greška u Plan Proizvodnje modulu</div>
+              <div class="auth-subtitle">${(e && e.message) || String(e)}</div>
+            </div>
+            <pre style="background:var(--surface3,#222);padding:12px;border-radius:6px;font-family:var(--mono,monospace);font-size:11px;color:var(--text2,#ccc);text-align:left;overflow:auto;max-height:280px">${(e && e.stack) || ''}</pre>
+            <div style="display:flex;gap:8px;margin-top:12px">
+              <button class="btn" id="ppErrBackBtn">← Nazad na hub</button>
+            </div>
+          </div>
+        </div>
+      `;
+      const back = mountEl.querySelector('#ppErrBackBtn');
+      back?.addEventListener('click', () => showHub());
+    }
+    return;
+  }
+
   /* Faza 5b: Podešavanja (Korisnici tab + placeholderi). */
   if (moduleId === 'podesavanja') {
     try {
@@ -235,6 +285,10 @@ function navigateToModule(moduleId) {
     showToast('🔒 Podešavanja su dostupna samo admin korisnicima');
     return;
   }
+  if (moduleId === 'plan-proizvodnje' && !canAccessPlanProizvodnje()) {
+    showToast('🔒 Plan Proizvodnje zahteva validnu autentifikaciju');
+    return;
+  }
   showModulePlaceholder(moduleId);
 }
 
@@ -244,6 +298,7 @@ function restoreOrShowHub() {
   if (last && MODULES.includes(last)) {
     if (last === 'kadrovska' && !canAccessKadrovska()) return showHub();
     if (last === 'podesavanja' && !canManageUsers()) return showHub();
+    if (last === 'plan-proizvodnje' && !canAccessPlanProizvodnje()) return showHub();
     return showModulePlaceholder(last);
   }
   showHub();
