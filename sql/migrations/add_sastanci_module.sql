@@ -417,20 +417,25 @@ CREATE POLICY "sastanak_slike_delete"
   USING (bucket_id = 'sastanak-slike' AND public.has_edit_role());
 
 -- ============================================================================
--- 12) Verifikacija
+-- 12) Verifikacija (čisti SELECT-i, bez PL/pgSQL bloka da ne bi bilo
+--     problema sa parserom Supabase SQL editora)
 -- ============================================================================
-DO $$
-DECLARE
-  v_tables INT;
-  v_bucket BOOLEAN;
-BEGIN
-  SELECT COUNT(*) INTO v_tables
-  FROM information_schema.tables
-  WHERE table_schema = 'public'
-    AND table_name IN ('projekt_bigtehn_rn','sastanci','sastanak_ucesnici','pm_teme',
-                       'akcioni_plan','presek_aktivnosti','presek_slike','sastanak_arhiva');
-
-  SELECT EXISTS(SELECT 1 FROM storage.buckets WHERE id = 'sastanak-slike') INTO v_bucket;
-
-  RAISE NOTICE '✓ Sastanci modul: % od 8 tabela kreirano. Bucket sastanak-slike: %', v_tables, v_bucket;
-END $$;
+SELECT 'tabele' AS sta,
+       COUNT(*)::TEXT || ' / 8' AS rezultat
+FROM information_schema.tables
+WHERE table_schema = 'public'
+  AND table_name IN (
+    'projekt_bigtehn_rn','sastanci','sastanak_ucesnici','pm_teme',
+    'akcioni_plan','presek_aktivnosti','presek_slike','sastanak_arhiva'
+  )
+UNION ALL
+SELECT 'view v_akcioni_plan',
+       CASE WHEN EXISTS (
+         SELECT 1 FROM information_schema.views
+         WHERE table_schema = 'public' AND table_name = 'v_akcioni_plan'
+       ) THEN 'OK' ELSE 'NEMA' END
+UNION ALL
+SELECT 'storage bucket sastanak-slike',
+       CASE WHEN EXISTS (
+         SELECT 1 FROM storage.buckets WHERE id = 'sastanak-slike'
+       ) THEN 'OK' ELSE 'NEMA' END;
