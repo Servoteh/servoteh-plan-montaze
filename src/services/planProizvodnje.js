@@ -68,7 +68,9 @@ export async function loadOperationsForMachine(machineCode) {
     'order',
     'shift_sort_order.asc.nullslast,rok_izrade.asc.nullslast,prioritet_bigtehn.asc',
   );
-  params.set('limit', '500'); /* sigurnosni limit; ako ikad neko ima >500 otvorenih, paging će biti dodat */
+  /* Sigurnosni limit. Realno najopterećenija mašina ima ~1000 otvorenih
+     operacija; 2500 daje 2.5× headroom. Ako nekada bude veće, dodaj paging. */
+  params.set('limit', '2500');
 
   const data = await sbReq(`v_production_operations?${params.toString()}`);
   return Array.isArray(data) ? data : [];
