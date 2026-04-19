@@ -28,12 +28,13 @@ import {
   canManageUsers,
   canAccessKadrovska,
   canEditPlanProizvodnje,
+  canAccessSastanci,
+  canEditSastanci,
 } from '../../state/auth.js';
 
 const PLACEHOLDER_TOAST = {
   'lokacije-delova': '📍 Lokacije delova — u pripremi',
   'odrzavanje-masina': '🛠 Održavanje mašina — u pripremi',
-  'sastanci': '📅 Sastanci — u pripremi',
 };
 
 export function renderModuleHub({ onModuleSelect, onLogout }) {
@@ -70,7 +71,7 @@ export function renderModuleHub({ onModuleSelect, onLogout }) {
     <main class="hub-main">
       <div class="hub-intro">
         <h2>Dobrodošli nazad</h2>
-        <p>Izaberi modul sa kojim želiš da radiš. Aktivni moduli: <strong style="color:var(--text)">Plan Montaže</strong>, <strong style="color:var(--text)">Planiranje proizvodnje</strong> i <strong style="color:var(--text)">Kadrovska</strong>${canManageUsers() ? ' i <strong style="color:var(--text)">Podešavanja</strong>' : ''}.</p>
+        <p>Izaberi modul sa kojim želiš da radiš. Aktivni moduli: <strong style="color:var(--text)">Plan Montaže</strong>, <strong style="color:var(--text)">Planiranje proizvodnje</strong>, <strong style="color:var(--text)">Sastanci</strong> i <strong style="color:var(--text)">Kadrovska</strong>${canManageUsers() ? ' i <strong style="color:var(--text)">Podešavanja</strong>' : ''}.</p>
       </div>
 
       <div class="hub-grid">
@@ -104,13 +105,13 @@ export function renderModuleHub({ onModuleSelect, onLogout }) {
           </div>
         </button>
 
-        <button type="button" class="hub-card is-disabled" data-toast="sastanci" aria-disabled="true">
+        <button type="button" class="hub-card${canAccessSastanci() ? '' : ' is-disabled'}" data-module="sastanci" aria-label="Otvori Sastanke"${canAccessSastanci() ? '' : ' aria-disabled="true"'}>
           <div class="hub-card-icon" aria-hidden="true">📅</div>
           <div class="hub-card-title">Sastanci</div>
-          <div class="hub-card-desc">Zakazivanje, dnevni red, učesnici i zapisnici sastanaka. Akcioni zaključci sa rokovima i odgovornima, pretraga starih sastanaka.</div>
+          <div class="hub-card-desc">Sedmični i projektni sastanci sa dnevnim redom, učesnicima i zapisnicima. Akcioni plan sa rokovima i odgovornima, presek stanja sa slikama, arhiva starih sastanaka.</div>
           <div class="hub-card-footer">
-            <span class="hub-card-cta">Uskoro</span>
-            <span class="hub-card-badge">U pripremi</span>
+            <span class="hub-card-cta">${canAccessSastanci() ? (canEditSastanci() ? 'Otvori →' : 'Pregled (read-only)') : 'Pristup zaključan'}</span>
+            <span class="hub-card-badge ${canAccessSastanci() ? 'badge-active' : ''}">${canAccessSastanci() ? 'Aktivno' : 'Zaključano'}</span>
           </div>
         </button>
 
@@ -161,6 +162,10 @@ export function renderModuleHub({ onModuleSelect, onLogout }) {
       const moduleId = btn.dataset.module;
       if (moduleId === 'kadrovska' && !canAccessKadrovska()) {
         showToast('🔒 Kadrovska je dostupna samo HR/admin korisnicima');
+        return;
+      }
+      if (moduleId === 'sastanci' && !canAccessSastanci()) {
+        showToast('🔒 Sastanci zahtevaju validnu autentifikaciju');
         return;
       }
       onModuleSelect?.(moduleId);

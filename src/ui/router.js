@@ -27,16 +27,22 @@ import {
   teardownPlanProizvodnjeModule,
 } from './planProizvodnje/index.js';
 import {
+  renderSastanciModule,
+  teardownSastanciModule,
+} from './sastanci/index.js';
+import {
   getAuth,
   canAccessKadrovska,
   canManageUsers,
   canAccessPlanProizvodnje,
+  canAccessSastanci,
 } from '../state/auth.js';
 import { resetKadrovskaState } from '../state/kadrovska.js';
+import { resetSastanciState } from '../state/sastanci.js';
 import { showToast } from '../lib/dom.js';
 import { loadAndApplyUserRole } from '../services/userRoles.js';
 
-const MODULES = ['plan-montaze', 'plan-proizvodnje', 'kadrovska', 'podesavanja'];
+const MODULES = ['plan-montaze', 'plan-proizvodnje', 'kadrovska', 'sastanci', 'podesavanja'];
 
 let mountEl = null;
 let currentScreen = null;
@@ -51,6 +57,9 @@ function clearMount() {
   }
   if (currentScreen === 'plan-proizvodnje') {
     try { teardownPlanProizvodnjeModule(); } catch (e) { /* ignore */ }
+  }
+  if (currentScreen === 'sastanci') {
+    try { teardownSastanciModule(); } catch (e) { /* ignore */ }
   }
   if (mountEl) mountEl.innerHTML = '';
   /* Skidamo SVE legacy + nove module klase sa body-ja da ne bismo
@@ -127,6 +136,9 @@ function showModulePlaceholder(moduleId) {
     /* Koristimo isti kadrovska body class jer modul deli layout primitive-e
        (kadrovska-section, kadrovska-header, kadrovska-tabs). */
     document.body.classList.add('kadrovska-active', 'module-plan-proizvodnje');
+  }
+  if (moduleId === 'sastanci') {
+    document.body.classList.add('kadrovska-active', 'module-sastanci');
   }
   setStoredModule(moduleId);
 
@@ -226,6 +238,39 @@ function showModulePlaceholder(moduleId) {
     return;
   }
 
+  /* Modul Sastanci. */
+  if (moduleId === 'sastanci') {
+    try {
+      renderSastanciModule(mountEl, {
+        onBackToHub: () => showHub(),
+        onLogout: () => {
+          resetKadrovskaState();
+          resetSastanciState();
+          showLogin();
+        },
+      });
+    } catch (e) {
+      console.error('[router] Sastanci render failed', e);
+      mountEl.innerHTML = `
+        <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px">
+          <div class="auth-box" style="max-width:640px">
+            <div class="auth-brand">
+              <div class="auth-title">Greška u Sastanci modulu</div>
+              <div class="auth-subtitle">${(e && e.message) || String(e)}</div>
+            </div>
+            <pre style="background:var(--surface3,#222);padding:12px;border-radius:6px;font-family:var(--mono,monospace);font-size:11px;color:var(--text2,#ccc);text-align:left;overflow:auto;max-height:280px">${(e && e.stack) || ''}</pre>
+            <div style="display:flex;gap:8px;margin-top:12px">
+              <button class="btn" id="sastErrBackBtn">← Nazad na hub</button>
+            </div>
+          </div>
+        </div>
+      `;
+      const back = mountEl.querySelector('#sastErrBackBtn');
+      back?.addEventListener('click', () => showHub());
+    }
+    return;
+  }
+
   /* Faza 5b: Podešavanja (Korisnici tab + placeholderi). */
   if (moduleId === 'podesavanja') {
     try {
@@ -287,6 +332,10 @@ function navigateToModule(moduleId) {
   }
   if (moduleId === 'plan-proizvodnje' && !canAccessPlanProizvodnje()) {
     showToast('🔒 Plan Proizvodnje zahteva validnu autentifikaciju');
+    return;
+  }
+  if (moduleId === 'sastanci' && !canAccessSastanci()) {
+    showToast('🔒 Sastanci zahtevaju validnu autentifikaciju');
     return;
   }
   showModulePlaceholder(moduleId);

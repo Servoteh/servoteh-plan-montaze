@@ -1,0 +1,940 @@
+/* ============================================================================
+   Sastanci modul — stilovi
+   Naming convention: sast-* (Sastanci), sast-presek-* (Presek stanja content),
+   sast-rt-* (Rich text editor)
+   ============================================================================ */
+
+#module-sastanci .sast-tabpanel {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Loading / empty states */
+.sast-loading,
+.sast-empty {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--text2, #888);
+  font-style: italic;
+  background: var(--surface2, #f6f6f6);
+  border-radius: 8px;
+  margin: 12px 0;
+}
+.sast-empty {
+  font-style: normal;
+}
+
+/* ── Section / Toolbar ─────────────────────────────── */
+.sast-section {
+  background: var(--surface, #fff);
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+.sast-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border, #e5e5e5);
+}
+.sast-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.sast-toolbar-actions {
+  display: flex;
+  gap: 8px;
+}
+.sast-input,
+.sast-section input[type="text"],
+.sast-section input[type="email"],
+.sast-section input[type="number"],
+.sast-section input[type="date"],
+.sast-section input[type="time"],
+.sast-section input[type="search"],
+.sast-section select,
+.sast-section textarea {
+  padding: 6px 10px;
+  border: 1px solid var(--border, #d4d4d4);
+  border-radius: 6px;
+  background: var(--surface, #fff);
+  color: var(--text, #1a1a1a);
+  font-size: 13px;
+  font-family: inherit;
+}
+.sast-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text2);
+  cursor: pointer;
+}
+
+/* ── Dashboard ─────────────────────────────────────── */
+.sast-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.sast-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+.sast-stat-card {
+  --accent: #3b82f6;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 16px;
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #e5e5e5);
+  border-left: 4px solid var(--accent);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+.sast-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+.sast-stat-icon {
+  font-size: 24px;
+  margin-bottom: 6px;
+}
+.sast-stat-value {
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text, #1a1a1a);
+}
+.sast-stat-label {
+  font-size: 12px;
+  color: var(--text2, #888);
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.sast-dash-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 16px;
+}
+.sast-dash-card {
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #e5e5e5);
+  border-radius: 8px;
+  padding: 16px;
+}
+.sast-dash-card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border, #e5e5e5);
+}
+.sast-dash-card h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text, #1a1a1a);
+}
+.sast-link,
+.sast-link-btn {
+  font-size: 12px;
+  color: var(--primary, #2563eb);
+  text-decoration: none;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+}
+.sast-link:hover,
+.sast-link-btn:hover {
+  text-decoration: underline;
+}
+
+/* Lists in dashboard cards */
+.sast-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sast-list-item {
+  display: flex;
+  gap: 12px;
+  padding: 8px;
+  border-radius: 6px;
+  background: var(--surface2, #f9f9f9);
+  align-items: flex-start;
+}
+.sast-list-date {
+  flex: 0 0 80px;
+  text-align: center;
+  background: var(--surface, #fff);
+  padding: 6px;
+  border-radius: 6px;
+  border: 1px solid var(--border, #e5e5e5);
+}
+.sast-list-day {
+  font-size: 13px;
+  font-weight: 600;
+}
+.sast-list-time {
+  font-size: 11px;
+  color: var(--text2, #888);
+}
+.sast-list-status {
+  flex: 0 0 32px;
+  height: 32px;
+  width: 32px;
+  border-radius: 50%;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+}
+.sast-list-main {
+  flex: 1;
+  min-width: 0;
+}
+.sast-list-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text, #1a1a1a);
+  margin-bottom: 2px;
+}
+.sast-list-meta {
+  font-size: 11px;
+  color: var(--text2, #888);
+}
+
+/* ── Tip badge i status pill ───────────────────────── */
+.sast-tip-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-right: 6px;
+  letter-spacing: 0.04em;
+}
+.sast-tip-sedmicni {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+.sast-tip-projektni {
+  background: #fef3c7;
+  color: #92400e;
+}
+.sast-status-pill {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.sast-lock-badge {
+  display: inline-block;
+  background: #f3e8ff;
+  color: #6b21a8;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-left: 6px;
+}
+
+/* ── Tables ────────────────────────────────────────── */
+.sast-table-wrap {
+  overflow-x: auto;
+  margin-top: 8px;
+}
+.sast-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.sast-table th,
+.sast-table td {
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border, #e5e5e5);
+  vertical-align: top;
+}
+.sast-table th {
+  background: var(--surface2, #f9f9f9);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text2, #888);
+}
+.sast-table tbody tr:hover {
+  background: var(--surface2, #f9f9f9);
+}
+.sast-table-clickable tbody tr {
+  cursor: pointer;
+}
+.sast-row-late td {
+  background: rgba(239, 68, 68, 0.08);
+}
+.sast-row-sub {
+  font-size: 11px;
+  color: var(--text2, #888);
+  margin-top: 4px;
+}
+.sast-th-actions {
+  width: 1%;
+  text-align: right;
+  white-space: nowrap;
+}
+.sast-td-actions {
+  text-align: right;
+  white-space: nowrap;
+}
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border, #d4d4d4);
+  border-radius: 4px;
+  background: var(--surface, #fff);
+  color: var(--text, #1a1a1a);
+  font-size: 12px;
+  cursor: pointer;
+  margin-left: 2px;
+  padding: 0;
+  font-family: inherit;
+}
+.btn-icon:hover {
+  background: var(--surface2, #f6f6f6);
+}
+.btn-icon.btn-success {
+  background: #10b981;
+  color: #fff;
+  border-color: #059669;
+}
+.btn-icon.btn-success:hover {
+  background: #059669;
+}
+.btn-icon.btn-danger {
+  background: #ef4444;
+  color: #fff;
+  border-color: #dc2626;
+}
+.btn-icon.btn-danger:hover {
+  background: #dc2626;
+}
+.btn-icon.btn-primary {
+  background: #2563eb;
+  color: #fff;
+  border-color: #1d4ed8;
+}
+.btn-icon.btn-primary:hover {
+  background: #1d4ed8;
+}
+
+/* ── Modal ─────────────────────────────────────────── */
+.sast-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 24px;
+}
+.sast-modal-overlay-wide {
+  align-items: stretch;
+  padding: 16px;
+}
+.sast-modal {
+  background: var(--surface, #fff);
+  border-radius: 8px;
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+.sast-modal-wide {
+  max-width: 1200px;
+  height: 92vh;
+}
+.sast-modal-loading {
+  padding: 32px;
+  text-align: center;
+  color: var(--text2);
+}
+.sast-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border, #e5e5e5);
+}
+.sast-modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+}
+.sast-modal-close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: var(--text2);
+  padding: 4px 8px;
+  font-family: inherit;
+}
+.sast-modal-close:hover {
+  color: var(--text);
+}
+.sast-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+.sast-modal-body-tabs {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.sast-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border, #e5e5e5);
+}
+
+/* Header sa rich meta (status + tip + akcije) */
+.sast-modal-header-rich {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+.sast-mh-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+.sast-mh-tip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.sast-mh-title {
+  margin: 4px 0 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+.sast-mh-meta {
+  font-size: 12px;
+  color: var(--text2);
+}
+.sast-mh-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  justify-content: flex-end;
+}
+.btn-sm {
+  padding: 4px 10px !important;
+  font-size: 12px !important;
+}
+
+/* Inner tabs (Meta, Učesnici, Dnevni red, ...) */
+.sast-inner-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border, #e5e5e5);
+  background: var(--surface2, #f9f9f9);
+  flex-wrap: wrap;
+}
+.sast-inner-tab {
+  background: none;
+  border: none;
+  padding: 10px 16px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--text2);
+  border-bottom: 2px solid transparent;
+  font-family: inherit;
+}
+.sast-inner-tab.is-active {
+  color: var(--primary, #2563eb);
+  border-bottom-color: var(--primary, #2563eb);
+  background: var(--surface, #fff);
+  font-weight: 600;
+}
+.sast-inner-tabbody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+/* ── Forms ─────────────────────────────────────────── */
+.sast-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.sast-form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.sast-form-row > span {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.sast-form-row input,
+.sast-form-row select,
+.sast-form-row textarea {
+  padding: 8px 12px !important;
+  font-size: 14px !important;
+  border: 1px solid var(--border, #d4d4d4);
+  border-radius: 6px;
+}
+.sast-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+.sast-info-row {
+  background: var(--surface2, #f6f6f6);
+  border-left: 3px solid var(--primary, #2563eb);
+  padding: 8px 12px;
+  font-size: 13px;
+  border-radius: 4px;
+  margin: 8px 0;
+}
+
+/* ── Tip choice (kreiraj sastanak) ─────────────────── */
+.sast-tip-choice {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.sast-tip-card {
+  background: var(--surface, #fff);
+  border: 2px solid var(--border, #e5e5e5);
+  border-radius: 8px;
+  padding: 20px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+.sast-tip-card:hover {
+  border-color: var(--primary, #2563eb);
+  background: var(--surface2, #f6f9ff);
+  transform: translateY(-2px);
+}
+.sast-tip-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+.sast-tip-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text, #1a1a1a);
+  margin-bottom: 6px;
+}
+.sast-tip-desc {
+  font-size: 12px;
+  color: var(--text2, #888);
+  line-height: 1.4;
+}
+.sast-step-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+/* ── Učesnici ──────────────────────────────────────── */
+.sast-add-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.sast-add-row input {
+  flex: 1;
+}
+.sast-ucesnici-list {
+  margin-top: 8px;
+}
+
+/* ── Dnevni red (agenda) ───────────────────────────── */
+.sast-agenda {
+  list-style: decimal inside;
+  padding: 0;
+  margin: 0;
+}
+.sast-agenda-item {
+  background: var(--surface2, #f9f9f9);
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.sast-agenda-main {
+  flex: 1;
+  min-width: 0;
+}
+.sast-agenda-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.sast-agenda-desc {
+  font-size: 13px;
+  color: var(--text2);
+  margin-bottom: 4px;
+}
+.sast-agenda-meta {
+  font-size: 11px;
+  color: var(--text2);
+}
+.sast-free-themes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.sast-free-tema-btn {
+  padding: 6px 10px;
+  background: var(--surface2);
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--text);
+}
+.sast-free-tema-btn:hover {
+  background: var(--primary, #2563eb);
+  color: #fff;
+  border-style: solid;
+}
+
+/* ── Presek stanja ─────────────────────────────────── */
+.sast-presek-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.sast-presek-card {
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #e5e5e5);
+  border-left: 4px solid var(--primary, #2563eb);
+  border-radius: 8px;
+  padding: 16px;
+  transition: box-shadow 0.15s;
+}
+.sast-presek-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+.sast-presek-card.is-dragging {
+  opacity: 0.5;
+}
+.sast-presek-card.is-drag-over {
+  border-top: 3px solid var(--primary, #2563eb);
+}
+.sast-presek-card-header {
+  position: relative;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border, #e5e5e5);
+}
+.sast-presek-card-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.sast-presek-rb {
+  background: var(--primary, #2563eb);
+  color: #fff;
+  padding: 2px 10px;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 11px;
+}
+.sast-presek-podrn {
+  background: #f3e8ff;
+  color: #6b21a8;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.sast-presek-card-title {
+  margin: 4px 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+.sast-presek-card-sub {
+  font-size: 12px;
+  color: var(--text2);
+}
+.sast-presek-card-actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  gap: 4px;
+}
+.sast-presek-content {
+  padding: 8px 0;
+  line-height: 1.6;
+}
+.sast-presek-content ul,
+.sast-presek-content ol {
+  margin: 6px 0;
+  padding-left: 24px;
+}
+.sast-presek-content p {
+  margin: 6px 0;
+}
+.sast-presek-content h1,
+.sast-presek-content h2,
+.sast-presek-content h3,
+.sast-presek-content h4 {
+  margin: 12px 0 4px;
+}
+.sast-presek-gallery {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border, #e5e5e5);
+}
+.sast-presek-gallery-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+.sast-presek-gal {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+}
+.sast-presek-gal-empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--text2);
+  font-size: 12px;
+  background: var(--surface2);
+  border-radius: 6px;
+}
+.sast-presek-thumb {
+  position: relative;
+  margin: 0;
+  background: var(--surface2);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.sast-presek-thumb img {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  display: block;
+  cursor: pointer;
+}
+.sast-presek-thumb figcaption {
+  padding: 4px 6px;
+  font-size: 11px;
+  color: var(--text2);
+}
+.sast-thumb-fallback {
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  background: var(--surface2);
+}
+.sast-thumb-del {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(239, 68, 68, 0.9);
+  color: #fff;
+  border: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: inherit;
+}
+
+/* ── Rich-text editor ──────────────────────────────── */
+.sast-rt-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  background: var(--surface2);
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+}
+.sast-rt-toolbar button {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--text);
+}
+.sast-rt-toolbar button:hover {
+  background: var(--primary, #2563eb);
+  color: #fff;
+}
+.sast-rt-sep {
+  width: 1px;
+  background: var(--border);
+  margin: 4px 4px;
+}
+.sast-rt-editor {
+  min-height: 200px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 0 0 6px 6px;
+  background: var(--surface);
+  font-size: 14px;
+  line-height: 1.6;
+  outline: none;
+}
+.sast-rt-editor:focus {
+  border-color: var(--primary, #2563eb);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+.sast-rt-editor:empty::before {
+  content: attr(data-placeholder);
+  color: var(--text2);
+  pointer-events: none;
+}
+
+/* ── Lightbox ──────────────────────────────────────── */
+.sast-lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 32px;
+}
+.sast-lightbox img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.sast-lightbox-close {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-size: 18px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+/* ── Generic buttons koje koristimo (parity sa glavnim CSS) ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  border: 1px solid var(--border, #d4d4d4);
+  border-radius: 6px;
+  background: var(--surface, #fff);
+  color: var(--text, #1a1a1a);
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+  text-decoration: none;
+  transition: all 0.12s;
+}
+.btn:hover {
+  background: var(--surface2, #f6f6f6);
+}
+.btn.btn-primary {
+  background: var(--primary, #2563eb);
+  color: #fff;
+  border-color: var(--primary, #2563eb);
+}
+.btn.btn-primary:hover {
+  background: #1d4ed8;
+}
+.btn.btn-success {
+  background: #10b981;
+  color: #fff;
+  border-color: #059669;
+}
+.btn.btn-danger {
+  background: #ef4444;
+  color: #fff;
+  border-color: #dc2626;
+}
+
+/* ── Dark mode tweaks ──────────────────────────────── */
+body.dark .sast-tip-sedmicni {
+  background: rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
+}
+body.dark .sast-tip-projektni {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fcd34d;
+}
+body.dark .sast-presek-podrn {
+  background: rgba(168, 85, 247, 0.2);
+  color: #d8b4fe;
+}
+body.dark .sast-lock-badge {
+  background: rgba(168, 85, 247, 0.2);
+  color: #d8b4fe;
+}

@@ -12,6 +12,7 @@
 
 import './styles/legacy.css';
 import './styles/planProizvodnje.css';
+import './styles/sastanci.css';
 
 import { hasSupabaseConfig } from './lib/constants.js';
 import { showToast } from './lib/dom.js';

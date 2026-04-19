@@ -119,6 +119,18 @@ export function canEditPlanProizvodnje() {
   return ['admin', 'pm'].includes(state.role);
 }
 
+/**
+ * Modul Sastanci — svi authenticated mogu da otvore i čitaju.
+ * Pisanje (kreiranje sastanaka, dodavanje tema, akcionog plana) je za
+ * admin/pm/leadpm — viewer i hr su read-only.
+ */
+export function canAccessSastanci() {
+  return ['admin', 'leadpm', 'pm', 'hr', 'viewer'].includes(state.role);
+}
+export function canEditSastanci() {
+  return ['admin', 'leadpm', 'pm'].includes(state.role);
+}
+
 /* ── Persistencija sesije u localStorage (fallback ako Supabase ne stigne) ── */
 
 export function loadPersistedSession() {
