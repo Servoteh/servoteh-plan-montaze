@@ -1,0 +1,644 @@
+/**
+ * Plan Proizvodnje — TAB "Po mašini".
+ *
+ * Šef bira mašinu, vidi sve OTVORENE operacije zadužene za nju (originalno
+ * iz BigTehn-a + REASSIGNED IN, minus REASSIGNED OUT, minus ZAVRŠENE u
+ * BigTehn-u, minus arhivirane overlay-e). Može da:
+ *   - drag-drop reorder (postavlja shift_sort_order)
+ *   - klik na status pill cycle: waiting → in_progress → blocked → waiting
+ *   - inline edit napomene (textarea, save na blur)
+ *   - REASSIGN na drugu mašinu (dropdown u koloni "Mašina")
+ *   - osvežavanje dugmetom (real-time je later, MVP koristi refresh)
+ *
+ * Read-only za role koje nisu admin/pm — sva edit dugmad disabled.
+ *
+ * Public API:
+ *   renderPoMasiniTab(host, { canEdit, onMachineChange, lastMachine })
+ *   teardownPoMasiniTab()
+ */
+
+import { escHtml, showToast } from '../../lib/dom.js';
+import { formatDate } from '../../lib/date.js';
+import {
+  loadMachines,
+  loadOperationsForMachine,
+  upsertOverlay,
+  reorderOverlays,
+  STATUS_CYCLE_NEXT,
+  rokUrgencyClass,
+  formatSecondsHm,
+  plannedSeconds,
+} from '../../services/planProizvodnje.js';
+
+/* ── Local state (po instanci taba — postoji jedan u svakom trenutku) ── */
+const STORAGE_KEY_LAST_MACHINE = 'plan-proizvodnje:last-machine';
+
+const state = {
+  host: null,
+  canEdit: false,
+  machines: [],          /* [{rj_code, name, no_procedure, department_id}] */
+  selectedMachine: null, /* string rj_code */
+  rows: [],              /* trenutne operacije */
+  loading: false,
+  error: null,
+  /* drag-drop */
+  dragRowKey: null,
+};
+
+/* ── Public ── */
+
+export async function renderPoMasiniTab(host, { canEdit }) {
+  state.host = host;
+  state.canEdit = !!canEdit;
+
+  state.selectedMachine =
+    state.selectedMachine
+    || localStorage.getItem(STORAGE_KEY_LAST_MACHINE)
+    || null;
+
+  /* Inicijalni HTML — mašine se učitavaju asinhrono */
+  host.innerHTML = `
+    <div class="pp-toolbar">
+      <span class="pp-toolbar-label">Mašina:</span>
+      <select class="pp-machine-select" id="ppMachineSelect" disabled>
+        <option>Učitavanje…</option>
+      </select>
+      <button class="pp-refresh-btn" id="ppRefreshBtn" disabled title="Osvezi listu operacija">
+        <span aria-hidden="true">↻</span> Osveži
+      </button>
+      <div class="pp-toolbar-spacer"></div>
+      <span class="pp-counter" id="ppCounter">— operacija</span>
+      ${state.canEdit ? '' : '<span class="pp-readonly-badge">🔒 Read-only</span>'}
+    </div>
+
+    <div id="ppErrorBox"></div>
+
+    <div class="pp-table-wrap" id="ppTableWrap">
+      <div class="pp-state">
+        <div class="pp-state-icon">⏳</div>
+        <div class="pp-state-title">Učitavanje mašina…</div>
+      </div>
+    </div>
+  `;
+
+  /* Wire toolbar */
+  const machineSel = host.querySelector('#ppMachineSelect');
+  const refreshBtn = host.querySelector('#ppRefreshBtn');
+  machineSel.addEventListener('change', () => {
+    state.selectedMachine = machineSel.value || null;
+    if (state.selectedMachine) {
+      localStorage.setItem(STORAGE_KEY_LAST_MACHINE, state.selectedMachine);
+    }
+    refreshOperations();
+  });
+  refreshBtn.addEventListener('click', () => {
+    if (state.loading) return;
+    refreshOperations({ force: true });
+  });
+
+  /* Učitaj mašine */
+  await loadMachineSelect();
+}
+
+export function teardownPoMasiniTab() {
+  state.host = null;
+  state.machines = [];
+  state.rows = [];
+  state.dragRowKey = null;
+  state.error = null;
+}
+
+/* ── Mašine ── */
+
+async function loadMachineSelect() {
+  try {
+    state.machines = await loadMachines();
+  } catch (e) {
+    console.error('[pp] loadMachines failed', e);
+    state.machines = [];
+    setError('Greška pri učitavanju mašina iz Supabase-a.');
+  }
+
+  const sel = state.host?.querySelector('#ppMachineSelect');
+  const btn = state.host?.querySelector('#ppRefreshBtn');
+  if (!sel) return;
+
+  if (state.machines.length === 0) {
+    sel.innerHTML = '<option>Nema mašina (pokreni Bridge sync)</option>';
+    sel.disabled = true;
+    if (btn) btn.disabled = true;
+    renderEmptyTable('Nijedna mašina nije pronađena u <code>bigtehn_machines_cache</code>.');
+    return;
+  }
+
+  /* Filter (opciono): mašine koje su mašinske obrade — to znači NE no_procedure.
+     Ali REASSIGN dropdown treba SVE; zato ovde u glavnom selektoru dajemo
+     SVE, samo grupiše procedure mašine na vrh + non-procedure na dnu. */
+  const procedural = state.machines.filter(m => !m.no_procedure);
+  const nonProcedural = state.machines.filter(m => m.no_procedure);
+
+  sel.innerHTML = `
+    <option value="">— izaberi mašinu —</option>
+    <optgroup label="Mašine">
+      ${procedural.map(m =>
+        `<option value="${escHtml(m.rj_code)}">${escHtml(m.name)} (${escHtml(m.rj_code)})</option>`,
+      ).join('')}
+    </optgroup>
+    ${nonProcedural.length ? `<optgroup label="Ostalo (kontrola, kooperacija…)">
+      ${nonProcedural.map(m =>
+        `<option value="${escHtml(m.rj_code)}">${escHtml(m.name)} (${escHtml(m.rj_code)})</option>`,
+      ).join('')}
+    </optgroup>` : ''}
+  `;
+  sel.disabled = false;
+  if (btn) btn.disabled = false;
+
+  /* Vrati prethodno izabranu mašinu ako još postoji u listi */
+  if (state.selectedMachine && state.machines.some(m => m.rj_code === state.selectedMachine)) {
+    sel.value = state.selectedMachine;
+    await refreshOperations();
+  } else {
+    state.selectedMachine = null;
+    renderEmptyTable('Izaberi mašinu iz dropdown-a iznad da vidiš njene otvorene operacije.');
+    setCounter(null);
+  }
+}
+
+/* ── Operacije ── */
+
+async function refreshOperations() {
+  if (!state.selectedMachine) {
+    renderEmptyTable('Izaberi mašinu da vidiš njene operacije.');
+    setCounter(null);
+    return;
+  }
+  state.loading = true;
+  setError(null);
+  setRefreshSpinner(true);
+  try {
+    state.rows = await loadOperationsForMachine(state.selectedMachine);
+  } catch (e) {
+    console.error('[pp] loadOperationsForMachine failed', e);
+    state.rows = [];
+    setError('Greška pri učitavanju operacija. Pogledaj konzolu (DevTools) za detalje.');
+  } finally {
+    state.loading = false;
+    setRefreshSpinner(false);
+  }
+
+  renderTable();
+  setCounter(state.rows.length);
+}
+
+function renderEmptyTable(htmlMsg) {
+  const wrap = state.host?.querySelector('#ppTableWrap');
+  if (!wrap) return;
+  wrap.innerHTML = `
+    <div class="pp-state">
+      <div class="pp-state-icon">🛠</div>
+      <div class="pp-state-title">Nema operacija za prikaz</div>
+      <div class="pp-state-hint">${htmlMsg}</div>
+    </div>
+  `;
+}
+
+function renderTable() {
+  const wrap = state.host?.querySelector('#ppTableWrap');
+  if (!wrap) return;
+
+  if (state.rows.length === 0) {
+    renderEmptyTable(
+      'Sve operacije za ovu mašinu su završene ili nisu još kreirane u BigTehn-u.<br>Pokušaj <strong>Osveži</strong> ili izaberi drugu mašinu.',
+    );
+    return;
+  }
+
+  wrap.innerHTML = `
+    <table class="pp-table" data-readonly="${state.canEdit ? 'false' : 'true'}">
+      <thead>
+        <tr>
+          <th title="Drag-drop redosled" style="width:28px"></th>
+          <th title="Prioritet (drag-drop)" style="width:48px">Pri</th>
+          <th>RN</th>
+          <th>Crtež</th>
+          <th>Deo</th>
+          <th>Kupac</th>
+          <th class="pp-cell-num" style="width:48px">Op</th>
+          <th>Opis</th>
+          <th>Rok</th>
+          <th class="pp-cell-num" title="Urađeno / Ukupno">Plan / Done</th>
+          <th class="pp-cell-num" title="Tehnološki / Stvarni">T / R</th>
+          <th>Status</th>
+          <th style="min-width:200px">Šefova napomena</th>
+          <th>Mašina</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${state.rows.map(rowHtml).join('')}
+      </tbody>
+    </table>
+  `;
+
+  wireRows(wrap);
+}
+
+function rowKey(r) {
+  return `${r.work_order_id}-${r.line_id}`;
+}
+
+function rowHtml(r) {
+  const urgency = rokUrgencyClass(r.rok_izrade);
+  const rokLabel = r.rok_izrade ? formatDate(r.rok_izrade) : '—';
+  const status = r.local_status || 'waiting';
+  const planSec = plannedSeconds(r);
+  const isReassigned = !!r.assigned_machine_code
+    && r.assigned_machine_code !== r.original_machine_code;
+  const customerLabel =
+    r.customer_short || r.customer_name || (r.customer_id ? `#${r.customer_id}` : '—');
+  const opisRada = r.opis_rada || '';
+  const broj = r.broj_crteza || '—';
+
+  const noteVal = r.shift_note || '';
+  const noteId = `note-${r.work_order_id}-${r.line_id}`;
+
+  const sortVal = r.shift_sort_order;
+  const priCell = sortVal != null
+    ? `<span class="pp-pri">${escHtml(String(sortVal))}</span>`
+    : `<span class="pp-pri is-empty" title="Nije rangirano">–</span>`;
+
+  return `
+    <tr
+      data-key="${escHtml(rowKey(r))}"
+      data-wo="${r.work_order_id}"
+      data-line="${r.line_id}"
+      class="${r.is_non_machining ? 'is-non-machining' : ''}${isReassigned ? ' is-reassigned' : ''}"
+      ${state.canEdit ? 'draggable="true"' : ''}>
+      <td class="pp-drag-handle" title="${state.canEdit ? 'Prevuci za prioritet' : 'Drag dostupan samo za pm/admin'}">⠿</td>
+      <td class="pp-cell-center">${priCell}</td>
+      <td class="pp-cell-strong" title="RN ${escHtml(r.rn_ident_broj || '')}">${escHtml(r.rn_ident_broj || '—')}</td>
+      <td class="pp-cell-muted" title="${escHtml(broj)}">${escHtml(broj)}</td>
+      <td class="pp-cell-clip" title="${escHtml(r.naziv_dela || '')}">${escHtml(r.naziv_dela || '—')}</td>
+      <td class="pp-cell-muted" title="${escHtml(r.customer_name || '')}">${escHtml(customerLabel)}</td>
+      <td class="pp-cell-num pp-cell-strong">${escHtml(String(r.operacija ?? ''))}</td>
+      <td class="pp-cell-clip" title="${escHtml(opisRada)}">${escHtml(opisRada)}</td>
+      <td>
+        <span class="pp-rok urgency-${urgency || 'none'}" title="${rokLabel}">
+          ${escHtml(rokLabel)}
+        </span>
+      </td>
+      <td class="pp-cell-num">
+        <span class="pp-cell-strong">${escHtml(String(r.komada_done ?? 0))}</span>
+        <span class="pp-cell-muted"> / ${escHtml(String(r.komada_total ?? 0))}</span>
+      </td>
+      <td class="pp-cell-num pp-cell-muted" title="Tehnološko vs stvarno vreme">
+        ${escHtml(formatSecondsHm(planSec))}
+        <br>
+        <span style="color:#86efac">${escHtml(formatSecondsHm(r.real_seconds))}</span>
+      </td>
+      <td>
+        <button type="button"
+                class="pp-status s-${status}"
+                data-action="cycle-status"
+                ${state.canEdit ? '' : 'disabled'}
+                title="${state.canEdit ? 'Klikni za sledeći status' : 'Edit dostupan samo za pm/admin'}">
+          ${statusLabel(status)}
+        </button>
+      </td>
+      <td>
+        <textarea
+          id="${noteId}"
+          class="pp-note-input"
+          rows="1"
+          placeholder="${state.canEdit ? 'Napomena…' : '—'}"
+          data-action="edit-note"
+          ${state.canEdit ? '' : 'disabled'}>${escHtml(noteVal)}</textarea>
+        <span class="pp-note-saved" data-saved-for="${noteId}">✓ sačuvano</span>
+      </td>
+      <td>
+        <div class="pp-machine-cell">
+          <span class="pp-machine-current ${isReassigned ? 'is-reassigned' : ''}"
+                title="${isReassigned ? 'REASSIGNED iz BigTehn-a' : 'Originalna mašina iz BigTehn-a'}">
+            ${escHtml(r.assigned_machine_code || r.original_machine_code || '—')}
+          </span>
+          ${isReassigned
+            ? `<span class="pp-machine-original is-overridden" title="Originalno iz BigTehn-a">
+                 (orig: ${escHtml(r.original_machine_code || '—')})
+               </span>`
+            : ''}
+          <button type="button"
+                  class="pp-reassign-btn"
+                  data-action="reassign-open"
+                  ${state.canEdit ? '' : 'disabled'}>
+            ${isReassigned ? '↩ Vrati na original' : '⇄ Premesti'}
+          </button>
+        </div>
+      </td>
+    </tr>
+  `;
+}
+
+function statusLabel(s) {
+  switch (s) {
+    case 'waiting':     return 'Čeka';
+    case 'in_progress': return 'U radu';
+    case 'blocked':     return 'Blokirano';
+    case 'completed':   return 'Završeno';
+    default:            return s;
+  }
+}
+
+/* ── Wire događaji u tabeli ── */
+
+function wireRows(wrap) {
+  /* Status cycle */
+  wrap.querySelectorAll('button[data-action="cycle-status"]').forEach(btn => {
+    btn.addEventListener('click', () => onCycleStatus(btn));
+  });
+
+  /* Note save na blur */
+  wrap.querySelectorAll('textarea[data-action="edit-note"]').forEach(ta => {
+    let originalVal = ta.value;
+    ta.addEventListener('focus', () => { originalVal = ta.value; });
+    ta.addEventListener('blur',  () => onSaveNote(ta, originalVal));
+  });
+
+  /* REASSIGN */
+  wrap.querySelectorAll('button[data-action="reassign-open"]').forEach(btn => {
+    btn.addEventListener('click', () => onReassign(btn));
+  });
+
+  /* Drag-drop */
+  if (state.canEdit) {
+    wireDragDrop(wrap);
+  }
+}
+
+/* ── Status cycle ── */
+
+async function onCycleStatus(btn) {
+  if (!state.canEdit) return;
+  const tr = btn.closest('tr');
+  const woId = Number(tr?.dataset.wo);
+  const lineId = Number(tr?.dataset.line);
+  const row = state.rows.find(r => r.work_order_id === woId && r.line_id === lineId);
+  if (!row) return;
+
+  const cur = row.local_status || 'waiting';
+  const next = STATUS_CYCLE_NEXT[cur] || 'waiting';
+
+  /* Optimistic UI */
+  btn.disabled = true;
+  const prevClass = btn.className;
+  btn.className = `pp-status s-${next}`;
+  btn.textContent = statusLabel(next);
+
+  const res = await upsertOverlay({
+    work_order_id: woId,
+    line_id: lineId,
+    patch: { local_status: next },
+  });
+
+  if (res === null) {
+    /* Revert na grešci */
+    btn.className = prevClass;
+    btn.textContent = statusLabel(cur);
+    btn.disabled = false;
+    showToast('⚠ Status nije sačuvan (proveri konekciju ili rolu)');
+    return;
+  }
+
+  row.local_status = next;
+  btn.disabled = false;
+}
+
+/* ── Napomena ── */
+
+async function onSaveNote(ta, originalVal) {
+  if (!state.canEdit) return;
+  const newVal = ta.value;
+  if (newVal === originalVal) return; /* nije izmenjeno */
+  const tr = ta.closest('tr');
+  const woId = Number(tr?.dataset.wo);
+  const lineId = Number(tr?.dataset.line);
+  const row = state.rows.find(r => r.work_order_id === woId && r.line_id === lineId);
+  if (!row) return;
+
+  ta.disabled = true;
+  const res = await upsertOverlay({
+    work_order_id: woId,
+    line_id: lineId,
+    patch: { shift_note: newVal },
+  });
+  ta.disabled = false;
+
+  if (res === null) {
+    ta.value = originalVal;
+    showToast('⚠ Napomena nije sačuvana');
+    return;
+  }
+  row.shift_note = newVal;
+
+  /* Mali "✓ sačuvano" indikator pored polja */
+  const indicator = ta.parentElement.querySelector('.pp-note-saved');
+  if (indicator) {
+    indicator.classList.add('is-visible');
+    setTimeout(() => indicator.classList.remove('is-visible'), 1400);
+  }
+}
+
+/* ── REASSIGN ── */
+
+async function onReassign(btn) {
+  if (!state.canEdit) return;
+  const tr = btn.closest('tr');
+  const woId = Number(tr?.dataset.wo);
+  const lineId = Number(tr?.dataset.line);
+  const row = state.rows.find(r => r.work_order_id === woId && r.line_id === lineId);
+  if (!row) return;
+
+  /* Ako je već REASSIGNED → klik znači "vrati na original" */
+  const isReassigned = !!row.assigned_machine_code
+    && row.assigned_machine_code !== row.original_machine_code;
+  if (isReassigned) {
+    btn.disabled = true;
+    const res = await upsertOverlay({
+      work_order_id: woId,
+      line_id: lineId,
+      patch: { assigned_machine_code: null },
+    });
+    btn.disabled = false;
+    if (res === null) {
+      showToast('⚠ Vraćanje na originalnu mašinu nije uspelo');
+      return;
+    }
+    showToast('✓ Vraćeno na originalnu mašinu — operacija će nestati iz ove liste');
+    /* Operacija sada ne pripada izabranoj mašini → refresh */
+    refreshOperations();
+    return;
+  }
+
+  /* Prikazi inline select */
+  const cell = tr.querySelector('.pp-machine-cell');
+  if (!cell) return;
+  if (cell.querySelector('.pp-reassign-select')) return; /* već otvoren */
+
+  const select = document.createElement('select');
+  select.className = 'pp-reassign-select';
+  select.innerHTML = `
+    <option value="">— izaberi mašinu —</option>
+    ${state.machines
+      .filter(m => m.rj_code !== row.original_machine_code)
+      .map(m => `<option value="${escHtml(m.rj_code)}">${escHtml(m.name)} (${escHtml(m.rj_code)})</option>`)
+      .join('')}
+  `;
+  cell.appendChild(select);
+  select.focus();
+
+  select.addEventListener('change', async () => {
+    const newMachine = select.value || null;
+    select.disabled = true;
+    if (!newMachine) {
+      select.remove();
+      return;
+    }
+    const res = await upsertOverlay({
+      work_order_id: woId,
+      line_id: lineId,
+      patch: { assigned_machine_code: newMachine },
+    });
+    select.disabled = false;
+    if (res === null) {
+      showToast('⚠ Premestanje nije uspelo');
+      select.remove();
+      return;
+    }
+    showToast(`✓ Operacija premeštena na ${newMachine}`);
+    /* Operacija sada pripada drugoj mašini → nestaje iz trenutne liste */
+    refreshOperations();
+  });
+  /* Click anywhere else cancels */
+  select.addEventListener('blur', () => {
+    /* Mali timeout da change uhvati prvi */
+    setTimeout(() => select.parentElement && select.remove(), 150);
+  });
+}
+
+/* ── Drag-drop reorder ── */
+
+function wireDragDrop(wrap) {
+  const tbody = wrap.querySelector('tbody');
+  if (!tbody) return;
+
+  tbody.addEventListener('dragstart', e => {
+    const tr = e.target.closest('tr[draggable="true"]');
+    if (!tr) return;
+    state.dragRowKey = tr.dataset.key;
+    tr.classList.add('is-dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    /* Firefox kompat: postaviti dataTransfer */
+    e.dataTransfer.setData('text/plain', state.dragRowKey);
+  });
+
+  tbody.addEventListener('dragend', () => {
+    tbody.querySelectorAll('tr.is-dragging').forEach(t => t.classList.remove('is-dragging'));
+    tbody.querySelectorAll('.drop-target-above,.drop-target-below').forEach(t => {
+      t.classList.remove('drop-target-above', 'drop-target-below');
+    });
+    state.dragRowKey = null;
+  });
+
+  tbody.addEventListener('dragover', e => {
+    if (!state.dragRowKey) return;
+    const tr = e.target.closest('tr');
+    if (!tr || tr.dataset.key === state.dragRowKey) return;
+    e.preventDefault();
+    /* Markiraj iznad ili ispod (zavisno od kursora) */
+    tbody.querySelectorAll('.drop-target-above,.drop-target-below').forEach(t => {
+      t.classList.remove('drop-target-above', 'drop-target-below');
+    });
+    const rect = tr.getBoundingClientRect();
+    const mid = rect.top + rect.height / 2;
+    if (e.clientY < mid) tr.classList.add('drop-target-above');
+    else                 tr.classList.add('drop-target-below');
+  });
+
+  tbody.addEventListener('drop', async e => {
+    e.preventDefault();
+    if (!state.dragRowKey) return;
+    const targetTr = e.target.closest('tr');
+    if (!targetTr || targetTr.dataset.key === state.dragRowKey) {
+      state.dragRowKey = null;
+      return;
+    }
+
+    const draggedKey = state.dragRowKey;
+    state.dragRowKey = null;
+
+    const before = targetTr.classList.contains('drop-target-above');
+    tbody.querySelectorAll('.drop-target-above,.drop-target-below').forEach(t => {
+      t.classList.remove('drop-target-above', 'drop-target-below');
+    });
+
+    /* Promeni state.rows i pošalji bulk update */
+    const fromIdx = state.rows.findIndex(r => rowKey(r) === draggedKey);
+    let toIdx = state.rows.findIndex(r => rowKey(r) === targetTr.dataset.key);
+    if (fromIdx === -1 || toIdx === -1) return;
+    if (!before) toIdx += 1;
+    /* Ako pomeramo dole, indeks se pomera za 1 jer je pomeren element izvađen */
+    if (fromIdx < toIdx) toIdx -= 1;
+
+    const arr = state.rows.slice();
+    const [moved] = arr.splice(fromIdx, 1);
+    arr.splice(toIdx, 0, moved);
+    state.rows = arr;
+
+    /* Optimistic re-render */
+    renderTable();
+
+    /* Pošalji bulk reorder */
+    const res = await reorderOverlays(
+      state.rows.map(r => ({ work_order_id: r.work_order_id, line_id: r.line_id })),
+    );
+    if (res === null) {
+      showToast('⚠ Redosled nije sačuvan — osvežavam');
+      refreshOperations();
+      return;
+    }
+    /* Sinhronizuj sort vrednosti u state-u */
+    state.rows.forEach((r, i) => { r.shift_sort_order = i + 1; });
+    renderTable();
+  });
+}
+
+/* ── Toolbar helpers ── */
+
+function setCounter(n) {
+  const el = state.host?.querySelector('#ppCounter');
+  if (!el) return;
+  if (n == null) el.textContent = '— operacija';
+  else el.textContent = `${n} ${plural(n, 'operacija', 'operacije', 'operacija')}`;
+}
+
+function plural(n, one, two, more) {
+  const m10 = n % 10;
+  const m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return one;
+  if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return two;
+  return more;
+}
+
+function setError(msg) {
+  state.error = msg || null;
+  const box = state.host?.querySelector('#ppErrorBox');
+  if (!box) return;
+  box.innerHTML = msg ? `<div class="pp-error">⚠ ${escHtml(msg)}</div>` : '';
+}
+
+function setRefreshSpinner(on) {
+  const btn = state.host?.querySelector('#ppRefreshBtn');
+  if (!btn) return;
+  btn.disabled = !!on;
+  btn.querySelector('span').textContent = on ? '↻' : '↻';
+  if (on) btn.querySelector('span').classList.add('pp-spin');
+  else    btn.querySelector('span').classList.remove('pp-spin');
+}

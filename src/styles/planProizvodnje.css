@@ -1,0 +1,300 @@
+/* ============================================================================
+ * Plan Proizvodnje — moduleski stilovi.
+ * Reuse-uju se gde mogu klase iz legacy.css (.btn, .kadrovska-*),
+ * a ovde dodajemo samo specifičnosti: tabela operacija, urgency boje,
+ * status pill, drag-drop, REASSIGN dropdown.
+ * ========================================================================= */
+
+/* Toolbar iznad tabele (selektor mašine + refresh + counter) */
+.pp-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 14px;
+}
+.pp-toolbar-label {
+  font-size: 12px;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-weight: 600;
+}
+.pp-machine-select {
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 14px;
+  min-width: 220px;
+  cursor: pointer;
+}
+.pp-machine-select:focus {
+  outline: 2px solid color-mix(in srgb, var(--blue-bar, #4f9bff) 50%, transparent);
+  border-color: var(--blue-bar, #4f9bff);
+}
+.pp-toolbar-spacer { flex: 1; }
+.pp-counter {
+  font-size: 13px;
+  color: var(--text2);
+  background: var(--surface2);
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+.pp-readonly-badge {
+  font-size: 11px;
+  color: var(--text2);
+  background: color-mix(in srgb, var(--surface3) 60%, transparent);
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px dashed var(--border2);
+}
+
+/* Tabela operacija */
+.pp-table-wrap {
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.pp-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+  color: var(--text);
+}
+.pp-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface2);
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  white-space: nowrap;
+}
+.pp-table tbody td {
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.pp-table tbody tr:hover { background: var(--surface2); }
+.pp-table tbody tr.is-non-machining td {
+  /* operacije koje nisu pravo mašinsko obrađivanje (kontrola, kooperacija…) */
+  background: color-mix(in srgb, var(--surface2) 70%, transparent);
+  font-style: italic;
+  color: var(--text2);
+}
+.pp-table tbody tr.is-reassigned td:first-child {
+  border-left: 3px solid #f5a623;
+}
+
+.pp-cell-num    { text-align: right; white-space: nowrap; }
+.pp-cell-center { text-align: center; }
+.pp-cell-strong { font-weight: 700; }
+.pp-cell-muted  { color: var(--text2); }
+.pp-cell-clip {
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pp-cell-clip:hover { overflow: visible; white-space: normal; }
+
+/* Drag-handle u prvoj koloni */
+.pp-drag-handle {
+  cursor: grab;
+  user-select: none;
+  color: var(--text3, var(--text2));
+  font-size: 14px;
+  padding: 0 4px;
+  text-align: center;
+}
+.pp-drag-handle:hover { color: var(--text); }
+.pp-table tr.is-dragging { opacity: 0.45; }
+.pp-table tr.drop-target-above td { box-shadow: inset 0 2px 0 0 var(--blue-bar, #4f9bff); }
+.pp-table tr.drop-target-below td { box-shadow: inset 0 -2px 0 0 var(--blue-bar, #4f9bff); }
+.pp-table[data-readonly="true"] .pp-drag-handle { cursor: not-allowed; opacity: 0.45; }
+
+/* Priority broj (mali pill u koloni "Pri") */
+.pp-pri {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--surface3);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid var(--border2);
+}
+.pp-pri.is-empty { color: var(--text3); background: transparent; border-style: dashed; }
+
+/* Rok urgency boje */
+.pp-rok {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 12px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.pp-rok.urgency-overdue { background: color-mix(in srgb, #ef4444 22%, transparent); color: #fca5a5; border-color: color-mix(in srgb, #ef4444 35%, transparent); }
+.pp-rok.urgency-today   { background: color-mix(in srgb, #f97316 22%, transparent); color: #fdba74; border-color: color-mix(in srgb, #f97316 35%, transparent); }
+.pp-rok.urgency-soon    { background: color-mix(in srgb, #eab308 22%, transparent); color: #fde68a; border-color: color-mix(in srgb, #eab308 35%, transparent); }
+.pp-rok.urgency-warn    { background: color-mix(in srgb, #84cc16 18%, transparent); color: #bef264; border-color: color-mix(in srgb, #84cc16 30%, transparent); }
+.pp-rok.urgency-ok      { background: color-mix(in srgb, #22c55e 14%, transparent); color: #86efac; border-color: color-mix(in srgb, #22c55e 25%, transparent); }
+.pp-rok.urgency-none    { background: var(--surface2); color: var(--text3); border-style: dashed; border-color: var(--border2); }
+
+/* Status pill */
+.pp-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  transition: filter .12s ease;
+}
+.pp-status:hover { filter: brightness(1.1); }
+.pp-status:disabled { cursor: not-allowed; opacity: 0.7; }
+.pp-status::before { content: ""; width: 6px; height: 6px; border-radius: 999px; background: currentColor; opacity: 0.85; }
+
+.pp-status.s-waiting     { background: color-mix(in srgb, #6b7280 25%, transparent); color: #d1d5db; border-color: color-mix(in srgb, #6b7280 40%, transparent); }
+.pp-status.s-in_progress { background: color-mix(in srgb, #3b82f6 25%, transparent); color: #93c5fd; border-color: color-mix(in srgb, #3b82f6 40%, transparent); }
+.pp-status.s-blocked     { background: color-mix(in srgb, #ef4444 25%, transparent); color: #fca5a5; border-color: color-mix(in srgb, #ef4444 40%, transparent); }
+.pp-status.s-completed   { background: color-mix(in srgb, #10b981 25%, transparent); color: #6ee7b7; border-color: color-mix(in srgb, #10b981 40%, transparent); cursor: default; }
+
+/* Dugmad u headeru tabele */
+.pp-refresh-btn {
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  padding: 7px 14px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.pp-refresh-btn:hover { background: var(--surface3); }
+.pp-refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.pp-refresh-btn .pp-spin { display: inline-block; animation: pp-spin 0.8s linear infinite; }
+@keyframes pp-spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+
+/* Inline napomena (textarea u tabeli) */
+.pp-note-input {
+  width: 100%;
+  min-height: 30px;
+  resize: vertical;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 5px 7px;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.4;
+  outline: none;
+  transition: border-color .12s ease;
+}
+.pp-note-input:focus { border-color: var(--blue-bar, #4f9bff); }
+.pp-note-input:disabled { opacity: 0.6; cursor: not-allowed; }
+.pp-note-saved {
+  display: inline-block;
+  margin-top: 2px;
+  font-size: 10px;
+  color: #6ee7b7;
+  opacity: 0;
+  transition: opacity .15s ease;
+}
+.pp-note-saved.is-visible { opacity: 1; }
+
+/* REASSIGN dropdown (mala selekcija mašine u koloni "Mašina") */
+.pp-machine-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 130px;
+}
+.pp-machine-original {
+  font-size: 11px;
+  color: var(--text3);
+}
+.pp-machine-original.is-overridden { text-decoration: line-through; }
+.pp-machine-current {
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--text);
+}
+.pp-machine-current.is-reassigned {
+  color: #f5a623;
+}
+.pp-reassign-btn {
+  background: transparent;
+  border: 1px dashed var(--border2);
+  color: var(--text2);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10.5px;
+  cursor: pointer;
+  align-self: flex-start;
+}
+.pp-reassign-btn:hover { background: var(--surface3); color: var(--text); }
+.pp-reassign-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.pp-reassign-select {
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid var(--blue-bar, #4f9bff);
+  border-radius: 4px;
+  padding: 2px 4px;
+  font: inherit;
+  font-size: 11px;
+}
+
+/* Empty / loading states */
+.pp-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text2);
+}
+.pp-state-icon { font-size: 36px; margin-bottom: 12px; opacity: 0.7; }
+.pp-state-title { font-size: 16px; color: var(--text); margin-bottom: 6px; }
+.pp-state-hint  { font-size: 13px; line-height: 1.5; }
+
+/* Greška */
+.pp-error {
+  background: color-mix(in srgb, #ef4444 12%, var(--surface));
+  border: 1px solid color-mix(in srgb, #ef4444 35%, transparent);
+  color: #fca5a5;
+  padding: 12px 14px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  font-size: 13px;
+}

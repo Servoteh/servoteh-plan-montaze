@@ -1,14 +1,9 @@
 /**
  * Plan Proizvodnje — modul za šefove mašinske obrade.
  *
- * Sprint F.1 (skelet):
- *   - Header sa back/theme/user/logout
- *   - Tab bar: "Po mašini" | "Zauzetost mašina" | "Pregled svih"
- *   - Placeholder sadržaj u svakom tabu (Sprint F.2 - F.4 ga puni)
- *
- * Plan po sprintovima:
+ * Sprintovi:
  *   F.1  ✅  Skelet + migracije + Bridge syncTechRouting
- *   F.2  ☐  Per-mašina view: dropdown mašina, tabela operacija, drag-drop,
+ *   F.2  ✅  Per-mašina view: dropdown mašina, tabela operacija, drag-drop,
  *              status pill, napomena, HITNO vizuali, REASSIGN
  *   F.3  ☐  Zauzetost mašina (workload summary), Pregled svih (matrica)
  *   F.4  ☐  Upload skica (Storage), acceptance test
@@ -19,13 +14,17 @@
  *   - leadpm/hr/viewer su read-only — sva edit dugmad disabled
  */
 
-import { escHtml, showToast } from '../../lib/dom.js';
+import { escHtml } from '../../lib/dom.js';
 import { toggleTheme } from '../../lib/theme.js';
 import { logout } from '../../services/auth.js';
 import {
   getAuth,
   canEditPlanProizvodnje,
 } from '../../state/auth.js';
+import {
+  renderPoMasiniTab,
+  teardownPoMasiniTab,
+} from './poMasiniTab.js';
 
 const TABS = [
   {
@@ -114,8 +113,9 @@ export function renderPlanProizvodnjeModule(mountEl, { onBackToHub, onLogout }) 
     btn.addEventListener('click', () => {
       const tabId = btn.dataset.tab;
       if (tabId === activeTab) return;
+      teardownActiveTab();
       activeTab = tabId;
-      /* Re-render */
+      /* Re-render header (active tab markup) + body */
       renderPlanProizvodnjeModule(mountEl, { onBackToHub, onLogout });
     });
   });
@@ -126,7 +126,14 @@ export function renderPlanProizvodnjeModule(mountEl, { onBackToHub, onLogout }) 
 function renderTabBody(host, { canEdit }) {
   const tab = TABS.find(t => t.id === activeTab) || TABS[0];
 
-  /* SPRINT F.1: svaki tab je placeholder. F.2/F.3/F.4 popunjavaju. */
+  if (activeTab === 'po-masini') {
+    /* SPRINT F.2: ovo je glavni view — selektor mašine, tabela operacija,
+       drag-drop, status pill, napomena, REASSIGN. */
+    renderPoMasiniTab(host, { canEdit });
+    return;
+  }
+
+  /* F.3 / F.4: placeholderi dok ne implementiramo */
   host.innerHTML = `
     <div class="auth-box" style="max-width:none;text-align:left">
       <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px">
@@ -139,27 +146,28 @@ function renderTabBody(host, { canEdit }) {
 
       <div style="background:var(--surface3,#1a1d23);border:1px dashed var(--border2,#3a3f47);border-radius:8px;padding:24px;color:var(--text2,#aaa);text-align:center">
         <div style="font-size:32px;margin-bottom:8px">🚧</div>
-        <div style="font-size:15px;color:var(--text);margin-bottom:6px">Sprint F.1 — skelet u izradi</div>
+        <div style="font-size:15px;color:var(--text);margin-bottom:6px">U izradi (Sprint F.3)</div>
         <div style="font-size:13px;line-height:1.6">
-          Backend (Bridge servis na VM-u) već povlači sve potrebne podatke iz BigTehn-a:<br>
-          radne naloge, stavke, mašine, kupce, predmete, kretanje delova.<br><br>
-          U sledećim sprintovima:<br>
-          <strong>F.2</strong> — tabela operacija sa drag-drop redosledom<br>
-          <strong>F.3</strong> — workload summary i pregled svih mašina<br>
-          <strong>F.4</strong> — upload skica i finalizacija
+          Ovaj tab će prikazati ${activeTab === 'zauzetost'
+            ? 'zbirno opterećenje po mašini (broj otvorenih operacija + planirano tehnološko vreme)'
+            : 'matricu svih mašina × narednih 5 dana sa hitnošću'}.<br>
+          Sledi posle Sprint F.2 testiranja.
         </div>
       </div>
 
       <div class="auth-footer" style="margin-top:18px">
         ${canEdit
-          ? '✅ Tvoja rola dozvoljava edit (drag-drop, status, napomene, slike).'
+          ? '✅ Tvoja rola dozvoljava edit u "Po mašini" tabu.'
           : '🔒 Ti si u read-only modu. Edit dozvoljen samo za <strong>admin</strong> i <strong>pm</strong>.'}
       </div>
     </div>
   `;
 }
 
+function teardownActiveTab() {
+  if (activeTab === 'po-masini') teardownPoMasiniTab();
+}
+
 export function teardownPlanProizvodnjeModule() {
-  /* Trenutno ništa za teardown (nema timer-a/subscription-a u Sprint F.1).
-     Dodaj kad uvedemo Realtime ili interval refresher. */
+  teardownActiveTab();
 }
