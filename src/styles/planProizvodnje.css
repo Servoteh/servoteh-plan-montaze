@@ -298,3 +298,239 @@
   margin-bottom: 12px;
   font-size: 13px;
 }
+.pp-state-desc {
+  font-size: 13px;
+  color: var(--text3, var(--text2));
+  line-height: 1.5;
+  max-width: 460px;
+  margin: 6px auto 0;
+}
+
+/* ============================================================================
+ * TAB "ZAUZETOST MAŠINA" (zm-*) — zbirni prikaz po mašini
+ * ========================================================================= */
+
+.zm-filter {
+  display: inline-flex;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  padding: 2px;
+}
+.zm-filter-btn {
+  background: transparent;
+  border: 0;
+  color: var(--text2);
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 12.5px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.zm-filter-btn:hover { color: var(--text); }
+.zm-filter-btn.is-active {
+  background: var(--blue-bar, #4f9bff);
+  color: #fff;
+  font-weight: 600;
+}
+
+.zm-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  font-size: 13px;
+}
+.zm-table thead { background: var(--surface2); }
+.zm-th {
+  padding: 10px 14px;
+  font-weight: 600;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text2);
+  border-bottom: 1px solid var(--border2);
+  white-space: nowrap;
+  user-select: none;
+}
+.zm-th-left   { text-align: left; }
+.zm-th-right  { text-align: right; }
+.zm-th-sortable { cursor: pointer; }
+.zm-th-sortable:hover { color: var(--text); }
+.zm-th.is-sorted { color: var(--blue-bar, #4f9bff); }
+.zm-sort-arrow {
+  margin-left: 4px;
+  font-size: 10px;
+  display: inline-block;
+}
+
+.zm-row { border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s; }
+.zm-row:last-child { border-bottom: 0; }
+.zm-row:hover { background: var(--surface2); }
+.zm-row-total {
+  background: var(--surface2);
+  font-weight: 600;
+  cursor: default;
+}
+.zm-row-total:hover { background: var(--surface2); }
+
+.zm-td {
+  padding: 12px 14px;
+  vertical-align: middle;
+  color: var(--text);
+}
+.zm-td-left  { text-align: left; }
+.zm-td-right { text-align: right; }
+
+.zm-cell-machine {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 140px;
+}
+.zm-machine-code { font-weight: 600; color: var(--text); font-size: 13px; }
+.zm-machine-name { font-size: 11.5px; color: var(--text2); }
+
+.zm-num { font-variant-numeric: tabular-nums; font-size: 13px; }
+.zm-num-strong { font-weight: 700; font-size: 14px; }
+.zm-muted { color: var(--text3, var(--text2)); opacity: 0.55; }
+
+.zm-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  margin-left: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.zm-pill:first-child { margin-left: 0; }
+.zm-pill-overdue { background: color-mix(in srgb, #ef4444 22%, transparent); color: #fca5a5; }
+.zm-pill-today   { background: color-mix(in srgb, #f59e0b 22%, transparent); color: #fbbf24; }
+.zm-pill-soon    { background: color-mix(in srgb, #fde047 22%, transparent); color: #facc15; }
+.zm-pill-reassign{ background: color-mix(in srgb, #3b82f6 22%, transparent); color: #93c5fd; }
+.zm-pill-nonmach { background: color-mix(in srgb, #94a3b8 22%, transparent); color: #cbd5e1; font-style: italic; }
+
+.zm-hint {
+  font-size: 12px;
+  color: var(--text2);
+  margin-top: 12px;
+  padding: 8px 14px;
+  background: var(--surface2);
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+/* ============================================================================
+ * TAB "PREGLED SVIH" (pm-*) — matrica MAŠINE × NAREDNIH 5 RADNIH DANA
+ * ========================================================================= */
+
+.pm-table-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.pm-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.pm-table thead { background: var(--surface2); }
+.pm-th {
+  padding: 10px 8px;
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--text2);
+  border-bottom: 1px solid var(--border2);
+  white-space: nowrap;
+  text-align: center;
+}
+.pm-th-machine { text-align: left; padding-left: 14px; min-width: 150px; }
+.pm-th-total   { text-align: center; }
+.pm-th-bucket  { min-width: 64px; }
+.pm-th.is-today {
+  background: color-mix(in srgb, var(--blue-bar, #4f9bff) 18%, transparent);
+  color: var(--text);
+  font-weight: 700;
+}
+.pm-day-label { display: inline-block; }
+.pm-th-overdue { color: #fca5a5; }
+.pm-th-future  { color: var(--text2); }
+.pm-th-none    { color: var(--text3, var(--text2)); }
+
+.pm-row { border-bottom: 1px solid var(--border); }
+.pm-row:last-child { border-bottom: 0; }
+.pm-row:hover { background: var(--surface2); }
+.pm-row-total {
+  background: var(--surface2);
+  font-weight: 600;
+}
+.pm-row-total:hover { background: var(--surface2); }
+
+.pm-td-machine {
+  padding: 10px 14px;
+  text-align: left;
+  cursor: pointer;
+}
+.pm-td-machine:hover { background: var(--surface3); }
+.pm-td-total {
+  padding: 10px 8px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.pm-cell {
+  padding: 10px 8px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  border-left: 1px solid var(--border);
+  min-width: 64px;
+  position: relative;
+}
+.pm-cell.is-clickable { cursor: pointer; }
+.pm-cell.is-clickable:hover { filter: brightness(1.15); }
+.pm-cell-num { font-weight: 600; font-size: 13px; }
+.pm-cell-empty { color: var(--text3, #555); font-size: 11px; }
+
+/* Boje ćelija po hitnosti */
+.pm-cell-overdue { background: color-mix(in srgb, #ef4444 16%, transparent); color: #fca5a5; }
+.pm-cell-today   { background: color-mix(in srgb, #f59e0b 18%, transparent); color: #fbbf24; }
+.pm-cell-soon    { background: color-mix(in srgb, #fde047 14%, transparent); color: #facc15; }
+.pm-cell-warn    { background: color-mix(in srgb, #84cc16 14%, transparent); color: #bef264; }
+.pm-cell-ok      { background: color-mix(in srgb, #10b981 12%, transparent); color: #6ee7b7; }
+.pm-cell-future  { background: color-mix(in srgb, var(--text2) 8%, transparent); color: var(--text2); }
+.pm-cell-none    { background: transparent; color: var(--text3, var(--text2)); }
+.pm-cell-empty.pm-cell { background: transparent; }
+
+/* Legenda ispod matrice */
+.pm-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  font-size: 12px;
+  color: var(--text2);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-top: 12px;
+}
+.pm-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.pm-legend-swatch {
+  display: inline-block;
+  width: 18px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+}

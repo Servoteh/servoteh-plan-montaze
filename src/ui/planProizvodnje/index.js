@@ -25,6 +25,16 @@ import {
   renderPoMasiniTab,
   teardownPoMasiniTab,
 } from './poMasiniTab.js';
+import {
+  renderZauzetostTab,
+  teardownZauzetostTab,
+} from './zauzetostTab.js';
+import {
+  renderPregledTab,
+  teardownPregledTab,
+} from './pregledTab.js';
+
+const STORAGE_KEY_LAST_MACHINE = 'plan-proizvodnje:last-machine';
 
 const TABS = [
   {
@@ -120,52 +130,54 @@ export function renderPlanProizvodnjeModule(mountEl, { onBackToHub, onLogout }) 
     });
   });
 
-  renderTabBody(container.querySelector('#ppTabBody'), { canEdit });
+  renderTabBody(container.querySelector('#ppTabBody'), {
+    canEdit, mountEl, onBackToHub, onLogout,
+  });
 }
 
-function renderTabBody(host, { canEdit }) {
-  const tab = TABS.find(t => t.id === activeTab) || TABS[0];
+function renderTabBody(host, { canEdit, mountEl, onBackToHub, onLogout }) {
+  /* Callback koji "Zauzetost" i "Pregled" tabovi koriste za skok u
+     "Po mašini" sa preselektovanom mašinom. */
+  const jumpToPoMasini = (machineCode) => {
+    if (machineCode) {
+      localStorage.setItem(STORAGE_KEY_LAST_MACHINE, machineCode);
+    }
+    if (activeTab !== 'po-masini') {
+      teardownActiveTab();
+      activeTab = 'po-masini';
+      renderPlanProizvodnjeModule(mountEl, { onBackToHub, onLogout });
+    }
+  };
 
   if (activeTab === 'po-masini') {
-    /* SPRINT F.2: ovo je glavni view — selektor mašine, tabela operacija,
+    /* SPRINT F.2: glavni view — selektor mašine, tabela operacija,
        drag-drop, status pill, napomena, REASSIGN. */
     renderPoMasiniTab(host, { canEdit });
     return;
   }
 
-  /* F.3 / F.4: placeholderi dok ne implementiramo */
-  host.innerHTML = `
-    <div class="auth-box" style="max-width:none;text-align:left">
-      <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px">
-        <div style="font-size:42px;line-height:1">${tab.icon}</div>
-        <div>
-          <h2 style="margin:0;font-size:22px;color:var(--text)">${escHtml(tab.label)}</h2>
-          <div style="font-size:13px;color:var(--text2);margin-top:4px">${escHtml(tab.desc)}</div>
-        </div>
-      </div>
+  if (activeTab === 'zauzetost') {
+    /* SPRINT F.3a: zbirno po mašini (otvorene operacije, planirano vreme,
+       hitnost, premešteno…) */
+    renderZauzetostTab(host, { canEdit, onJumpToPoMasini: jumpToPoMasini });
+    return;
+  }
 
-      <div style="background:var(--surface3,#1a1d23);border:1px dashed var(--border2,#3a3f47);border-radius:8px;padding:24px;color:var(--text2,#aaa);text-align:center">
-        <div style="font-size:32px;margin-bottom:8px">🚧</div>
-        <div style="font-size:15px;color:var(--text);margin-bottom:6px">U izradi (Sprint F.3)</div>
-        <div style="font-size:13px;line-height:1.6">
-          Ovaj tab će prikazati ${activeTab === 'zauzetost'
-            ? 'zbirno opterećenje po mašini (broj otvorenih operacija + planirano tehnološko vreme)'
-            : 'matricu svih mašina × narednih 5 dana sa hitnošću'}.<br>
-          Sledi posle Sprint F.2 testiranja.
-        </div>
-      </div>
+  if (activeTab === 'pregled') {
+    /* SPRINT F.3b: matrica MAŠINA × NAREDNIH 5 RADNIH DANA */
+    renderPregledTab(host, { canEdit, onJumpToPoMasini: jumpToPoMasini });
+    return;
+  }
 
-      <div class="auth-footer" style="margin-top:18px">
-        ${canEdit
-          ? '✅ Tvoja rola dozvoljava edit u "Po mašini" tabu.'
-          : '🔒 Ti si u read-only modu. Edit dozvoljen samo za <strong>admin</strong> i <strong>pm</strong>.'}
-      </div>
-    </div>
-  `;
+  /* Fallback (ne bi trebalo da se desi) */
+  const tab = TABS.find(t => t.id === activeTab) || TABS[0];
+  host.innerHTML = `<div class="pp-state"><div class="pp-state-title">${escHtml(tab.label)}</div></div>`;
 }
 
 function teardownActiveTab() {
   if (activeTab === 'po-masini') teardownPoMasiniTab();
+  if (activeTab === 'zauzetost') teardownZauzetostTab();
+  if (activeTab === 'pregled')   teardownPregledTab();
 }
 
 export function teardownPlanProizvodnjeModule() {

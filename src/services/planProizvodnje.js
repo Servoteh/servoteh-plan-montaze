@@ -76,6 +76,54 @@ export async function loadOperationsForMachine(machineCode) {
   return Array.isArray(data) ? data : [];
 }
 
+/**
+ * Vraća SVE otvorene operacije (sve mašine), samo kolone potrebne za
+ * agregirane prikaze (Zauzetost mašina, Pregled svih).
+ *
+ * Fetch je široki ali sa minimalnim setom kolona (~8) → ~50 KB za 3000
+ * redova. Group/sort/aggregate radi se na klijentu.
+ *
+ * Filteri: aktivne, ne-arhivirane overlay, RN nije završen, ne-završene
+ * u BigTehn-u, ne lokalno označene 'completed'.
+ */
+export async function loadAllOpenOperations() {
+  if (!getIsOnline()) return [];
+  const cols = [
+    'line_id',
+    'work_order_id',
+    'effective_machine_code',
+    'broj_crteza',
+    'naziv_dela',
+    'rn_ident_broj',
+    'tpz_min',
+    'tk_min',
+    'komada_total',
+    'komada_done',
+    'real_seconds',
+    'rok_izrade',
+    'is_non_machining',
+    'assigned_machine_code',
+    'local_status',
+    'opis_rada',
+    'operacija',
+  ].join(',');
+  const params = new URLSearchParams();
+  params.set('select', cols);
+  params.set('is_done_in_bigtehn', 'eq.false');
+  params.set('rn_zavrsen', 'eq.false');
+  params.set('or', '(local_status.is.null,local_status.neq.completed)');
+  params.set('overlay_archived_at', 'is.null');
+  /* Effective machine code mora postojati da bi se prikazalo u zbirnom
+     pregledu. (Ako tehnolog nije dodelio mašinu i nema reassign, ne brojimo.) */
+  params.set('effective_machine_code', 'not.is.null');
+  /* Sigurnosni limit: ukupno otvorenih je trenutno ~3000. 10000 daje
+     ~3× headroom za naredne godine. */
+  params.set('limit', '10000');
+
+  const data = await sbReq(`v_production_operations?${params.toString()}`);
+  return Array.isArray(data) ? data : [];
+}
+
 /* ── Writes (overlay) ── */
 
 /**
@@ -194,4 +242,166 @@ export function plannedSeconds(row) {
   const tk  = Number(row.tk_min)  || 0;
   const k   = Number(row.komada_total) || 0;
   return Math.round((tpz + tk * k) * 60);
+}
+
+/* ── Client-side agregacije (za "Zauzetost mašina" i "Pregled svih") ── */
+
+/**
+ * Grupiše operacije po `effective_machine_code` i vraća ZBIRNU statistiku.
+ * Koristi se u tabu "Zauzetost mašina".
+ *
+ * Output (mapa) → array sa sledećom strukturom:
+ *   {
+ *     machineCode, totalOps, drawingsCount,
+ *     overdueOps, todayOps, soonOps, warnOps, okOps, noDeadlineOps,
+ *     plannedSec, realSec, nonMachiningOps,
+ *     reassignedInOps  // operacije koje su REASSIGNED u ovu mašinu
+ *                      // (tj. assigned_machine_code === machineCode i
+ *                      //  različito od originalnog — ne možemo precizno
+ *                      //  bez originalnog, pa brojimo sve sa
+ *                      //  assigned_machine_code IS NOT NULL.)
+ *   }
+ */
+export function summarizeByMachine(rows) {
+  const byMachine = new Map();
+  for (const r of rows) {
+    const mc = r.effective_machine_code;
+    if (!mc) continue;
+    let s = byMachine.get(mc);
+    if (!s) {
+      s = {
+        machineCode: mc,
+        totalOps: 0,
+        drawingsSet: new Set(),
+        overdueOps: 0, todayOps: 0, soonOps: 0, warnOps: 0, okOps: 0,
+        noDeadlineOps: 0,
+        plannedSec: 0, realSec: 0,
+        nonMachiningOps: 0,
+        reassignedInOps: 0,
+      };
+      byMachine.set(mc, s);
+    }
+    s.totalOps += 1;
+    if (r.broj_crteza) s.drawingsSet.add(String(r.broj_crteza));
+    if (r.is_non_machining) s.nonMachiningOps += 1;
+    if (r.assigned_machine_code) s.reassignedInOps += 1;
+    s.plannedSec += plannedSeconds(r);
+    s.realSec += Number(r.real_seconds) || 0;
+
+    const u = rokUrgencyClass(r.rok_izrade);
+    if (!u)              s.noDeadlineOps += 1;
+    else if (u === 'overdue') s.overdueOps += 1;
+    else if (u === 'today')   s.todayOps += 1;
+    else if (u === 'soon')    s.soonOps += 1;
+    else if (u === 'warn')    s.warnOps += 1;
+    else                      s.okOps += 1;
+  }
+  /* Pretvori Set → broj i vrati array */
+  const out = [];
+  for (const s of byMachine.values()) {
+    out.push({
+      ...s,
+      drawingsCount: s.drawingsSet.size,
+      drawingsSet: undefined,
+    });
+  }
+  return out;
+}
+
+/**
+ * Vraća listu od `numWorkingDays` narednih radnih dana (Pon–Pet) počevši
+ * od današnjeg dana (uključujući danas ako je radni dan).
+ *
+ * Output: array of { date: 'YYYY-MM-DD', dow: 1..5, label: 'Pon 21.04', isToday }
+ */
+export function nextWorkingDays(numWorkingDays = 5, fromDate = new Date()) {
+  const out = [];
+  const dayNames = ['Ned', 'Pon', 'Uto', 'Sre', 'Čet', 'Pet', 'Sub'];
+  const cur = new Date(fromDate);
+  cur.setHours(0, 0, 0, 0);
+  const todayStr = isoDay(new Date());
+  /* Maksimum 14 kalendarskih dana napred (dovoljno za 5 radnih, čak i sa praznicima) */
+  for (let i = 0; i < 14 && out.length < numWorkingDays; i++) {
+    const d = new Date(cur);
+    d.setDate(cur.getDate() + i);
+    const dow = d.getDay();
+    if (dow === 0 || dow === 6) continue; /* preskoči vikende */
+    const isoStr = isoDay(d);
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    out.push({
+      date:   isoStr,
+      dow,
+      label:  `${dayNames[dow]} ${dd}.${mm}`,
+      isToday: isoStr === todayStr,
+    });
+  }
+  return out;
+}
+
+/**
+ * Build matrice mašine × dani.
+ *
+ * Vraća:
+ *   {
+ *     days: [{date, label, isToday}, ...],
+ *     machines: [
+ *       {
+ *         machineCode,
+ *         totalOps,
+ *         buckets: {
+ *           overdue: N,           // rok < danas
+ *           '2026-04-21': N,      // rok je tog dana
+ *           '2026-04-22': N,
+ *           ...
+ *           future: N,            // rok > poslednji prikazani dan
+ *           noDeadline: N,        // bez roka
+ *         }
+ *       }, ...
+ *     ]
+ *   }
+ */
+export function buildDeadlineMatrix(rows, numWorkingDays = 5) {
+  const days = nextWorkingDays(numWorkingDays);
+  const lastDay = days.length ? days[days.length - 1].date : null;
+  const todayStr = isoDay(new Date());
+
+  const byMachine = new Map();
+  for (const r of rows) {
+    const mc = r.effective_machine_code;
+    if (!mc) continue;
+    let m = byMachine.get(mc);
+    if (!m) {
+      m = { machineCode: mc, totalOps: 0, buckets: {
+        overdue: 0, future: 0, noDeadline: 0,
+      } };
+      for (const d of days) m.buckets[d.date] = 0;
+      byMachine.set(mc, m);
+    }
+    m.totalOps += 1;
+    const rok = r.rok_izrade ? isoDay(new Date(r.rok_izrade)) : null;
+    if (!rok) {
+      m.buckets.noDeadline += 1;
+    } else if (rok < todayStr) {
+      m.buckets.overdue += 1;
+    } else if (lastDay && rok > lastDay) {
+      m.buckets.future += 1;
+    } else if (m.buckets[rok] !== undefined) {
+      m.buckets[rok] += 1;
+    } else {
+      /* Vikend pao između prikazanih radnih dana → broj kao "future"
+         (prikazaće se u koloni "Sledeća sedmica+"). */
+      m.buckets.future += 1;
+    }
+  }
+
+  return { days, machines: Array.from(byMachine.values()) };
+}
+
+/** Helper: format Date kao 'YYYY-MM-DD' (lokalna zona). */
+function isoDay(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
