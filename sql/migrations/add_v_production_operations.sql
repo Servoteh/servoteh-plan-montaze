@@ -10,6 +10,7 @@
 --   bigtehn_machines_cache          (m)   — naziv mašine + flag is_non_machining
 --   production_overlays             (o)   — lokalni override (status, sort, napomena, REASSIGN)
 --   bigtehn_tech_routing_cache      (tr)  — agregat (urađeno komada, stvarno vreme, is_completed)
+--   production_drawings             (d)   — broj aktivnih skica/slika za operaciju (Sprint F.4)
 --
 -- Ključne izvedene kolone:
 --   effective_machine_code  = COALESCE(o.assigned_machine_code, l.machine_code)
@@ -80,7 +81,9 @@ SELECT
   COALESCE(tr.real_seconds, 0)                          AS real_seconds,
   COALESCE(tr.is_done, FALSE)                           AS is_done_in_bigtehn,
   tr.last_finished_at                                   AS last_finished_at,
-  tr.prijava_count                                      AS prijava_count
+  tr.prijava_count                                      AS prijava_count,
+
+  COALESCE(d.drawings_count, 0)                         AS drawings_count
 FROM public.bigtehn_work_order_lines_cache l
 LEFT JOIN public.bigtehn_work_orders_cache  wo
   ON wo.id = l.work_order_id
@@ -101,7 +104,15 @@ LEFT JOIN LATERAL (
   FROM public.bigtehn_tech_routing_cache t
   WHERE t.work_order_id = l.work_order_id
     AND t.operacija     = l.operacija
-) tr ON TRUE;
+) tr ON TRUE
+LEFT JOIN LATERAL (
+  -- Sprint F.4: broj AKTIVNIH skica (deleted_at IS NULL) za ovu operaciju.
+  SELECT COUNT(*) AS drawings_count
+  FROM public.production_drawings pd
+  WHERE pd.work_order_id = l.work_order_id
+    AND pd.line_id       = l.id
+    AND pd.deleted_at IS NULL
+) d ON TRUE;
 
 -- View je automatski selectable za authenticated zbog RLS na baznim tabelama.
 -- Eksplicitan GRANT za sigurnost (PostgREST treba EXECUTE/SELECT permission):

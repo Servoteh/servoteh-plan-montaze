@@ -534,3 +534,271 @@
   border-radius: 3px;
   border: 1px solid var(--border);
 }
+
+/* ============================================================================
+ * DRAWINGS — 📎 dugme u tabeli "Po mašini" + modal galerija (dm-*)
+ * ========================================================================= */
+
+.pp-drawings-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: transparent;
+  border: 1px dashed var(--border2);
+  color: var(--text2);
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-variant-numeric: tabular-nums;
+}
+.pp-drawings-btn:hover {
+  background: var(--surface2);
+  color: var(--text);
+  border-color: var(--blue-bar, #4f9bff);
+}
+.pp-drawings-btn.has-files {
+  background: color-mix(in srgb, var(--blue-bar, #4f9bff) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--blue-bar, #4f9bff) 50%, transparent);
+  color: var(--text);
+}
+.pp-drawings-btn.has-files:hover {
+  background: color-mix(in srgb, var(--blue-bar, #4f9bff) 20%, transparent);
+}
+.pp-drawings-num { font-weight: 600; }
+
+/* Modal overlay */
+.dm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: dmFadeIn 0.15s ease-out;
+}
+@keyframes dmFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.dm-modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 880px;
+  max-height: calc(100vh - 40px);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  animation: dmZoomIn 0.18s ease-out;
+}
+@keyframes dmZoomIn {
+  from { transform: scale(0.96); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+.dm-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.dm-header-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.dm-icon { font-size: 24px; }
+.dm-title { font-size: 16px; font-weight: 600; color: var(--text); }
+.dm-subtitle { font-size: 12px; color: var(--text2); margin-top: 2px; }
+
+.dm-close {
+  background: transparent;
+  border: 1px solid var(--border2);
+  color: var(--text2);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.dm-close:hover {
+  background: var(--surface2);
+  color: var(--text);
+}
+
+.dm-body {
+  padding: 18px 20px 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Uploader area */
+.dm-uploader {
+  border: 2px dashed var(--border2);
+  border-radius: 10px;
+  padding: 22px 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  background: var(--surface2);
+}
+.dm-uploader:hover,
+.dm-uploader.is-dragover {
+  border-color: var(--blue-bar, #4f9bff);
+  background: color-mix(in srgb, var(--blue-bar, #4f9bff) 10%, var(--surface2));
+}
+.dm-uploader-icon { font-size: 28px; margin-bottom: 6px; }
+.dm-uploader-text { font-size: 14px; color: var(--text); margin-bottom: 4px; }
+.dm-uploader-hint { font-size: 11.5px; color: var(--text2); }
+
+.dm-readonly-note {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 13px;
+  color: var(--text2);
+  text-align: center;
+}
+
+.dm-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: color-mix(in srgb, var(--blue-bar, #4f9bff) 12%, var(--surface2));
+  border: 1px solid color-mix(in srgb, var(--blue-bar, #4f9bff) 30%, transparent);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--text);
+}
+.dm-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid color-mix(in srgb, var(--blue-bar, #4f9bff) 30%, transparent);
+  border-top-color: var(--blue-bar, #4f9bff);
+  border-radius: 50%;
+  animation: dmSpin 0.7s linear infinite;
+}
+@keyframes dmSpin {
+  to { transform: rotate(360deg); }
+}
+
+.dm-error {
+  background: color-mix(in srgb, #ef4444 12%, var(--surface2));
+  border: 1px solid color-mix(in srgb, #ef4444 35%, transparent);
+  color: #fca5a5;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+/* Gallery */
+.dm-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  min-height: 80px;
+}
+
+.dm-state {
+  text-align: center;
+  padding: 30px 12px;
+  color: var(--text2);
+  font-size: 13px;
+  grid-column: 1 / -1;
+}
+.dm-state.dm-empty { padding: 50px 12px; }
+.dm-state .dm-hint { font-size: 12px; opacity: 0.7; margin-top: 6px; }
+
+.dm-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.1s;
+}
+.dm-card:hover {
+  border-color: var(--blue-bar, #4f9bff);
+  transform: translateY(-1px);
+}
+
+.dm-thumb {
+  background: var(--bg, #0f1217);
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 130px;
+  padding: 0;
+}
+.dm-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.dm-thumb-icon {
+  font-size: 42px;
+  opacity: 0.8;
+}
+
+.dm-meta {
+  padding: 8px 10px;
+  flex: 1;
+  min-height: 0;
+}
+.dm-meta-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 3px;
+}
+.dm-meta-info {
+  font-size: 10.5px;
+  color: var(--text2);
+  line-height: 1.4;
+}
+
+.dm-actions {
+  display: flex;
+  gap: 6px;
+  padding: 6px 10px 10px;
+  justify-content: flex-end;
+}
+.dm-btn {
+  background: transparent;
+  border: 1px solid var(--border2);
+  color: var(--text2);
+  padding: 4px 8px;
+  border-radius: 5px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+.dm-btn:hover { background: var(--surface3); color: var(--text); }
+.dm-btn-del:hover {
+  background: color-mix(in srgb, #ef4444 18%, transparent);
+  color: #fca5a5;
+  border-color: color-mix(in srgb, #ef4444 40%, transparent);
+}

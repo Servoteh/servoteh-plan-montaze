@@ -12,12 +12,14 @@
  * production_overlays će ga odbiti na write i sbReq() vraća null.
  */
 
-import { sbReq } from './supabase.js';
+import { sbReq, getSupabaseUrl, getSupabaseAnonKey } from './supabase.js';
 import {
   canEditPlanProizvodnje,
   getCurrentUser,
   getIsOnline,
 } from '../state/auth.js';
+
+const DRAWINGS_BUCKET = 'production-drawings';
 
 /* ── Konstante ── */
 
@@ -194,6 +196,190 @@ export async function reorderOverlays(orderedItems) {
     'POST',
     payload,
   );
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+ * SPRINT F.4 — Skice / slike (production_drawings + Storage)
+ *
+ * Storage layout: bucket "production-drawings", putanja
+ *   <work_order_id>/<line_id>/<uuid>_<sanitized-original-name>.<ext>
+ *
+ * Bucket NIJE javan → svi pristupi idu kroz signed URL (5 min expiry).
+ * RLS: read za sve authenticated, write samo za admin/pm
+ * (kontroliše se i u DB tabeli i na storage.objects).
+ * ──────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Vrati listu AKTIVNIH (deleted_at IS NULL) skica za jednu operaciju.
+ * Sortirano po uploaded_at DESC (najnovije prvo).
+ */
+export async function loadDrawings({ work_order_id, line_id }) {
+  if (!getIsOnline() || !work_order_id || !line_id) return [];
+  const params = new URLSearchParams();
+  params.set('select', 'id,storage_path,file_name,mime_type,size_bytes,uploaded_at,uploaded_by');
+  params.set('work_order_id', `eq.${work_order_id}`);
+  params.set('line_id',       `eq.${line_id}`);
+  params.set('deleted_at',    'is.null');
+  params.set('order',         'uploaded_at.desc');
+  const data = await sbReq(`production_drawings?${params.toString()}`);
+  return Array.isArray(data) ? data : [];
+}
+
+/**
+ * Upload jednog file-a. Radi:
+ *   1) PUT u Storage bucket
+ *   2) INSERT u production_drawings sa metadata
+ *
+ * @returns {Promise<object|null>} novi drawing red iz DB, ili null na fail.
+ */
+export async function uploadDrawing({ work_order_id, line_id, file }) {
+  if (!getIsOnline() || !canEditPlanProizvodnje()) return null;
+  if (!work_order_id || !line_id || !file) return null;
+
+  const user = getCurrentUser();
+  const token = user?._token || getSupabaseAnonKey();
+  const apiKey = getSupabaseAnonKey();
+  const baseUrl = getSupabaseUrl();
+
+  /* Sanitize ime: ukloni ne-ASCII i shell-unsafe karaktere */
+  const safeName = String(file.name)
+    .normalize('NFKD')
+    .replace(/[^\w.\-]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 80) || 'file';
+  const uuid = (crypto?.randomUUID?.() || String(Date.now())).replace(/-/g, '').slice(0, 12);
+  const storagePath = `${work_order_id}/${line_id}/${uuid}_${safeName}`;
+
+  /* 1) Upload binary u Storage */
+  try {
+    const r = await fetch(
+      `${baseUrl}/storage/v1/object/${DRAWINGS_BUCKET}/${encodeURI(storagePath)}`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + token,
+          'apikey': apiKey,
+          'Content-Type': file.type || 'application/octet-stream',
+          'x-upsert': 'false',
+          'cache-control': '3600',
+        },
+        body: file,
+      },
+    );
+    if (!r.ok) {
+      const txt = await r.text().catch(() => '');
+      console.error('[uploadDrawing] storage failed', r.status, txt);
+      return null;
+    }
+  } catch (e) {
+    console.error('[uploadDrawing] storage exception', e);
+    return null;
+  }
+
+  /* 2) Insert metadata u tabelu */
+  const payload = {
+    work_order_id,
+    line_id,
+    storage_path: storagePath,
+    file_name:    file.name,
+    mime_type:    file.type || null,
+    size_bytes:   file.size || null,
+    uploaded_by:  user?.email || null,
+  };
+  const res = await sbReq('production_drawings', 'POST', payload);
+  /* PostgREST sa Prefer:return=representation vraća array od 1 row-a */
+  return Array.isArray(res) ? (res[0] || null) : (res || null);
+}
+
+/**
+ * Soft-delete: postavi deleted_at = NOW() u tabeli i pokušaj da obrišeš
+ * fajl iz Storage-a (best-effort; ako Storage delete failuje, metadata
+ * je već sakriven od UI-a kroz `deleted_at IS NULL` filter).
+ */
+export async function softDeleteDrawing(drawing) {
+  if (!getIsOnline() || !canEditPlanProizvodnje()) return false;
+  if (!drawing?.id) return false;
+
+  const user = getCurrentUser();
+  const email = user?.email || null;
+
+  /* 1) UPDATE tabela */
+  const params = new URLSearchParams();
+  params.set('id', `eq.${drawing.id}`);
+  const ok = await sbReq(
+    `production_drawings?${params.toString()}`,
+    'PATCH',
+    { deleted_at: new Date().toISOString(), deleted_by: email },
+  );
+  if (ok === null) {
+    console.error('[softDeleteDrawing] DB update failed', drawing.id);
+    return false;
+  }
+
+  /* 2) Storage delete (best-effort) */
+  if (drawing.storage_path) {
+    try {
+      const token = user?._token || getSupabaseAnonKey();
+      const apiKey = getSupabaseAnonKey();
+      const baseUrl = getSupabaseUrl();
+      const r = await fetch(
+        `${baseUrl}/storage/v1/object/${DRAWINGS_BUCKET}/${encodeURI(drawing.storage_path)}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': 'Bearer ' + token,
+            'apikey': apiKey,
+          },
+        },
+      );
+      if (!r.ok) {
+        console.warn('[softDeleteDrawing] storage delete failed (DB ok)', r.status);
+      }
+    } catch (e) {
+      console.warn('[softDeleteDrawing] storage delete exception (DB ok)', e);
+    }
+  }
+  return true;
+}
+
+/**
+ * Kreiraj signed URL za pregled (default 5 min trajanje).
+ * Vraća apsolutni URL koji možeš direktno da staviš u <img src> ili otvoriš
+ * u novom tab-u.
+ */
+export async function getDrawingSignedUrl(storagePath, expiresIn = 300) {
+  if (!getIsOnline() || !storagePath) return null;
+  const user = getCurrentUser();
+  const token = user?._token || getSupabaseAnonKey();
+  const apiKey = getSupabaseAnonKey();
+  const baseUrl = getSupabaseUrl();
+  try {
+    const r = await fetch(
+      `${baseUrl}/storage/v1/object/sign/${DRAWINGS_BUCKET}/${encodeURI(storagePath)}`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + token,
+          'apikey': apiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ expiresIn }),
+      },
+    );
+    if (!r.ok) {
+      console.error('[getDrawingSignedUrl] failed', r.status);
+      return null;
+    }
+    const { signedURL, signedUrl } = await r.json();
+    /* API menja casing tokom verzija; pokrij obe */
+    const rel = signedURL || signedUrl;
+    if (!rel) return null;
+    return baseUrl + '/storage/v1' + (rel.startsWith('/') ? rel : '/' + rel);
+  } catch (e) {
+    console.error('[getDrawingSignedUrl] exception', e);
+    return null;
+  }
 }
 
 /* ── Helpers (čisti, no-side-effects) ── */

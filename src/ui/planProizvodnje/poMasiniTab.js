@@ -29,6 +29,7 @@ import {
   formatSecondsHm,
   plannedSeconds,
 } from '../../services/planProizvodnje.js';
+import { openDrawingManager } from './drawingManager.js';
 
 /* ── Local state (po instanci taba — postoji jedan u svakom trenutku) ── */
 const STORAGE_KEY_LAST_MACHINE = 'plan-proizvodnje:last-machine';
@@ -230,6 +231,7 @@ function renderTable() {
           <th class="pp-cell-num" title="Tehnološki / Stvarni">T / R</th>
           <th>Status</th>
           <th style="min-width:200px">Šefova napomena</th>
+          <th title="Skice / slike">📎</th>
           <th>Mašina</th>
         </tr>
       </thead>
@@ -314,6 +316,16 @@ function rowHtml(r) {
           ${state.canEdit ? '' : 'disabled'}>${escHtml(noteVal)}</textarea>
         <span class="pp-note-saved" data-saved-for="${noteId}">✓ sačuvano</span>
       </td>
+      <td class="pp-cell-center">
+        <button type="button"
+                class="pp-drawings-btn ${(r.drawings_count || 0) > 0 ? 'has-files' : ''}"
+                data-action="open-drawings"
+                title="${(r.drawings_count || 0) > 0
+                  ? `Pogledaj ${r.drawings_count} skic${r.drawings_count === 1 ? 'u' : 'a'}`
+                  : (state.canEdit ? 'Dodaj skicu/sliku' : 'Nema skica')}">
+          📎 <span class="pp-drawings-num">${r.drawings_count || 0}</span>
+        </button>
+      </td>
       <td>
         <div class="pp-machine-cell">
           <span class="pp-machine-current ${isReassigned ? 'is-reassigned' : ''}"
@@ -367,10 +379,44 @@ function wireRows(wrap) {
     btn.addEventListener('click', () => onReassign(btn));
   });
 
+  /* Drawings (📎) */
+  wrap.querySelectorAll('button[data-action="open-drawings"]').forEach(btn => {
+    btn.addEventListener('click', () => onOpenDrawings(btn));
+  });
+
   /* Drag-drop */
   if (state.canEdit) {
     wireDragDrop(wrap);
   }
+}
+
+async function onOpenDrawings(btn) {
+  const tr = btn.closest('tr');
+  if (!tr) return;
+  const woId   = Number(tr.dataset.wo);
+  const lineId = Number(tr.dataset.line);
+  const row = state.rows.find(r => r.work_order_id === woId && r.line_id === lineId);
+  if (!row) return;
+
+  const opTitle =
+    `RN ${row.rn_ident_broj || '?'} · op ${row.operacija || '?'} · ${row.naziv_dela || ''}`.trim();
+
+  await openDrawingManager({
+    work_order_id: woId,
+    line_id:       lineId,
+    opTitle,
+    canEdit:       state.canEdit,
+    onChange:      (newCount) => {
+      /* Optimistic UI ažuriranje brojača bez full reload-a */
+      row.drawings_count = newCount;
+      const numEl = btn.querySelector('.pp-drawings-num');
+      if (numEl) numEl.textContent = String(newCount);
+      btn.classList.toggle('has-files', newCount > 0);
+      btn.title = newCount > 0
+        ? `Pogledaj ${newCount} skic${newCount === 1 ? 'u' : 'a'}`
+        : (state.canEdit ? 'Dodaj skicu/sliku' : 'Nema skica');
+    },
+  });
 }
 
 /* ── Status cycle ── */
