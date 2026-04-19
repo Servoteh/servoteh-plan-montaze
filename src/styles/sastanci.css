@@ -938,3 +938,348 @@ body.dark .sast-lock-badge {
   background: rgba(168, 85, 247, 0.2);
   color: #d8b4fe;
 }
+
+/* ============================================================================
+   PM TEME v2 — pod-tabovi, hitno (crveni okvir), za razmatranje, master rang
+   ============================================================================ */
+
+/* Pod-tabovi unutar PM teme stranice */
+.sast-subtabs {
+  display: flex;
+  gap: 6px;
+  padding: 8px 0 12px;
+  border-bottom: 1px solid var(--border, #e5e5e5);
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.sast-subtab {
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 8px 14px;
+  border-radius: 6px 6px 0 0;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text2, #666);
+  transition: all 0.12s;
+}
+.sast-subtab:hover {
+  background: var(--surface2, #f6f6f6);
+  color: var(--text, #1a1a1a);
+}
+.sast-subtab.is-active {
+  background: var(--surface, #fff);
+  color: var(--primary, #2563eb);
+  border-color: var(--border, #e5e5e5);
+  border-bottom-color: var(--surface, #fff);
+  font-weight: 600;
+  position: relative;
+  top: 1px;
+}
+.sast-subtab.is-hitno-tab {
+  color: #dc2626;
+}
+.sast-subtab.is-hitno-tab.is-active {
+  color: #dc2626;
+  background: rgba(239, 68, 68, 0.06);
+}
+
+/* Hitno (red border, soft red background) */
+.sast-table tr.is-hitno {
+  background: rgba(239, 68, 68, 0.05);
+  box-shadow: inset 4px 0 0 #ef4444;
+}
+.sast-table tr.is-hitno:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+.sast-table tr.is-razmatra {
+  background: rgba(251, 191, 36, 0.07);
+  box-shadow: inset 4px 0 0 #f59e0b;
+}
+.sast-table tr.is-hitno.is-razmatra {
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.1), rgba(251, 191, 36, 0.07));
+  box-shadow: inset 4px 0 0 #ef4444, inset 8px 0 0 #f59e0b;
+}
+.sast-table tr.is-mine {
+  /* suptilan plavi accent na "moje" temama */
+  border-left: 0;
+}
+.sast-table tr.is-mine .tema-naslov-line strong::before {
+  content: '👤 ';
+  opacity: 0.5;
+  font-size: 0.85em;
+}
+
+/* Naslov line + flag bedževi unutar ćelije */
+.tema-naslov-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.sast-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+.sast-flag.flag-hitno {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+.sast-flag.flag-razmatra {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+.sast-mine {
+  color: var(--primary, #2563eb);
+  font-weight: 600;
+  font-size: 11px;
+}
+
+/* Master rang ćelija */
+.sast-teme-table .th-rang,
+.sast-pregled-table .th-rang {
+  width: 70px;
+  text-align: center;
+}
+.sast-teme-table .td-rang,
+.sast-pregled-table .td-rang {
+  text-align: center;
+  vertical-align: middle;
+}
+.rang-input {
+  width: 50px;
+  padding: 4px 6px;
+  border: 1px solid var(--border, #e5e5e5);
+  border-radius: 4px;
+  text-align: center;
+  font-size: 13px;
+  background: var(--surface, #fff);
+  color: var(--text, #1a1a1a);
+}
+.rang-input:focus {
+  outline: 2px solid var(--primary, #2563eb);
+  outline-offset: -1px;
+  border-color: var(--primary, #2563eb);
+}
+.rang-display {
+  display: inline-block;
+  min-width: 24px;
+  text-align: center;
+  color: var(--text2, #888);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Ghost / accent dugmad za action toggle */
+.btn-icon.btn-ghost {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text2, #888);
+}
+.btn-icon.btn-ghost:hover {
+  background: var(--surface2, #f6f6f6);
+  color: var(--text, #1a1a1a);
+}
+.btn-icon.btn-warn {
+  background: #f59e0b;
+  color: #fff;
+  border-color: #d97706;
+}
+.btn-icon.btn-warn.active,
+.btn-icon.btn-danger.active {
+  outline: 2px solid currentColor;
+  outline-offset: 1px;
+}
+
+/* Form checkbox row (modal) */
+.sast-form-check {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: flex-start;
+  gap: 10px !important;
+  padding: 10px 12px;
+  background: var(--surface2, #f9f9f9);
+  border-radius: 6px;
+  margin-top: 4px;
+}
+.sast-form-check input[type=checkbox] {
+  margin-top: 3px;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.sast-form-check span {
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+/* ============================================================================
+   Pregled po projektu (grid, drag-drop, lista projekata)
+   ============================================================================ */
+.sast-pregled-header {
+  margin-bottom: 16px;
+}
+.sast-pregled-header h3 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  color: var(--text, #1a1a1a);
+}
+.sast-pregled-sub {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text2, #666);
+}
+.sast-pregled-grid {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .sast-pregled-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sast-pregled-projekti {
+  background: var(--surface2, #f9f9f9);
+  border: 1px solid var(--border, #e5e5e5);
+  border-radius: 8px;
+  padding: 12px;
+  position: sticky;
+  top: 12px;
+  max-height: calc(100vh - 220px);
+  overflow-y: auto;
+}
+.sast-pregled-projekti h4 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text2, #888);
+}
+.sast-projekti-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.sast-projekat-item {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 8px 10px;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text, #1a1a1a);
+  transition: all 0.12s;
+}
+.sast-projekat-item:hover {
+  background: var(--surface, #fff);
+  border-color: var(--border, #e5e5e5);
+}
+.sast-projekat-item.is-active {
+  background: var(--surface, #fff);
+  border-color: var(--primary, #2563eb);
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.15);
+}
+.sast-projekat-naslov {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.sast-projekat-sub {
+  font-size: 11px;
+  color: var(--text2, #888);
+}
+
+.sast-pregled-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.sast-pregled-toolbar h4 {
+  margin: 0;
+  font-size: 16px;
+  color: var(--text, #1a1a1a);
+}
+.sast-pregled-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text2, #666);
+}
+
+/* Drag-drop styling */
+.sast-pregled-table tr[draggable="true"] {
+  cursor: grab;
+}
+.sast-pregled-table tr.dragging {
+  opacity: 0.4;
+  cursor: grabbing;
+}
+.sast-pregled-table tr.drop-target td {
+  border-top: 2px solid var(--primary, #2563eb);
+}
+.drag-handle {
+  display: inline-block;
+  color: var(--text2, #aaa);
+  cursor: grab;
+  padding: 0 4px;
+  user-select: none;
+  font-size: 14px;
+  line-height: 1;
+}
+.drag-handle:hover {
+  color: var(--text, #1a1a1a);
+}
+.sast-td-flags {
+  display: flex;
+  gap: 4px;
+  padding-top: 12px;
+}
+
+/* Dark mode pod-tabovi i pregled */
+body.dark .sast-subtab.is-active {
+  background: var(--surface, #1e1e1e);
+  border-bottom-color: var(--surface, #1e1e1e);
+}
+body.dark .sast-table tr.is-hitno {
+  background: rgba(239, 68, 68, 0.12);
+}
+body.dark .sast-table tr.is-hitno:hover {
+  background: rgba(239, 68, 68, 0.18);
+}
+body.dark .sast-table tr.is-razmatra {
+  background: rgba(251, 191, 36, 0.14);
+}
+body.dark .sast-flag.flag-hitno {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+body.dark .sast-flag.flag-razmatra {
+  background: rgba(251, 191, 36, 0.18);
+  color: #fcd34d;
+  border-color: rgba(251, 191, 36, 0.4);
+}
+body.dark .sast-form-check {
+  background: rgba(255, 255, 255, 0.04);
+}
+body.dark .sast-projekat-item.is-active {
+  background: var(--surface, #1e1e1e);
+  border-color: var(--primary, #3b82f6);
+}

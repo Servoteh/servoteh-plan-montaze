@@ -17,7 +17,7 @@ import { STORAGE_KEYS } from '../lib/constants.js';
 const state = {
   /** { email, emailRaw, id, _token, _refreshToken, _expiresAt } | null */
   user: null,
-  /** 'admin' | 'leadpm' | 'pm' | 'hr' | 'viewer' */
+  /** 'admin' | 'leadpm' | 'pm' | 'menadzment' | 'hr' | 'viewer' */
   role: 'viewer',
   /** Postoji li trenutno mreža + Supabase odgovara? Postavlja services/supabase.js. */
   isOnline: false,
@@ -122,13 +122,30 @@ export function canEditPlanProizvodnje() {
 /**
  * Modul Sastanci — svi authenticated mogu da otvore i čitaju.
  * Pisanje (kreiranje sastanaka, dodavanje tema, akcionog plana) je za
- * admin/pm/leadpm — viewer i hr su read-only.
+ * admin/pm/leadpm/menadzment — viewer i hr su read-only.
  */
 export function canAccessSastanci() {
-  return ['admin', 'leadpm', 'pm', 'hr', 'viewer'].includes(state.role);
+  return ['admin', 'leadpm', 'pm', 'menadzment', 'hr', 'viewer'].includes(state.role);
 }
 export function canEditSastanci() {
-  return ['admin', 'leadpm', 'pm'].includes(state.role);
+  return ['admin', 'leadpm', 'pm', 'menadzment'].includes(state.role);
+}
+
+/**
+ * Samo admin može da menja master prioritet (admin_rang) i da označi temu
+ * kao "za razmatranje" na sledećem sastanku Menadžmenta.
+ */
+export function canPrioritizeTeme() {
+  return state.role === 'admin';
+}
+
+/**
+ * Da li trenutni korisnik vlasnik teme (predlozio_email).
+ * Koristi se za "edit only own" gate na PM temama.
+ */
+export function isTemaOwner(predlozioEmail) {
+  if (!predlozioEmail || !state.user?.email) return false;
+  return String(predlozioEmail).toLowerCase() === String(state.user.email).toLowerCase();
 }
 
 /* ── Persistencija sesije u localStorage (fallback ako Supabase ne stigne) ── */

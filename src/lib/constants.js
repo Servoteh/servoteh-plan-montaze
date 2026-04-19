@@ -31,6 +31,7 @@ export const ROLE_LABELS = Object.freeze({
   admin: 'Admin',
   leadpm: 'Lead PM',
   pm: 'PM',
+  menadzment: 'Menadžment',
   hr: 'HR',
   viewer: 'Viewer',
 });

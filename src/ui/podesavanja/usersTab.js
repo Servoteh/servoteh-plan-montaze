@@ -197,6 +197,7 @@ function _summaryHtml() {
   const admins = all.filter(u => u.role === 'admin').length;
   const hr = all.filter(u => u.role === 'hr').length;
   const pms = all.filter(u => u.role === 'pm' || u.role === 'leadpm').length;
+  const mgmt = all.filter(u => u.role === 'menadzment').length;
   const viewers = all.filter(u => u.role === 'viewer').length;
   const chips = [
     { label: 'Ukupno korisnika', value: all.length, tone: 'accent' },
@@ -204,6 +205,7 @@ function _summaryHtml() {
     { label: 'Admin', value: admins, tone: admins > 0 ? 'accent' : 'muted' },
     { label: 'HR', value: hr, tone: hr > 0 ? 'ok' : 'muted' },
     { label: 'PM / Lead PM', value: pms, tone: 'muted' },
+    { label: 'Menadžment', value: mgmt, tone: mgmt > 0 ? 'accent' : 'muted' },
     { label: 'Viewer', value: viewers, tone: 'muted' },
   ];
   return chips.map(c => summaryChipHtml(c.label, c.value, c.tone)).join('');
@@ -335,7 +337,7 @@ async function _submitUserForm(id) {
   const projectId = _modalEl?.querySelector('#umProject')?.value || null;
   const isActive = !!_modalEl?.querySelector('#umIsActive')?.checked;
 
-  if (!['admin', 'leadpm', 'pm', 'hr', 'viewer'].includes(role)) {
+  if (!['admin', 'leadpm', 'pm', 'menadzment', 'hr', 'viewer'].includes(role)) {
     showErr('Neispravna uloga');
     return;
   }

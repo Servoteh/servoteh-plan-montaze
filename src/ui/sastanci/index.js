@@ -20,16 +20,18 @@ import { getSastanciState, setActiveTab } from '../../state/sastanci.js';
 
 import { renderDashboardTab, teardownDashboardTab } from './dashboardTab.js';
 import { renderPmTemeTab, teardownPmTemeTab } from './pmTemeTab.js';
+import { renderPregledPoProjektuTab, teardownPregledPoProjektuTab } from './pregledPoProjektuTab.js';
 import { renderAkcioniPlanTab, teardownAkcioniPlanTab } from './akcioniPlanTab.js';
 import { renderSastanciTab, teardownSastanciTab } from './sastanciTab.js';
 import { renderArhivaTab, teardownArhivaTab } from './arhivaTab.js';
 
 const TABS = [
-  { id: 'dashboard',     label: 'Pregled',       icon: '📊', desc: 'Statistike i nadolazeći sastanci.' },
-  { id: 'sastanci',      label: 'Sastanci',      icon: '📅', desc: 'Lista svih sastanaka.' },
-  { id: 'pm-teme',       label: 'PM teme',       icon: '💡', desc: 'Predlozi PM-ova za dnevni red.' },
-  { id: 'akcioni-plan',  label: 'Akcioni plan',  icon: '✅', desc: 'Otvorene akcije sa rokovima.' },
-  { id: 'arhiva',        label: 'Arhiva',        icon: '🗃', desc: 'Zaključani sastanci i zapisnici.' },
+  { id: 'dashboard',         label: 'Pregled',           icon: '📊', desc: 'Statistike i nadolazeći sastanci.' },
+  { id: 'sastanci',          label: 'Sastanci',          icon: '📅', desc: 'Lista svih sastanaka.' },
+  { id: 'pm-teme',           label: 'PM teme',           icon: '💡', desc: 'Predlozi PM-ova za dnevni red.' },
+  { id: 'pregled-projekti',  label: 'Po projektu',       icon: '🎯', desc: 'Pregled tema po projektu sa master rangom (admin).' },
+  { id: 'akcioni-plan',      label: 'Akcioni plan',      icon: '✅', desc: 'Otvorene akcije sa rokovima.' },
+  { id: 'arhiva',            label: 'Arhiva',            icon: '🗃', desc: 'Zaključani sastanci i zapisnici.' },
 ];
 
 export function renderSastanciModule(mountEl, { onBackToHub, onLogout }) {
@@ -126,6 +128,10 @@ function renderTabBody(host, { canEdit }) {
     renderPmTemeTab(host, { canEdit });
     return;
   }
+  if (state.activeTab === 'pregled-projekti') {
+    renderPregledPoProjektuTab(host);
+    return;
+  }
   if (state.activeTab === 'akcioni-plan') {
     renderAkcioniPlanTab(host, { canEdit });
     return;
@@ -141,6 +147,7 @@ function teardownActiveTab() {
   if (state.activeTab === 'dashboard') teardownDashboardTab();
   if (state.activeTab === 'sastanci') teardownSastanciTab();
   if (state.activeTab === 'pm-teme') teardownPmTemeTab();
+  if (state.activeTab === 'pregled-projekti') teardownPregledPoProjektuTab();
   if (state.activeTab === 'akcioni-plan') teardownAkcioniPlanTab();
   if (state.activeTab === 'arhiva') teardownArhivaTab();
 }
