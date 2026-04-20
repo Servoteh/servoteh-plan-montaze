@@ -17,6 +17,8 @@
 
 import { BrowserMultiFormatReader } from '@zxing/browser';
 
+export { normalizeBarcodeText, parseBigTehnBarcode } from '../lib/barcodeParse.js';
+
 /**
  * @typedef {object} ScanController
  * @property {() => void} stop
@@ -114,29 +116,5 @@ export async function startScan(videoEl, { onResult, onError }) {
   };
 }
 
-/**
- * Normalizacija sadržaja barkoda u `item_ref_id` koji aplikacija razume.
- *
- * BigTehn nalepnice mogu u barkod da enkodiraju "Broj predmeta" (npr.
- * `9000/260`) ili "Broj crteža" (npr. `1084924`) ili kombinovani string.
- * Ova funkcija:
- *   - trim-uje whitespace
- *   - skida CR/LF (često dolaze na kraju Code39/128)
- *   - uklanja očigledne kontrolne prefixe tipa `AI_SCAN:` ili `*` (Code39
- *     start/stop karakter)
- *
- * Ako format ispadne složeniji (npr. SSCC sa prefiksima ili multi-AI GS1),
- * proširujemo ovde.
- *
- * @param {string} raw
- * @returns {string}
- */
-export function normalizeBarcodeText(raw) {
-  if (typeof raw !== 'string') return '';
-  let t = raw.replace(/[\r\n\t]+/g, '').trim();
-  /* Code39 uvek encode-uje `*TEXT*` — čitači obično to skidaju, ali za svaki slučaj. */
-  if (t.startsWith('*') && t.endsWith('*') && t.length >= 3) {
-    t = t.slice(1, -1);
-  }
-  return t;
-}
+/* `normalizeBarcodeText` i `parseBigTehnBarcode` su izvojeni u
+ * `src/lib/barcodeParse.js` da bi bili testabilni bez ZXing runtime-a. */

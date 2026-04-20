@@ -48,7 +48,7 @@ export async function openScanMoveModal({ onSuccess } = {}) {
     showToast('⚠ Ne mogu da učitam modul za skeniranje');
     return;
   }
-  const { isScanSupported, normalizeBarcodeText, startScan } = barcodeMod;
+  const { isScanSupported, normalizeBarcodeText, parseBigTehnBarcode, startScan } = barcodeMod;
 
   if (!isScanSupported()) {
     showToast('⚠ Ovaj pregledač ne podržava skeniranje');
@@ -84,9 +84,17 @@ export async function openScanMoveModal({ onSuccess } = {}) {
         </div>
 
         <div class="loc-scan-form-body">
-          <div class="emp-field">
-            <label for="locScanItemId">ID stavke (iz barkoda)</label>
-            <input type="text" id="locScanItemId" autocomplete="off" maxlength="200">
+          <div class="loc-scan-parsed" id="locScanParsed" hidden></div>
+
+          <div class="emp-form-grid">
+            <div class="emp-field">
+              <label for="locScanOrder">Broj naloga</label>
+              <input type="text" id="locScanOrder" autocomplete="off" maxlength="20" placeholder="npr. 9000">
+            </div>
+            <div class="emp-field">
+              <label for="locScanItemId">Broj crteža *</label>
+              <input type="text" id="locScanItemId" autocomplete="off" maxlength="40" required>
+            </div>
           </div>
 
           <div class="loc-scan-chips" id="locScanChips"></div>
@@ -106,7 +114,7 @@ export async function openScanMoveModal({ onSuccess } = {}) {
             </div>
             <div class="emp-field col-full">
               <label for="locScanNote">Napomena</label>
-              <input type="text" id="locScanNote" maxlength="200" placeholder="Opciono">
+              <input type="text" id="locScanNote" maxlength="200" placeholder="Opciono — prebačeno iz naloga">
             </div>
           </div>
 
@@ -166,7 +174,9 @@ export async function openScanMoveModal({ onSuccess } = {}) {
           if (!clean) return;
           cleanupScan();
           if (navigator.vibrate) navigator.vibrate(80);
-          showForm(clean);
+          /* BigTehn format je potvrđen kao `NALOG/CRTEŽ` (npr. `9000/1091063`). */
+          const parsed = parseBigTehnBarcode(clean);
+          showForm(parsed || clean);
         },
         onError: err => {
           console.error('[scan] error', err);
@@ -230,11 +240,48 @@ export async function openScanMoveModal({ onSuccess } = {}) {
         .join('');
   }
 
-  async function showForm(scannedId) {
+  /**
+   * @param {string | {orderNo:string, drawingNo:string, raw:string}} payload
+   *   - string: plain barcode (user input ili neprepoznati format)
+   *   - object: BigTehn parsed `{ orderNo, drawingNo, raw }`
+   */
+  async function showForm(payload) {
     stageScan.hidden = true;
     stageForm.hidden = false;
     $('#locScanErr').textContent = '';
-    $('#locScanItemId').value = scannedId || '';
+
+    let drawingNo = '';
+    let orderNo = '';
+    let rawHint = '';
+
+    if (payload && typeof payload === 'object') {
+      drawingNo = payload.drawingNo;
+      orderNo = payload.orderNo;
+      rawHint = payload.raw;
+    } else if (typeof payload === 'string') {
+      drawingNo = payload;
+    }
+
+    $('#locScanItemId').value = drawingNo;
+    $('#locScanOrder').value = orderNo;
+
+    const hint = $('#locScanParsed');
+    if (rawHint && orderNo && drawingNo) {
+      hint.hidden = false;
+      hint.innerHTML =
+        `<span class="loc-scan-parsed-raw">Skenirano: <strong>${escHtml(rawHint)}</strong></span> ` +
+        `<span class="loc-muted">→ nalog <strong>${escHtml(orderNo)}</strong>, crtež <strong>${escHtml(drawingNo)}</strong></span>`;
+    } else {
+      hint.hidden = true;
+      hint.innerHTML = '';
+    }
+
+    /* Nalog u `notes` — radnik može da izbriše ako ne želi. */
+    const noteInput = $('#locScanNote');
+    if (orderNo && !noteInput.value) {
+      noteInput.value = `Nalog: ${orderNo}`;
+    }
+
     populateToSelect();
     await refreshPlacements();
   }
@@ -347,7 +394,8 @@ export async function openScanMoveModal({ onSuccess } = {}) {
       case 'manual':
         cleanupScan();
         showForm('');
-        setTimeout(() => $('#locScanItemId').focus(), 50);
+        /* Fokus na nalog — radnik obično prvo gleda prvi broj na nalepnici. */
+        setTimeout(() => $('#locScanOrder').focus(), 50);
         break;
       case 'back':
       case 'rescan':
