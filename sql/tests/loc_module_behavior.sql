@@ -10,7 +10,7 @@
 BEGIN;
 SET search_path = public, extensions;
 
-SELECT plan(10);
+SELECT plan(11);
 
 -- ── 1) Root lokacija: depth=0, path_cached = code ──────────────────────
 DO $$
