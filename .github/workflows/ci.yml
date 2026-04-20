@@ -34,38 +34,55 @@ jobs:
   sql-tests:
     name: SQL migrations + pgTAP
     runs-on: ubuntu-24.04
-    # Postgres se instalira na runner umesto kroz `services:` jer moramo
-    # instalirati pgTAP ekstenziju preko PGDG apt-a.
+    # Postgres 15 se pokreće u Docker service containeru (izolovano od default
+    # PG koji GitHub Actions runner već ima instaliran na portu 5432 — ranije
+    # smo u istom koraku pokušavali apt-install PG 15 na host, ali je to stalno
+    # kolidiralo sa host-ovim postgresql-* paketima i cluster-om).
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ci_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ci_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Postgres 15 + pgTAP
+      - name: Install pgTAP extension into Postgres container
         run: |
           set -euo pipefail
+          # Službeni postgres:15 image ima PGDG apt repo već konfigurisan, pa
+          # možemo direktno instalirati postgresql-15-pgtap unutar kontejnera.
+          CID=$(docker ps --filter "ancestor=postgres:15" --format "{{.ID}}" | head -n1)
+          if [ -z "$CID" ]; then
+            echo "Postgres service container not found" >&2
+            docker ps -a
+            exit 1
+          fi
+          echo "Installing pgTAP into container $CID"
+          docker exec -u root "$CID" bash -c "
+            set -euo pipefail
+            apt-get update -qq
+            apt-get install -y --no-install-recommends postgresql-15-pgtap
+          "
 
-          sudo install -d /usr/share/postgresql-common/pgdg
-          sudo curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
-            -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
-          . /etc/os-release
-          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] \
-            http://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
-            | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
-
+      - name: Install psql client + pg_prove on runner
+        run: |
+          set -euo pipefail
           sudo apt-get update -qq
+          # postgresql-client je iz Ubuntu 24.04 (PG 16 klijent — kompatibilan
+          # sa serverom 15). libtap-parser-sourcehandler-pgtap-perl donosi
+          # `pg_prove` binary za izvršavanje pgTAP test fajlova.
           sudo apt-get install -y --no-install-recommends \
-            postgresql-15 \
-            postgresql-15-pgtap \
-            postgresql-client-15 \
+            postgresql-client \
             libtap-parser-sourcehandler-pgtap-perl
-
-          # Runner image može imati stariji default PG cluster koji okupira 5432;
-          # restartujemo samo pg-15 cluster.
-          sudo pg_ctlcluster 15 main restart
-
-          # Postavi lozinku i napravi test bazu.
-          sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD 'postgres';"
-          sudo -u postgres psql -c "CREATE DATABASE ci_test;"
 
       - name: Apply CI bootstrap
         env:
@@ -99,7 +116,11 @@ jobs:
           fi
           pg_prove --verbose -h localhost -U postgres -d ci_test "${tests[@]}"
 
-      - name: Dump Postgres log on failure
+      - name: Dump Postgres container logs on failure
         if: failure()
         run: |
-          sudo tail -n 200 /var/log/postgresql/postgresql-15-main.log || true
+          CID=$(docker ps -a --filter "ancestor=postgres:15" --format "{{.ID}}" | head -n1) || true
+          if [ -n "${CID:-}" ]; then
+            echo "=== postgres:15 container logs ==="
+            docker logs "$CID" || true
+          fi
