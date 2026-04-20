@@ -10,7 +10,8 @@ import { hasSupabaseConfig } from '../../services/supabase.js';
 import {
   fetchMaintMachineStatuses,
   fetchMaintUserProfile,
-  fetchBigtehnMachineNames,
+  fetchMaintMachines,
+  fetchMaintMachine,
   fetchMaintTasksForMachine,
   fetchMaintTasksForMachineAll,
   fetchMaintIncidentsForMachine,
@@ -31,6 +32,17 @@ import {
   canManageMaintTasks,
 } from './maintTasksTab.js';
 import { openMaintOverrideModal, canManageMaintOverride } from './maintOverrideDialog.js';
+import {
+  renderMaintNotificationsPanel,
+  canAccessMaintNotifications,
+} from './maintNotificationsTab.js';
+import {
+  renderMaintCatalogPanel,
+  canManageMaintCatalog,
+  openMaintMachineModal,
+  openMaintMachinesImportDialog,
+} from './maintCatalogTab.js';
+import { renderMaintFilesTab } from './maintFilesTab.js';
 
 let mountRef = null;
 let disposeRef = { disposed: false };
@@ -58,6 +70,7 @@ const TAB_LABELS = {
   kontrole: 'Kontrole',
   incidenti: 'Incidenti',
   napomene: 'Napomene',
+  dokumenti: 'Dokumenti',
   sabloni: 'Šabloni',
 };
 
@@ -108,12 +121,16 @@ function subnavHtml(section, machineCode, tab, onNavigateToPath) {
   const dashActive = section === 'dashboard' ? ' mnt-subnav-active' : '';
   const listActive = section === 'machines' ? ' mnt-subnav-active' : '';
   const boardActive = section === 'board' ? ' mnt-subnav-active' : '';
+  const notifActive = section === 'notifications' ? ' mnt-subnav-active' : '';
+  const catActive = section === 'catalog' ? ' mnt-subnav-active' : '';
   const machActive = section === 'machine' ? ' mnt-subnav-active' : '';
   return `
     <nav class="mnt-subnav" aria-label="Održavanje navigacija">
       <button type="button" class="mnt-subnav-btn${dashActive}" data-mnt-nav="/maintenance">Pregled</button>
       <button type="button" class="mnt-subnav-btn${listActive}" data-mnt-nav="/maintenance/machines">Mašine</button>
       <button type="button" class="mnt-subnav-btn${boardActive}" data-mnt-nav="/maintenance/board">Rokovi</button>
+      <button type="button" class="mnt-subnav-btn${notifActive}" data-mnt-nav="/maintenance/notifications">Obaveštenja</button>
+      <button type="button" class="mnt-subnav-btn${catActive}" data-mnt-nav="/maintenance/catalog">Katalog mašina</button>
       ${
         section === 'machine' && machineCode
           ? `<button type="button" class="mnt-subnav-btn${machActive}" data-mnt-nav="${buildMaintenanceMachinePath(machineCode, normalizeTab(tab || 'pregled'))}">Ova mašina</button>
@@ -218,11 +235,33 @@ async function renderPanel(host, section, machineCode, tab, onNavigateToPath, on
   }
   if (disposeRef.disposed || !host.isConnected) return;
 
+  if (section === 'notifications') {
+    const prof = await fetchMaintUserProfile();
+    if (disposeRef.disposed || !host.isConnected) return;
+    if (!canAccessMaintNotifications(prof)) {
+      host.innerHTML = `<div class="mnt-panel"><p class="mnt-muted">Pregled obaveštenja je dostupan šefu/rukovodstvu i ERP admin-u.</p></div>`;
+      return;
+    }
+    await renderMaintNotificationsPanel(host, { prof, onNavigateToPath });
+    return;
+  }
+
+  if (section === 'catalog') {
+    const prof = await fetchMaintUserProfile();
+    if (disposeRef.disposed || !host.isConnected) return;
+    if (!canManageMaintCatalog(prof)) {
+      host.innerHTML = `<div class="mnt-panel"><p class="mnt-muted">Katalog mašina može da menja samo šef/admin održavanja ili ERP admin.</p></div>`;
+      return;
+    }
+    await renderMaintCatalogPanel(host, { prof, onNavigateToPath });
+    return;
+  }
+
   if (section === 'board') {
     const [dues, prof, names, statuses] = await Promise.all([
       fetchMaintTaskDueDates(),
       fetchMaintUserProfile(),
-      fetchBigtehnMachineNames(),
+      fetchMaintMachines(),
       fetchMaintMachineStatuses(),
     ]);
     if (disposeRef.disposed || !host.isConnected) return;
@@ -231,7 +270,7 @@ async function renderPanel(host, section, machineCode, tab, onNavigateToPath, on
       return;
     }
     const nameByCode = new Map(
-      (Array.isArray(names) ? names : []).map(n => [n.rj_code, n.name || n.rj_code]),
+      (Array.isArray(names) ? names : []).map(n => [n.machine_code, n.name || n.machine_code]),
     );
     /* View `v_maint_machine_current_status` već filtrira istekle override-e u JOIN-u: ako je `override_reason` ne-NULL, override je aktivan. */
     const overrideByCode = new Map(
@@ -301,7 +340,7 @@ async function renderPanel(host, section, machineCode, tab, onNavigateToPath, on
     const [rows, prof, names] = await Promise.all([
       fetchMaintMachineStatuses(),
       fetchMaintUserProfile(),
-      fetchBigtehnMachineNames(),
+      fetchMaintMachines(),
     ]);
     if (disposeRef.disposed || !host.isConnected) return;
 
@@ -311,7 +350,7 @@ async function renderPanel(host, section, machineCode, tab, onNavigateToPath, on
     }
 
     const nameByCode = new Map(
-      (Array.isArray(names) ? names : []).map(n => [n.rj_code, n.name || n.rj_code]),
+      (Array.isArray(names) ? names : []).map(n => [n.machine_code, n.name || n.machine_code]),
     );
     const merged = mergeMachineNames(rows, nameByCode);
     const run = merged.filter(r => r.status === 'running').length;
@@ -347,6 +386,7 @@ async function renderPanel(host, section, machineCode, tab, onNavigateToPath, on
     });
 
     if (section === 'dashboard') {
+      const canEditCatalogDash = canManageMaintCatalog(prof);
       host.innerHTML = `
         ${kpi}
         ${profLine}
@@ -354,41 +394,115 @@ async function renderPanel(host, section, machineCode, tab, onNavigateToPath, on
           <h3>Zahtevaju pažnju (do 12)</h3>
           <ul class="mnt-list">${attRows.length ? attRows.join('') : '<li class="mnt-muted">Nema stavki van „radi” stanja.</li>'}</ul>
         </div>
-        <p style="margin-top:16px"><button type="button" class="btn" id="mntGoMachinesBtn">Otvori listu mašina →</button></p>`;
+        <p style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
+          <button type="button" class="btn" id="mntGoMachinesBtn">Otvori listu mašina →</button>
+          ${canEditCatalogDash ? '<button type="button" class="btn" id="mntGoCatalogBtn" style="background:var(--surface3)">⚙ Katalog mašina (uredi/dodaj) →</button>' : ''}
+        </p>`;
       host.querySelector('#mntGoMachinesBtn')?.addEventListener('click', () => {
         onNavigateToPath?.('/maintenance/machines');
       });
+      host.querySelector('#mntGoCatalogBtn')?.addEventListener('click', () => {
+        onNavigateToPath?.('/maintenance/catalog');
+      });
     } else {
+      const canEditCatalog = canManageMaintCatalog(prof);
+      /* Katalog detalji (tip/proizvođač/model/lokacija/arhiviranost) po machine_code. */
+      const metaByCode = new Map(
+        (Array.isArray(names) ? names : []).map(n => [n.machine_code, n]),
+      );
       const tableRows = merged
         .map(r => {
           const path = buildMaintenanceMachinePath(r.machine_code, 'pregled');
+          const meta = metaByCode.get(r.machine_code) || {};
           const ovr = r.override_reason
             ? ` <span class="mnt-badge" title="${escHtml(r.override_reason)}${r.override_valid_until ? ' (do ' + r.override_valid_until.replace('T', ' ').slice(0, 16) + ')' : ''}">OVERRIDE</span>`
+            : '';
+          const mfrModel = [meta.manufacturer, meta.model].filter(Boolean).map(escHtml).join(' ');
+          const editBtn = canEditCatalog && meta.machine_code
+            ? `<button type="button" class="btn" style="padding:2px 10px;font-size:12px" data-mnt-edit-mach="${escHtml(r.machine_code)}">Uredi</button>`
             : '';
           return `<tr data-mnt-nav="${path}">
             <td><code>${escHtml(r.machine_code)}</code></td>
             <td>${escHtml(r.display_name)}</td>
+            <td>${escHtml(meta.type || '')}</td>
+            <td>${mfrModel}</td>
+            <td>${escHtml(meta.location || '')}</td>
             <td><span class="${statusBadgeClass(r.status)}">${escHtml(r.status)}</span>${ovr}</td>
-            <td>${escHtml(String(r.open_incidents_count ?? 0))}</td>
-            <td>${escHtml(String(r.overdue_checks_count ?? 0))}</td>
+            <td style="text-align:center">${escHtml(String(r.open_incidents_count ?? 0))}</td>
+            <td style="text-align:center">${escHtml(String(r.overdue_checks_count ?? 0))}</td>
+            ${canEditCatalog ? `<td style="text-align:right">${editBtn}</td>` : ''}
           </tr>`;
         })
         .join('');
+      const adminToolbar = canEditCatalog
+        ? `<div class="mnt-admin-cta">
+            <span class="mnt-admin-cta-text">
+              <strong>Režim: admin.</strong> Za brzo uređivanje svih podataka (šifra, naziv, tip, proizvođač, godina, lokacija, kW, kg, napomene) otvori <em>Katalog mašina</em> — tabela sa direktnim upisom, TAB-om kroz ćelije.
+            </span>
+            <button type="button" class="btn" id="mntMachCatalogBtn">⚙ Otvori katalog (uredi mašine)</button>
+            <button type="button" class="btn" id="mntMachAddBtn" style="background:var(--surface3)">+ Dodaj mašinu</button>
+            <button type="button" class="btn" id="mntMachImportBtn" style="background:var(--surface3)">Uvezi iz BigTehn-a…</button>
+          </div>`
+        : '';
+      const colCount = canEditCatalog ? 9 : 8;
       host.innerHTML = `
         ${kpi}
         ${profLine}
-        <div class="mnt-table-wrap" style="margin-top:16px">
+        ${adminToolbar}
+        <div class="mnt-table-wrap" style="margin-top:8px">
           <table class="mnt-table" aria-label="Mašine">
-            <thead><tr><th>Šifra</th><th>Naziv</th><th>Status</th><th>Otv. inc.</th><th>Overdue</th></tr></thead>
-            <tbody>${tableRows || '<tr><td colspan="5" class="mnt-muted">Nema redova u cache-u.</td></tr>'}</tbody>
+            <thead><tr>
+              <th>Šifra</th>
+              <th>Naziv</th>
+              <th>Tip</th>
+              <th>Proizv. · model</th>
+              <th>Lokacija</th>
+              <th>Status</th>
+              <th>Otv.&nbsp;inc.</th>
+              <th>Overdue</th>
+              ${canEditCatalog ? '<th></th>' : ''}
+            </tr></thead>
+            <tbody>${tableRows || `<tr><td colspan="${colCount}" class="mnt-muted">Nema redova u cache-u.</td></tr>`}</tbody>
           </table>
         </div>`;
       host.querySelectorAll('.mnt-table tbody tr[data-mnt-nav]').forEach(tr => {
-        tr.addEventListener('click', () => {
+        tr.addEventListener('click', (ev) => {
+          /* Klik na dugme „Uredi" ne sme da otvori detalj. */
+          if (ev.target.closest('[data-mnt-edit-mach]')) return;
           const p = tr.getAttribute('data-mnt-nav');
           if (p) onNavigateToPath?.(p);
         });
       });
+      if (canEditCatalog) {
+        host.querySelector('#mntMachAddBtn')?.addEventListener('click', () => {
+          openMaintMachineModal({
+            mode: 'create',
+            existing: null,
+            onSaved: () => onRefreshPanel?.(),
+          });
+        });
+        host.querySelector('#mntMachImportBtn')?.addEventListener('click', () => {
+          openMaintMachinesImportDialog({
+            onImported: () => onRefreshPanel?.(),
+          });
+        });
+        host.querySelector('#mntMachCatalogBtn')?.addEventListener('click', () => {
+          onNavigateToPath?.('/maintenance/catalog');
+        });
+        host.querySelectorAll('[data-mnt-edit-mach]').forEach(btn => {
+          btn.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            const code = btn.getAttribute('data-mnt-edit-mach');
+            const row = metaByCode.get(code);
+            if (!row) return;
+            openMaintMachineModal({
+              mode: 'edit',
+              existing: row,
+              onSaved: () => onRefreshPanel?.(),
+            });
+          });
+        });
+      }
     }
 
     host.querySelectorAll('.mnt-linkish[data-mnt-nav]').forEach(btn => {
@@ -403,7 +517,8 @@ async function renderPanel(host, section, machineCode, tab, onNavigateToPath, on
 
   /* machine detail */
   const t0 = normalizeTab(tab);
-  const [meta, tasks, tasksAll, incidents, notes, prof, override] = await Promise.all([
+  const [mach, btMeta, tasks, tasksAll, incidents, notes, prof, override] = await Promise.all([
+    fetchMaintMachine(machineCode),
     fetchBigtehnMachineRow(machineCode),
     fetchMaintTasksForMachine(machineCode),
     t0 === 'sabloni' ? fetchMaintTasksForMachineAll(machineCode) : Promise.resolve([]),
@@ -418,7 +533,7 @@ async function renderPanel(host, section, machineCode, tab, onNavigateToPath, on
   const tabBase = buildMaintenanceMachinePath(machineCode, '');
   const basePath = tabBase.split('?')[0];
   const canEditTasks = canManageMaintTasks(prof);
-  const tabIds = ['pregled', 'kontrole', 'incidenti', 'napomene'];
+  const tabIds = ['pregled', 'kontrole', 'incidenti', 'napomene', 'dokumenti'];
   if (canEditTasks) tabIds.push('sabloni');
   const tabsHtml = tabIds
     .map(
@@ -427,8 +542,19 @@ async function renderPanel(host, section, machineCode, tab, onNavigateToPath, on
     )
     .join('');
 
-  const displayName = meta?.name || machineCode;
+  const displayName = mach?.name || btMeta?.name || machineCode;
   const canOverride = canManageMaintOverride(prof);
+  const canEditMach = canManageMaintCatalog(prof);
+  const machSubtitleParts = [];
+  if (mach?.type) machSubtitleParts.push(escHtml(mach.type));
+  if (mach?.manufacturer || mach?.model) {
+    const mm = [mach.manufacturer, mach.model].filter(Boolean).map(escHtml).join(' ');
+    if (mm) machSubtitleParts.push(mm);
+  }
+  if (mach?.year_of_manufacture) machSubtitleParts.push(`god. ${escHtml(String(mach.year_of_manufacture))}`);
+  if (mach?.location) machSubtitleParts.push(`📍 ${escHtml(mach.location)}`);
+  const machSubtitle = machSubtitleParts.join(' · ');
+  const machArchived = !!mach?.archived_at;
   const ovrActive =
     override && (!override.valid_until || new Date(override.valid_until).getTime() > Date.now())
       ? override
@@ -452,8 +578,22 @@ async function renderPanel(host, section, machineCode, tab, onNavigateToPath, on
           <div style="margin-top:6px;white-space:pre-wrap">${escHtml(ovrActive.reason || '')}</div>
         </div>`
       : '';
+    const metaBits = [];
+    if (mach?.serial_number) metaBits.push(`S/N: <code>${escHtml(mach.serial_number)}</code>`);
+    if (mach?.year_commissioned) metaBits.push(`puštena u pogon: ${escHtml(String(mach.year_commissioned))}`);
+    if (mach?.power_kw != null) metaBits.push(`${escHtml(String(mach.power_kw))} kW`);
+    if (mach?.weight_kg != null) metaBits.push(`${escHtml(String(mach.weight_kg))} kg`);
+    if (btMeta?.rj_code) metaBits.push(`BigTehn: <code>${escHtml(btMeta.rj_code)}</code>`);
+    const metaLine = metaBits.length
+      ? `<p class="mnt-muted">${metaBits.join(' · ')}</p>`
+      : (mach ? '' : `<p class="mnt-muted"><em>Mašina nije u katalogu — otvori tab Katalog pa je dodaj ili uvezi iz BigTehn-a.</em></p>`);
+    const notesBlock = mach?.notes
+      ? `<div style="margin:12px 0;padding:10px 12px;border-left:3px solid var(--border);background:var(--surface2);white-space:pre-wrap">${escHtml(mach.notes)}</div>`
+      : '';
     body = `
-      <p class="mnt-muted">${meta ? `BigTehn: <code>${escHtml(meta.rj_code || '')}</code>` : 'Nema reda u cache-u za ovu šifru.'}</p>
+      ${metaLine}
+      ${notesBlock}
+      ${machArchived ? `<div class="mnt-panel" style="background:var(--red-bg);color:var(--red);padding:10px 12px;margin:12px 0">Ova mašina je <strong>arhivirana</strong> ${escHtml((mach.archived_at || '').replace('T', ' ').slice(0, 16))}. Vrati je iz taba „Katalog” ako treba ponovo da bude aktivna.</div>` : ''}
       ${ovrHtml}
       <h3 style="font-size:15px;margin:16px 0 8px">Otvoreni incidenti (poslednjih 5)</h3>
       <ul class="mnt-list">${openInc.length ? openInc.map(i => `<li>${escHtml(i.title || '')} — <span class="${severityBadge(i.severity)}">${escHtml(i.severity)}</span> · <span class="mnt-muted">${escHtml(i.status || '')}</span></li>`).join('') : '<li class="mnt-muted">Nema otvorenih.</li>'}</ul>
@@ -465,6 +605,8 @@ async function renderPanel(host, section, machineCode, tab, onNavigateToPath, on
         <button type="button" class="btn" style="padding:4px 10px;font-size:12px" data-mnt-quickcheck="${escHtml(String(x.id))}">OK</button></li>`).join('') : '<li>Nema taskova.</li>'}</ul>`;
   } else if (t === 'sabloni') {
     body = renderMaintTasksTab(Array.isArray(tasksAll) ? tasksAll : [], prof);
+  } else if (t === 'dokumenti') {
+    body = `<div id="mntFilesMount"><p class="mnt-muted">Učitavanje…</p></div>`;
   } else if (t === 'incidenti') {
     body = `<p class="mnt-muted">Klik na stavku otvara detalj (status, dodela, istorija događaja).</p>
       <ul class="mnt-list">${
@@ -520,11 +662,15 @@ async function renderPanel(host, section, machineCode, tab, onNavigateToPath, on
 
   host.innerHTML = `
     <div class="mnt-machine-head" style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;justify-content:space-between">
-      <p style="font-size:18px;font-weight:600;margin:0">${escHtml(displayName)} <code class="mnt-muted">${escHtml(machineCode)}</code></p>
+      <div style="min-width:0">
+        <p style="font-size:18px;font-weight:600;margin:0">${escHtml(displayName)} <code class="mnt-muted">${escHtml(machineCode)}</code></p>
+        ${machSubtitle ? `<p class="mnt-muted" style="margin:2px 0 0;font-size:13px">${machSubtitle}</p>` : ''}
+      </div>
       <div class="mnt-actions" style="display:flex;gap:8px;flex-wrap:wrap">
         <button type="button" class="btn" id="mntBtnCheck">Potvrdi kontrolu</button>
         <button type="button" class="btn" id="mntBtnIncident">Prijavi incident</button>
         ${canOverride ? `<button type="button" class="btn" id="mntBtnOverride">${ovrActive ? 'Uredi override' : 'Postavi status'}</button>` : ''}
+        ${canEditMach && mach ? `<button type="button" class="btn" id="mntBtnEditMach" style="background:var(--surface3)">Uredi mašinu</button>` : ''}
       </div>
     </div>
     <div class="mnt-tabs" role="tablist">${tabsHtml}</div>
@@ -537,6 +683,16 @@ async function renderPanel(host, section, machineCode, tab, onNavigateToPath, on
       if (id) onNavigateToPath?.(`${basePath}?tab=${encodeURIComponent(id)}`);
     });
   });
+
+  if (t === 'dokumenti') {
+    const mount = host.querySelector('#mntFilesMount');
+    if (mount) {
+      renderMaintFilesTab(mount, machineCode, prof, {
+        archived: machArchived,
+        onChanged: () => onRefreshPanel?.(),
+      });
+    }
+  }
 
   const tasksSafe = Array.isArray(tasks) ? tasks : [];
   host.querySelector('#mntBtnCheck')?.addEventListener('click', () => {
@@ -564,6 +720,14 @@ async function renderPanel(host, section, machineCode, tab, onNavigateToPath, on
     openMaintOverrideModal({
       machineCode,
       existing: ovrActive || override || null,
+      onSaved: () => onRefreshPanel?.(),
+    });
+  });
+  host.querySelector('#mntBtnEditMach')?.addEventListener('click', () => {
+    if (!mach) return;
+    openMaintMachineModal({
+      mode: 'edit',
+      existing: mach,
       onSaved: () => onRefreshPanel?.(),
     });
   });
@@ -700,7 +864,7 @@ async function renderPanel(host, section, machineCode, tab, onNavigateToPath, on
 /**
  * @param {HTMLElement} root
  * @param {{
- *   section: 'dashboard' | 'machines' | 'machine' | 'board',
+ *   section: 'dashboard' | 'machines' | 'machine' | 'board' | 'notifications',
  *   machineCode?: string | null,
  *   tab?: string | null,
  *   onBackToHub: () => void,

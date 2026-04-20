@@ -197,3 +197,177 @@
 .mnt-linkish:hover {
   color: var(--accent-hover);
 }
+
+/* ── Inline-editable katalog (spreadsheet stil) ─────────────────────────── */
+
+/* Tabela sa ugraðenim inputima: tesna, gusta, bez hover-cursor-a jer se
+   ne klikce na red. */
+.mnt-table--edit {
+  font-size: 13px;
+}
+
+.mnt-table--edit tbody tr {
+  cursor: default;
+}
+
+.mnt-table--edit tbody tr:hover {
+  background: transparent;
+}
+
+.mnt-table--edit th {
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+
+.mnt-table--edit th.mnt-th-sort:hover {
+  color: var(--accent);
+}
+
+.mnt-table--edit th .mnt-sort-arrow {
+  display: inline-block;
+  width: 10px;
+  margin-left: 2px;
+  color: var(--accent);
+  opacity: 0.8;
+}
+
+.mnt-table--edit td {
+  padding: 4px 6px;
+  vertical-align: middle;
+}
+
+/* Goli input koji se ne vidi dok se ne fokusira — „izgled Excela". */
+.mnt-cell-input,
+.mnt-cell-select {
+  width: 100%;
+  min-width: 0;
+  padding: 6px 8px;
+  font: inherit;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+.mnt-cell-input:hover,
+.mnt-cell-select:hover {
+  border-color: var(--border3);
+  background: var(--surface2);
+}
+
+.mnt-cell-input:focus,
+.mnt-cell-select:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--surface);
+  box-shadow: 0 0 0 2px var(--accent-dim);
+}
+
+.mnt-cell-input[readonly] {
+  background: transparent !important;
+  border-color: transparent !important;
+  color: var(--text2);
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 12px;
+  cursor: default;
+}
+
+.mnt-cell-input--num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Minimalne širine po tipu polja (sprečavaju da kolona postane nečitljiva). */
+.mnt-col-code   { min-width: 110px; }
+.mnt-col-name   { min-width: 200px; }
+.mnt-col-type   { min-width: 140px; }
+.mnt-col-mfr    { min-width: 130px; }
+.mnt-col-model  { min-width: 120px; }
+.mnt-col-serial { min-width: 110px; }
+.mnt-col-year   { width: 70px;  min-width: 70px; }
+.mnt-col-loc    { min-width: 160px; }
+.mnt-col-num    { width: 80px;  min-width: 70px; }
+.mnt-col-track  { width: 60px;  min-width: 50px; text-align: center; }
+.mnt-col-notes  { min-width: 220px; }
+.mnt-col-act    { width: 160px; min-width: 140px; white-space: nowrap; text-align: right; }
+
+/* Dirty indikator: levi akcenat + pastelna pozadina. */
+.mnt-row-dirty > td {
+  background: var(--accent-dim);
+}
+
+.mnt-row-dirty > td:first-child {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.mnt-row-archived > td {
+  opacity: 0.55;
+}
+
+/* Mini-dugmad u poslednjoj koloni (Save/Revert/Rename/Archive). */
+.mnt-row-act {
+  display: inline-flex;
+  gap: 4px;
+  flex-wrap: nowrap;
+}
+
+.mnt-row-act .btn {
+  padding: 3px 8px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.mnt-row-act .btn[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Sticky donja traka koja pokazuje ukupan broj izmena. */
+.mnt-edit-bar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 14px;
+  margin-top: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.15);
+  z-index: 2;
+}
+
+.mnt-edit-bar--empty {
+  display: none;
+}
+
+.mnt-edit-bar strong {
+  color: var(--accent);
+}
+
+/* Prominentni CTA kad admin gleda /maintenance/machines. */
+.mnt-admin-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  padding: 12px 14px;
+  background: var(--accent-dim);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  margin: 10px 0 14px;
+}
+
+.mnt-admin-cta .mnt-admin-cta-text {
+  flex: 1;
+  min-width: 200px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.mnt-admin-cta .btn {
+  white-space: nowrap;
+}

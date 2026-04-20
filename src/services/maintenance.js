@@ -3,8 +3,10 @@
  * Zavisi od migracije sql/migrations/add_maintenance_module.sql.
  */
 
-import { sbReq } from './supabase.js';
+import { sbReq, getSupabaseUrl, getSupabaseAnonKey } from './supabase.js';
 import { getCurrentUser } from '../state/auth.js';
+
+const MAINT_FILES_BUCKET = 'maint-machine-files';
 
 /** @param {string} code */
 function enc(code) {
@@ -24,14 +26,23 @@ export async function fetchMaintMachineStatuses(opts = {}) {
 
 /**
  * Nazivi mašina iz BigTehn cache-a (read-only).
- * @param {{ limit?: number }} [opts]
+ * Po defaultu skriva „ne-mašine” (`no_procedure=true`: Kontrola, Kooperacija,
+ * Montaža, Transport…). Postavi `includeNonMachining:true` kad ti treba
+ * kompletan lookup (npr. za prikaz imena starih incidenata/notifikacija).
+ * @param {{ limit?: number, includeNonMachining?: boolean }} [opts]
  * @returns {Promise<Array<{ rj_code: string, name: string, no_procedure?: boolean }>|null>}
  */
 export async function fetchBigtehnMachineNames(opts = {}) {
   const limit = opts.limit ?? 2000;
-  return await sbReq(
-    `bigtehn_machines_cache?select=rj_code,name,no_procedure&order=name.asc&limit=${limit}`
-  );
+  const parts = [
+    'select=rj_code,name,no_procedure',
+    `order=name.asc&limit=${limit}`,
+  ];
+  if (!opts.includeNonMachining) {
+    /* `NOT IS TRUE` pokriva i NULL i false — tj. sve što NIJE eksplicitno true. */
+    parts.push('no_procedure=not.is.true');
+  }
+  return await sbReq(`bigtehn_machines_cache?${parts.join('&')}`);
 }
 
 /**
@@ -359,4 +370,383 @@ export async function deleteMaintMachineOverride(machineCode) {
     'DELETE',
   );
   return r !== null;
+}
+
+/* ── Katalog mašina (maint_machines) ─────────────────────────────────────── */
+
+const MAINT_MACHINE_COLS =
+  'machine_code,name,type,manufacturer,model,serial_number,year_of_manufacture,year_commissioned,location,department_id,power_kw,weight_kg,notes,tracked,archived_at,source,created_at,updated_at,updated_by';
+
+/**
+ * Lista mašina iz `maint_machines` (katalog Održavanja).
+ * @param {{ includeArchived?: boolean, limit?: number }} [opts]
+ * @returns {Promise<Array<object>|null>}
+ */
+export async function fetchMaintMachines(opts = {}) {
+  const limit = opts.limit ?? 2000;
+  const parts = [
+    `select=${MAINT_MACHINE_COLS}`,
+    `order=name.asc&limit=${limit}`,
+  ];
+  if (!opts.includeArchived) {
+    parts.push('archived_at=is.null');
+  }
+  return await sbReq(`maint_machines?${parts.join('&')}`);
+}
+
+/**
+ * @param {string} machineCode
+ * @returns {Promise<object|null>}
+ */
+export async function fetchMaintMachine(machineCode) {
+  const rows = await sbReq(
+    `maint_machines?select=${MAINT_MACHINE_COLS}&machine_code=eq.${enc(machineCode)}&limit=1`,
+  );
+  return Array.isArray(rows) && rows[0] ? rows[0] : null;
+}
+
+/**
+ * Ručno kreiranje mašine (source='manual'). `machine_code` je PK — ako postoji,
+ * insert će pasti na RLS-u ili duplicate key. Koristimo Prefer=return=representation.
+ * @param {{ machine_code: string, name: string, [k: string]: any }} payload
+ * @returns {Promise<object|null>}
+ */
+export async function insertMaintMachine(payload) {
+  const uid = getCurrentUser()?.id;
+  const body = {
+    machine_code: String(payload.machine_code).trim(),
+    name: String(payload.name).trim(),
+    type: payload.type ?? null,
+    manufacturer: payload.manufacturer ?? null,
+    model: payload.model ?? null,
+    serial_number: payload.serial_number ?? null,
+    year_of_manufacture: payload.year_of_manufacture ?? null,
+    year_commissioned: payload.year_commissioned ?? null,
+    location: payload.location ?? null,
+    department_id: payload.department_id ?? null,
+    power_kw: payload.power_kw ?? null,
+    weight_kg: payload.weight_kg ?? null,
+    notes: payload.notes ?? null,
+    tracked: payload.tracked !== false,
+    source: payload.source || 'manual',
+    updated_by: uid || null,
+  };
+  /* upsert:false → čist INSERT (ako postoji machine_code, vraća grešku — ne
+     prepisujemo potencijalno arhivirani red). */
+  const rows = await sbReq('maint_machines', 'POST', body, { upsert: false });
+  return Array.isArray(rows) && rows[0] ? rows[0] : null;
+}
+
+/**
+ * Patch pojedinačnih polja. `machine_code` se NIKAD ne menja (PK).
+ * @param {string} machineCode
+ * @param {Record<string, any>} patch
+ * @returns {Promise<boolean>}
+ */
+export async function patchMaintMachine(machineCode, patch) {
+  const body = { ...patch };
+  delete body.machine_code;
+  delete body.created_at;
+  body.updated_by = getCurrentUser()?.id || null;
+  const r = await sbReq(
+    `maint_machines?machine_code=eq.${enc(machineCode)}`,
+    'PATCH',
+    body,
+  );
+  return r !== null;
+}
+
+/** Soft-delete: postavi archived_at = now(). */
+export async function archiveMaintMachine(machineCode) {
+  return await patchMaintMachine(machineCode, {
+    archived_at: new Date().toISOString(),
+    tracked: false,
+  });
+}
+
+/** Vrati iz arhive. */
+export async function restoreMaintMachine(machineCode) {
+  return await patchMaintMachine(machineCode, {
+    archived_at: null,
+    tracked: true,
+  });
+}
+
+/**
+ * Kandidati za uvoz iz BigTehn-a (oni koji nisu još u maint_machines).
+ * @param {{ onlyMachining?: boolean, limit?: number }} [opts]
+ * @returns {Promise<Array<{ machine_code: string, name: string, department_id?: string, no_procedure: boolean }>|null>}
+ */
+export async function fetchMaintMachinesImportable(opts = {}) {
+  const limit = opts.limit ?? 2000;
+  const parts = [
+    'select=machine_code,name,department_id,no_procedure',
+    `order=machine_code.asc&limit=${limit}`,
+  ];
+  if (opts.onlyMachining !== false) {
+    parts.push('no_procedure=is.false');
+  }
+  return await sbReq(`v_maint_machines_importable?${parts.join('&')}`);
+}
+
+/**
+ * Atomski preimenuje šifru mašine u svim `maint_*` tabelama.
+ * Zove RPC `maint_machine_rename(old, new)`. Chief/admin only.
+ * @param {string} oldCode
+ * @param {string} newCode
+ * @returns {Promise<{ ok: boolean, result?: object, error?: string }>}
+ */
+export async function renameMaintMachine(oldCode, newCode) {
+  const r = await sbReq('rpc/maint_machine_rename', 'POST', {
+    p_old_code: String(oldCode).trim(),
+    p_new_code: String(newCode).trim(),
+  });
+  if (r && typeof r === 'object' && !Array.isArray(r)) {
+    return { ok: true, result: r };
+  }
+  if (Array.isArray(r) && r[0] && typeof r[0] === 'object') {
+    return { ok: true, result: r[0] };
+  }
+  return { ok: false, error: 'RPC nije uspeo (ovlašćenja, kolizija šifre ili mašina ne postoji).' };
+}
+
+/**
+ * Masovni uvoz iz BigTehn cache-a.
+ * @param {string[]} codes rj_code lista
+ * @returns {Promise<number>} broj stvarno uvezenih redova
+ */
+export async function importMaintMachinesFromCache(codes) {
+  const arr = Array.isArray(codes) ? codes.filter(Boolean) : [];
+  if (!arr.length) return 0;
+  const r = await sbReq('rpc/maint_machines_import_from_cache', 'POST', {
+    p_codes: arr,
+  });
+  if (typeof r === 'number') return r;
+  if (Array.isArray(r) && typeof r[0] === 'number') return r[0];
+  return 0;
+}
+
+/* ── Obaveštenja (maint_notification_log) ────────────────────────────────── */
+
+/**
+ * Listaj notifikacije iz outbox-a (RLS: chief/management/admin ili ERP admin).
+ * @param {{ status?: 'queued'|'sent'|'failed'|'all',
+ *           machineCode?: string,
+ *           incidentId?: string,
+ *           limit?: number }} [opts]
+ * @returns {Promise<Array<object>|null>}
+ */
+export async function fetchMaintNotifications(opts = {}) {
+  const limit = opts.limit ?? 200;
+  const parts = [
+    'select=id,channel,recipient,recipient_user_id,subject,body,status,attempts,error,scheduled_at,next_attempt_at,last_attempt_at,sent_at,created_at,machine_code,related_entity_type,related_entity_id,escalation_level,payload',
+    `order=created_at.desc&limit=${limit}`,
+  ];
+  if (opts.status && opts.status !== 'all') {
+    parts.push(`status=eq.${enc(opts.status)}`);
+  }
+  if (opts.machineCode) {
+    parts.push(`machine_code=eq.${enc(opts.machineCode)}`);
+  }
+  if (opts.incidentId) {
+    parts.push(`related_entity_id=eq.${enc(opts.incidentId)}`);
+  }
+  return await sbReq(`maint_notification_log?${parts.join('&')}`);
+}
+
+/**
+ * Vrati jednu notifikaciju iz 'failed' u 'queued' (RPC, SECURITY DEFINER).
+ * @param {string} id uuid
+ * @returns {Promise<boolean>}
+ */
+export async function retryMaintNotification(id) {
+  const r = await sbReq('rpc/maint_notification_retry', 'POST', { p_id: id });
+  /* RPC vraća boolean (true/false) ili null na grešku. */
+  return r === true || (Array.isArray(r) && r[0] === true);
+}
+
+/* ── Dokumenti uz mašinu (maint_machine_files + Storage) ─────────────────── */
+
+const MAINT_FILE_COLS = [
+  'id', 'machine_code', 'file_name', 'storage_path',
+  'mime_type', 'size_bytes', 'category', 'description',
+  'uploaded_at', 'uploaded_by', 'deleted_at',
+].join(',');
+
+/**
+ * Listaj dokumente za datu mašinu.
+ * @param {string} machineCode
+ * @param {{ includeDeleted?: boolean }} [opts]
+ */
+export async function fetchMaintMachineFiles(machineCode, opts = {}) {
+  if (!machineCode) return [];
+  const parts = [
+    `select=${MAINT_FILE_COLS}`,
+    `machine_code=eq.${enc(machineCode)}`,
+    'order=uploaded_at.desc&limit=500',
+  ];
+  if (!opts.includeDeleted) parts.push('deleted_at=is.null');
+  const rows = await sbReq(`maint_machine_files?${parts.join('&')}`);
+  return Array.isArray(rows) ? rows : [];
+}
+
+/**
+ * Uploaduje file u Storage bucket i upiše metadata u tabelu.
+ * Ime fajla se sanitizuje, dodaje se uuid prefiks da se izbegnu kolizije.
+ * @param {{ machineCode: string, file: File|Blob, category?: string, description?: string }} opts
+ * @returns {Promise<{ ok: boolean, row?: object, error?: string }>}
+ */
+export async function uploadMaintMachineFile(opts) {
+  const { machineCode, file, category, description } = opts || {};
+  if (!machineCode || !file) return { ok: false, error: 'Nedostaju podaci.' };
+
+  const origName = file.name || 'file';
+  const safeName = String(origName)
+    .normalize('NFKD')
+    .replace(/[^\w.\-]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 80) || 'file';
+
+  const uuid = (crypto?.randomUUID?.() || String(Date.now())).replace(/-/g, '').slice(0, 12);
+  const storagePath = `${machineCode}/${uuid}_${safeName}`;
+
+  const user = getCurrentUser();
+  const token = user?._token || getSupabaseAnonKey();
+  const apiKey = getSupabaseAnonKey();
+  const baseUrl = getSupabaseUrl();
+
+  /* 1) PUT u Storage */
+  try {
+    const r = await fetch(
+      `${baseUrl}/storage/v1/object/${MAINT_FILES_BUCKET}/${encodeURI(storagePath)}`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + token,
+          'apikey': apiKey,
+          'Content-Type': file.type || 'application/octet-stream',
+          'x-upsert': 'false',
+          'cache-control': '3600',
+        },
+        body: file,
+      },
+    );
+    if (!r.ok) {
+      const txt = await r.text().catch(() => '');
+      console.error('[uploadMaintMachineFile] storage failed', r.status, txt);
+      return { ok: false, error: `Storage upload (${r.status}): ${txt || 'fail'}` };
+    }
+  } catch (e) {
+    console.error('[uploadMaintMachineFile] storage exception', e);
+    return { ok: false, error: 'Mreža/Storage greška.' };
+  }
+
+  /* 2) INSERT metadata */
+  const payload = {
+    machine_code: machineCode,
+    file_name:    origName,
+    storage_path: storagePath,
+    mime_type:    file.type || null,
+    size_bytes:   file.size || null,
+    category:     category ? String(category).slice(0, 40) : null,
+    description:  description ? String(description).slice(0, 500) : null,
+    uploaded_by:  user?.id || null,
+  };
+  const res = await sbReq('maint_machine_files', 'POST', payload, { upsert: false });
+  const row = Array.isArray(res) ? (res[0] || null) : (res || null);
+  if (!row) {
+    /* Best-effort cleanup: obriši uploadovani blob da ne ostane „siroče". */
+    try {
+      await fetch(
+        `${baseUrl}/storage/v1/object/${MAINT_FILES_BUCKET}/${encodeURI(storagePath)}`,
+        { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token, 'apikey': apiKey } },
+      );
+    } catch { /* ignore */ }
+    return { ok: false, error: 'Metadata upis u bazu nije uspeo (RLS?).' };
+  }
+  return { ok: true, row };
+}
+
+/**
+ * Vraća signed URL (preview/download) za dati storage_path.
+ * @param {string} storagePath
+ * @param {number} [expiresSec] trajanje linka, default 5 min
+ * @returns {Promise<string|null>}
+ */
+export async function getMaintMachineFileSignedUrl(storagePath, expiresSec = 300) {
+  if (!storagePath) return null;
+  const user = getCurrentUser();
+  const token = user?._token || getSupabaseAnonKey();
+  const apiKey = getSupabaseAnonKey();
+  const baseUrl = getSupabaseUrl();
+  try {
+    const r = await fetch(
+      `${baseUrl}/storage/v1/object/sign/${MAINT_FILES_BUCKET}/${encodeURI(storagePath)}`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + token,
+          'apikey': apiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ expiresIn: expiresSec }),
+      },
+    );
+    if (!r.ok) return null;
+    const { signedURL, signedUrl } = await r.json();
+    const rel = signedURL || signedUrl;
+    if (!rel) return null;
+    return baseUrl + '/storage/v1' + (rel.startsWith('/') ? rel : '/' + rel);
+  } catch (e) {
+    console.error('[getMaintMachineFileSignedUrl]', e);
+    return null;
+  }
+}
+
+/**
+ * Obriši dokument: soft-delete reda u tabeli + pokušaj delete u Storage.
+ * @param {{ id: string, storage_path: string }} file
+ */
+export async function deleteMaintMachineFile(file) {
+  if (!file?.id) return false;
+  const params = new URLSearchParams();
+  params.set('id', `eq.${file.id}`);
+  const ok = await sbReq(
+    `maint_machine_files?${params.toString()}`,
+    'PATCH',
+    { deleted_at: new Date().toISOString() },
+  );
+  if (ok === null) return false;
+
+  if (file.storage_path) {
+    const user = getCurrentUser();
+    const token = user?._token || getSupabaseAnonKey();
+    const apiKey = getSupabaseAnonKey();
+    const baseUrl = getSupabaseUrl();
+    try {
+      await fetch(
+        `${baseUrl}/storage/v1/object/${MAINT_FILES_BUCKET}/${encodeURI(file.storage_path)}`,
+        { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token, 'apikey': apiKey } },
+      );
+    } catch { /* best-effort */ }
+  }
+  return true;
+}
+
+/**
+ * Izmena metadata (opis, kategorija) — binarni sadržaj se ne menja.
+ * @param {string} id
+ * @param {{ category?: string, description?: string }} patch
+ */
+export async function patchMaintMachineFile(id, patch) {
+  if (!id) return null;
+  const body = {};
+  if (patch?.category !== undefined) body.category = patch.category ? String(patch.category).slice(0, 40) : null;
+  if (patch?.description !== undefined) body.description = patch.description ? String(patch.description).slice(0, 500) : null;
+  if (!Object.keys(body).length) return null;
+  const params = new URLSearchParams();
+  params.set('id', `eq.${id}`);
+  const res = await sbReq(`maint_machine_files?${params.toString()}`, 'PATCH', body);
+  return Array.isArray(res) ? (res[0] || null) : (res || null);
 }
