@@ -14,6 +14,7 @@ import {
   fetchLocations,
   locCreateMovement,
 } from '../../services/lokacije.js';
+import { enqueueMovement } from '../../services/offlineQueue.js';
 
 /* ZXing je ~250KB gzip i treba samo na ovom ekranu — lazy load da ne kasnimo
  * initial load za sve korisnike (većina nikad ne skenira sa desktop-a). */
@@ -33,9 +34,16 @@ function removeModal() {
 
 /**
  * Otvori skener modal.
- * @param {{ onSuccess?: () => void }} [opts]
+ * @param {{
+ *   onSuccess?: () => void,
+ *   onClose?: () => void,
+ *   startMode?: 'scan' | 'manual',
+ * }} [opts]
+ *   - `startMode: 'manual'` — preskače kamera stage i odmah prikazuje formu;
+ *     koristi se iz mobilnog shell-a kada user klikne "Ručni unos".
+ *   - `onClose` — poziva se kada user zatvori modal bez uspešnog upisa.
  */
-export async function openScanMoveModal({ onSuccess } = {}) {
+export async function openScanMoveModal({ onSuccess, onClose, startMode = 'scan' } = {}) {
   removeModal();
 
   /* Učitaj ZXing wrapper sinhrono pre nego što otvorimo overlay — tako
@@ -152,10 +160,18 @@ export async function openScanMoveModal({ onSuccess } = {}) {
     }
   }
 
-  function close() {
+  /** @param {{ bySuccess?: boolean }} [opts] */
+  function close(opts = {}) {
     cleanupScan();
     removeModal();
     document.removeEventListener('keydown', onEsc);
+    if (!opts.bySuccess) {
+      try {
+        onClose?.();
+      } catch (e) {
+        /* ignore */
+      }
+    }
   }
 
   function onEsc(ev) {
@@ -167,6 +183,30 @@ export async function openScanMoveModal({ onSuccess } = {}) {
   document.addEventListener('keydown', onEsc);
 
   async function startScanner() {
+    /* NATIVE path (Capacitor APK): ML Kit otvara full-screen native overlay,
+     * vraća text, pa mi odmah pređemo na formu. Naš <video> + torch UI
+     * se ne koriste — native scanner ima svoj UI. */
+    const { isNativeCapacitor, scanNativeOnce } = await import('../../services/nativeBarcode.js');
+    if (isNativeCapacitor()) {
+      /* Ne gasimo web video jer se uopšte nije pokrenuo; samo overlay
+       * držimo prazan dok native scanner radi. */
+      const text = await scanNativeOnce();
+      if (text) {
+        const clean = normalizeBarcodeText(text);
+        if (clean) {
+          if (navigator.vibrate) navigator.vibrate(80);
+          const parsed = parseBigTehnBarcode(clean);
+          showForm(parsed || clean);
+          return;
+        }
+      }
+      /* Cancel / permission denied → pokaži manualni unos kao fallback. */
+      showForm('');
+      setTimeout(() => $('#locScanOrder')?.focus(), 50);
+      return;
+    }
+
+    /* WEB path (Chrome/Safari browser) — postojeći ZXing flow. */
     stageForm.hidden = true;
     stageScan.hidden = false;
     const videoEl = $('#locScanVideo');
@@ -354,7 +394,8 @@ export async function openScanMoveModal({ onSuccess } = {}) {
 
     const btn = overlay.querySelector('[data-act="submit"]');
     btn.disabled = true;
-    const res = await locCreateMovement({
+
+    const payload = {
       item_ref_table: state.item_ref_table,
       item_ref_id,
       order_no,
@@ -363,7 +404,40 @@ export async function openScanMoveModal({ onSuccess } = {}) {
       movement_type: isInitial ? 'INITIAL_PLACEMENT' : 'TRANSFER',
       quantity: qty,
       note: note || undefined,
-    });
+    };
+
+    /* Offline fallback: ako telefon nije na WiFi-ju, gurni u queue
+     * (services/offlineQueue.js) i obavesti radnika. Kad se signal vrati
+     * auto-flush će pokušati da pošalje. */
+    if (!navigator.onLine) {
+      try {
+        enqueueMovement(payload);
+        if (navigator.vibrate) navigator.vibrate([40, 40, 40]);
+        showToast('📥 Offline — zapis sačuvan i poslaće se kad se vrati signal');
+        close({ bySuccess: true });
+        onSuccess?.();
+      } catch (e) {
+        err.textContent = `Ne mogu da zapišem u lokalni queue: ${e.message}`;
+      } finally {
+        btn.disabled = false;
+      }
+      return;
+    }
+
+    let res;
+    try {
+      res = await locCreateMovement(payload);
+    } catch (e) {
+      /* Mrežni pad u sred RPC-a → queue (videti napomenu u offlineQueue.js
+       * o mogućem duplikatu). */
+      enqueueMovement(payload);
+      btn.disabled = false;
+      if (navigator.vibrate) navigator.vibrate([40, 40, 40]);
+      showToast('📥 Mreža pala — zapis sačuvan u queue');
+      close({ bySuccess: true });
+      onSuccess?.();
+      return;
+    }
     btn.disabled = false;
 
     if (!res) {
@@ -377,7 +451,7 @@ export async function openScanMoveModal({ onSuccess } = {}) {
 
     showToast('✓ Premeštanje zabeleženo');
     if (navigator.vibrate) navigator.vibrate([40, 40, 40]);
-    close();
+    close({ bySuccess: true });
     onSuccess?.();
   }
 
@@ -454,7 +528,18 @@ export async function openScanMoveModal({ onSuccess } = {}) {
     const locs = await fetchLocations();
     state.locs = Array.isArray(locs) ? locs : [];
     state.locById = new Map(state.locs.map(l => [l.id, l]));
+    if (startMode === 'manual') {
+      /* Populate to-select odmah (inače bi ostao prazan dok korisnik ne klikne). */
+      populateToSelect();
+    }
   })();
 
-  startScanner();
+  if (startMode === 'manual') {
+    /* Preskoči kamera stage — prikaži formu praznu, fokus na polje `Broj naloga`.
+     * Korisno za telefone bez kamere ili kada nalepnica fali. */
+    showForm('');
+    setTimeout(() => $('#locScanOrder')?.focus(), 60);
+  } else {
+    startScanner();
+  }
 }

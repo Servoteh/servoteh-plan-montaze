@@ -14,6 +14,7 @@ import './styles/legacy.css';
 import './styles/planProizvodnje.css';
 import './styles/sastanci.css';
 import './styles/maintenance.css';
+import './styles/mobile.css';
 
 import { hasSupabaseConfig } from './lib/constants.js';
 import { showToast } from './lib/dom.js';
@@ -25,6 +26,38 @@ const root = document.getElementById('app');
 if (!root) {
   throw new Error('Vite mount point #app nije pronađen u index.html');
 }
+
+/**
+ * Kada aplikaciju pokrećemo kao Capacitor Android APK, WebView startuje sa
+ * `index.html` (root `/`). Bez intervencije bi se corisnik uvek video kao
+ * ERP hub koji nema smisla na telefonu magacionera. Zato pri svakom cold
+ * startu forsiramo rutu `/m` PRE bootstrap-a routera.
+ *
+ * Detekcija:
+ *   - `window.Capacitor?.isNativePlatform()` je dostupan samo unutar
+ *     Capacitor runtime-a (inject-uje ga `capacitor-android` plugin).
+ *   - Na web build-u vraća `undefined` → nikakav side-effect.
+ *   - Ako je user već negde u `/m/*` (npr. PWA shortcut), ostavi ga tamo.
+ *
+ * Odavde NE treba da se poziva `history.pushState` jer initRouter koristi
+ * `window.location.pathname` kao izvor istine — `history.replaceState`
+ * je dovoljan i ne kreira lažan back-entry.
+ */
+function redirectToMobileIfNative() {
+  try {
+    const isNative = typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.();
+    if (!isNative) return;
+    const p = window.location.pathname;
+    if (!p || p === '/' || p === '/index.html' || p === '/hub') {
+      history.replaceState(null, '', '/m');
+    }
+  } catch (e) {
+    /* Capacitor bridge ponekad nije spreman dok se WebView inicijalizuje —
+     * u tom slučaju ostavljamo trenutnu rutu. */
+    console.warn('[main] capacitor native detection failed', e);
+  }
+}
+redirectToMobileIfNative();
 
 /**
  * Bootstrap sekvenca:

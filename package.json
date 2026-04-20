@@ -13,10 +13,18 @@
     "test:sql": "echo Run manually: pg_prove -h localhost -U postgres -d DBNAME sql/tests/*.sql"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.3.1",
     "vite": "^5.4.10",
-    "vitest": "^2.1.9"
+    "vite-plugin-pwa": "^1.2.0",
+    "vitest": "^2.1.9",
+    "workbox-window": "^7.4.0"
   },
   "dependencies": {
+    "@capacitor-mlkit/barcode-scanning": "^8.0.1",
+    "@capacitor/android": "^8.3.1",
+    "@capacitor/app": "^8.1.0",
+    "@capacitor/core": "^8.3.1",
     "@zxing/browser": "^0.1.5",
     "jsbarcode": "^3.12.3"
   }

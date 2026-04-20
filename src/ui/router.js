@@ -34,6 +34,15 @@ import {
   teardownLokacijeModule,
 } from './lokacije/index.js';
 import {
+  renderMobileHome,
+  renderMobileScan,
+  renderMobileManual,
+} from './mobile/mobileHome.js';
+import { renderMobileHistory } from './mobile/mobileHistory.js';
+import { renderMobileBatch } from './mobile/mobileBatch.js';
+import { installAutoFlush } from '../services/offlineQueue.js';
+import { registerMobilePWA } from '../lib/pwa.js';
+import {
   getAuth,
   canAccessKadrovska,
   canManageUsers,
@@ -59,6 +68,8 @@ const MODULES = [
 
 let mountEl = null;
 let currentScreen = null;
+/** Teardown funkcija trenutno aktivnog mobile ekrana (ako postoji). */
+let currentMobileTeardown = null;
 
 /**
  * @param {string | null} leavingScreen Ekran koji napuštamo (pre promene currentScreen).
@@ -83,6 +94,10 @@ function clearMount(leavingScreen) {
   if (ls === 'odrzavanje-masina') {
     try { teardownMaintenanceShell(); } catch (e) { /* ignore */ }
   }
+  if (ls && ls.startsWith('mobile-')) {
+    try { currentMobileTeardown?.(); } catch (e) { /* ignore */ }
+    currentMobileTeardown = null;
+  }
   if (mountEl) mountEl.innerHTML = '';
   document.body.classList.remove(
     'hub-active',
@@ -95,6 +110,7 @@ function clearMount(leavingScreen) {
     'module-lokacije',
     'module-sastanci',
     'module-odrzavanje-masina',
+    'm-body',
   );
 }
 
@@ -442,6 +458,83 @@ function showModulePlaceholder(moduleId, options = {}) {
   mountEl.appendChild(screen);
 }
 
+/* ── Mobilni shell (magacin/viljuškar app) ── */
+
+/**
+ * Render mobilnog ekrana po `mobileScreen`. Instaluje auto-flush queue-a
+ * jednom (idempotentno) da se offline zapisi automatski pošalju kad se WiFi
+ * vrati. Za sve ekrane koristi jedan `#app` mount — pojedinačni render-i
+ * sami vraćaju teardown funkciju koju čuvamo u `currentMobileTeardown`.
+ *
+ * @param {'home'|'scan'|'manual'|'history'|'batch'} screen
+ * @param {{ skipUrlSync?: boolean }} [opts]
+ */
+async function showMobile(screen, opts = {}) {
+  const leaving = currentScreen;
+  const nextScreen = `mobile-${screen}`;
+  currentScreen = nextScreen;
+  clearMount(leaving);
+  if (!opts.skipUrlSync) {
+    const path =
+      screen === 'home' ? '/m' : `/m/${screen}`;
+    syncBrowserUrl(path);
+  }
+  setStoredModule(null);
+  installAutoFlush();
+  /* Registruj PWA service worker tek kada smo prvi put na `/m/*` — glavni
+   * hub (ERP) namerno NE koristi SW (vidi src/lib/pwa.js). */
+  void registerMobilePWA();
+
+  const navCtx = {
+    onNavigate: path => navigateToAppPath(path),
+    onLogout: () => {
+      resetKadrovskaState();
+      showLogin();
+    },
+  };
+
+  try {
+    let result;
+    if (screen === 'home') {
+      result = renderMobileHome(mountEl, navCtx);
+    } else if (screen === 'scan') {
+      result = renderMobileScan(mountEl, navCtx);
+    } else if (screen === 'manual') {
+      result = renderMobileManual(mountEl, navCtx);
+    } else if (screen === 'history') {
+      result = await renderMobileHistory(mountEl, navCtx);
+    } else if (screen === 'batch') {
+      result = await renderMobileBatch(mountEl, navCtx);
+    } else {
+      navigateToAppPath('/m');
+      return;
+    }
+    currentMobileTeardown = result?.teardown || null;
+  } catch (e) {
+    console.error('[router] Mobile render failed', e);
+    mountEl.innerHTML = `
+      <div class="m-shell">
+        <header class="m-header">
+          <div class="m-brand">
+            <div class="m-brand-title">Greška</div>
+            <div class="m-brand-sub">${escMsg(e)}</div>
+          </div>
+        </header>
+        <main class="m-main">
+          <button type="button" class="m-cta m-cta-primary" id="mErrBack">← Nazad</button>
+        </main>
+      </div>
+    `;
+    document.body.classList.add('m-body');
+    mountEl.querySelector('#mErrBack')?.addEventListener('click', () => navigateToAppPath('/m'));
+  }
+}
+
+function escMsg(e) {
+  const s = (e && e.message) || String(e);
+  return s.replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' })[c]);
+}
+
 /* ── Navigation guards + URL sync ── */
 
 /** @param {string} moduleId @returns {boolean} */
@@ -491,6 +584,8 @@ function showMaintenanceFromRoute(route, searchParsed, opts = {}) {
     let wantPath = '/maintenance';
     if (route.section === 'machines') wantPath = '/maintenance/machines';
     else if (route.section === 'board') wantPath = '/maintenance/board';
+    else if (route.section === 'notifications') wantPath = '/maintenance/notifications';
+    else if (route.section === 'catalog') wantPath = '/maintenance/catalog';
     else if (route.section === 'machine' && route.machineCode) {
       wantPath = buildMaintenanceMachinePath(route.machineCode, searchParsed.tab);
     }
@@ -505,7 +600,11 @@ function showMaintenanceFromRoute(route, searchParsed, opts = {}) {
         ? 'machine'
         : route.section === 'board'
           ? 'board'
-          : 'dashboard';
+          : route.section === 'notifications'
+            ? 'notifications'
+            : route.section === 'catalog'
+              ? 'catalog'
+              : 'dashboard';
   renderMaintenanceShell(mountEl, {
     section,
     machineCode: route.machineCode || null,
@@ -555,6 +654,17 @@ function applyRouteFromLocation() {
       return;
     }
     showMaintenanceFromRoute(route, search, { skipUrlSync: true });
+    return;
+  }
+
+  if (route.kind === 'mobile') {
+    if (!canAccessLokacije()) {
+      showToast('🔒 Za mobilni shell je potrebna prijava.');
+      syncBrowserUrl('/', { replace: true });
+      showHub();
+      return;
+    }
+    showMobile(route.mobileScreen || 'home', { skipUrlSync: true });
     return;
   }
 
