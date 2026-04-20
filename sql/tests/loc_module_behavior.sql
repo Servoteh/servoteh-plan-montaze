@@ -21,8 +21,10 @@ BEGIN
   PERFORM set_config('test.root_id', v_id::text, true);
 END $$;
 
+-- NB: `depth` je SMALLINT u produkciji — cast u integer da pgTAP `is()` nadje
+-- polimorfno preklapanje (is(smallint,integer,unknown) ne postoji).
 SELECT is(
-  (SELECT depth FROM public.loc_locations WHERE location_code = 'TEST-ROOT'),
+  (SELECT depth::integer FROM public.loc_locations WHERE location_code = 'TEST-ROOT'),
   0,
   'root lokacija ima depth=0'
 );
@@ -44,7 +46,7 @@ BEGIN
 END $$;
 
 SELECT is(
-  (SELECT depth FROM public.loc_locations WHERE location_code = 'TEST-CHILD'),
+  (SELECT depth::integer FROM public.loc_locations WHERE location_code = 'TEST-CHILD'),
   1,
   'dete depth=1'
 );
