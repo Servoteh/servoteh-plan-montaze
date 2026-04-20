@@ -30,10 +30,12 @@ export async function updateLocation(id, patch) {
 /**
  * Server-side pretraga + paginacija nad `loc_item_placements`.
  *
- * @param {{ limit?: number, offset?: number, wantCount?: boolean, search?: string, locationId?: string }} [opts]
- *   - `search` — case-insensitive `ilike` nad `item_ref_id` i `item_ref_table`
+ * @param {{ limit?: number, offset?: number, wantCount?: boolean, search?: string, locationId?: string, orderNo?: string }} [opts]
+ *   - `search` — case-insensitive `ilike` nad `item_ref_id`, `item_ref_table` i `order_no`
  *     (status je enum; za pretragu po statusu koristi poseban UI filter).
  *   - `locationId` — stroga jednakost `location_id=eq.UUID`.
+ *   - `orderNo` — striktna jednakost `order_no=eq.<trim>` (koristi se kada se
+ *     crtež zumira na konkretan radni nalog; `''` znači "bez naloga").
  * @returns {Promise<object[]|null|{rows:object[]|null,total:number|null}>}
  *   Kada je `wantCount=true` vraća `{ rows, total }` (total iz Content-Range header-a).
  */
@@ -43,6 +45,7 @@ export async function fetchPlacements({
   wantCount = false,
   search = '',
   locationId = '',
+  orderNo = undefined,
 } = {}) {
   const l = Math.max(1, Math.min(Number(limit) || 200, 500));
   const o = Math.max(0, Number(offset) || 0);
@@ -50,15 +53,19 @@ export async function fetchPlacements({
 
   const s = typeof search === 'string' ? search.trim() : '';
   if (s) {
-    /* PostgREST `or=(cond,cond)` — kolone su item_ref_id (TEXT) i item_ref_table (TEXT).
+    /* PostgREST `or=(cond,cond)` — item_ref_id/item_ref_table/order_no su TEXT.
      * Wildcards * postaju % na server-u. URI-encode radi zbog , : . koji su PostgREST separatori. */
     const needle = `*${s}*`;
     const enc = encodeURIComponent(needle);
-    parts.push(`or=(item_ref_id.ilike.${enc},item_ref_table.ilike.${enc})`);
+    parts.push(`or=(item_ref_id.ilike.${enc},item_ref_table.ilike.${enc},order_no.ilike.${enc})`);
   }
 
   if (locationId && typeof locationId === 'string') {
     parts.push(`location_id=eq.${encodeURIComponent(locationId)}`);
+  }
+  if (typeof orderNo === 'string') {
+    /* Prazan string je validna vrednost — označava "bez naloga" grupu. */
+    parts.push(`order_no=eq.${encodeURIComponent(orderNo.trim())}`);
   }
 
   const q = `loc_item_placements?${parts.join('&')}`;
@@ -73,12 +80,13 @@ export async function fetchPlacements({
  *
  * Tvrdi safety cap od 50 000 zapisa da neko ne obori browser nenamerno.
  *
- * @param {{ search?: string, locationId?: string, pageSize?: number, onProgress?: (p:{loaded:number,total:number|null})=>void, signal?: AbortSignal }} [opts]
+ * @param {{ search?: string, locationId?: string, orderNo?: string, pageSize?: number, onProgress?: (p:{loaded:number,total:number|null})=>void, signal?: AbortSignal }} [opts]
  * @returns {Promise<{ rows: object[], total: number|null, truncated: boolean }>}
  */
 export async function fetchAllPlacements({
   search = '',
   locationId = '',
+  orderNo = undefined,
   pageSize = 500,
   onProgress = null,
   signal = null,
@@ -100,6 +108,7 @@ export async function fetchAllPlacements({
       wantCount,
       search,
       locationId,
+      orderNo,
     });
     const rows = wantCount ? (res && typeof res === 'object' ? res.rows : null) : res;
     if (wantCount && res && typeof res === 'object' && typeof res.total === 'number') {
@@ -122,20 +131,32 @@ export async function fetchAllPlacements({
 
 /**
  * Trenutni placement-i za JEDNU stavku (item_ref_table + item_ref_id) preko svih
- * lokacija. Vraća rows sa {location_id, quantity, placement_status, updated_at}
- * sortirane po lokaciji. Prazna lista znači da stavka još nije smeštena.
+ * lokacija. Ako se prosledi `orderNo`, scope-uje se na taj konkretan radni nalog
+ * — bitno jer isti broj crteža može biti poručen na više naloga i komadi iz
+ * različitih naloga se NE smeju mešati.
+ *
+ * `orderNo === undefined` → vraća SVE naloge (i prazan bucket) za dati crtež,
+ * korisno za generalni pregled (npr. Items tab history modal).
+ * `orderNo === ''` ili neki string → striktno filtrira na taj bucket.
+ *
+ * Vraća rows sa {location_id, order_no, quantity, placement_status, updated_at}
+ * sortirane po poslednjoj izmeni. Prazna lista znači da stavka nije smeštena.
  *
  * @param {string} itemRefTable
  * @param {string} itemRefId
+ * @param {string} [orderNo]  trim-ovan — `''` je validna vrednost
  * @returns {Promise<object[]|null>}
  */
-export async function fetchItemPlacements(itemRefTable, itemRefId) {
+export async function fetchItemPlacements(itemRefTable, itemRefId, orderNo = undefined) {
   if (!itemRefTable || !itemRefId) return [];
-  const q =
+  let q =
     `loc_item_placements?select=*` +
     `&item_ref_table=eq.${encodeURIComponent(itemRefTable)}` +
     `&item_ref_id=eq.${encodeURIComponent(itemRefId)}` +
     `&order=updated_at.desc`;
+  if (typeof orderNo === 'string') {
+    q += `&order_no=eq.${encodeURIComponent(orderNo.trim())}`;
+  }
   return sbReq(q);
 }
 
@@ -155,10 +176,11 @@ export async function fetchRecentMovements(limit = 50) {
  *   limit?: number,
  *   offset?: number,
  *   wantCount?: boolean,
- *   search?: string,         // ilike nad item_ref_id
+ *   search?: string,         // ilike nad item_ref_id ILI order_no
  *   userId?: string,         // moved_by eq
  *   locationId?: string,     // from OR to eq (bilo gde u tom pokretu)
  *   movementType?: string,   // eq
+ *   orderNo?: string,        // striktna jednakost order_no=eq
  *   dateFrom?: string,       // ISO 'YYYY-MM-DD' — moved_at >= taj dan 00:00
  *   dateTo?: string,         // ISO 'YYYY-MM-DD' — moved_at < sledeći dan 00:00
  * }} [params]
@@ -172,6 +194,7 @@ export async function fetchMovementsHistory({
   userId = '',
   locationId = '',
   movementType = '',
+  orderNo = '',
   dateFrom = '',
   dateTo = '',
 } = {}) {
@@ -181,9 +204,12 @@ export async function fetchMovementsHistory({
 
   const s = typeof search === 'string' ? search.trim() : '';
   if (s) {
-    parts.push(`item_ref_id=ilike.${encodeURIComponent(`*${s}*`)}`);
+    /* Pretraga po crtežu ili nalogu — oba su TEXT i indexable. */
+    const enc = encodeURIComponent(`*${s}*`);
+    parts.push(`or=(item_ref_id.ilike.${enc},order_no.ilike.${enc})`);
   }
   if (userId) parts.push(`moved_by=eq.${encodeURIComponent(userId)}`);
+  if (orderNo) parts.push(`order_no=eq.${encodeURIComponent(String(orderNo).trim())}`);
   if (locationId) {
     const enc = encodeURIComponent(locationId);
     parts.push(`or=(from_location_id.eq.${enc},to_location_id.eq.${enc})`);
@@ -252,18 +278,25 @@ export async function fetchAllMovements({
 }
 
 /**
- * Sva premeštanja za jednu stavku (istorija, najnovija prva).
+ * Sva premeštanja za jednu stavku (istorija, najnovija prva). Ako je `orderNo`
+ * string (uklj. prazan `''`), scope-uje se na taj nalog — inače se vraća sve
+ * po svim nalozima datog crteža.
+ *
  * @param {string} itemRefTable
  * @param {string} itemRefId
  * @param {number} [limit=100]
+ * @param {string} [orderNo]
  * @returns {Promise<object[]|null>}
  */
-export async function fetchItemMovements(itemRefTable, itemRefId, limit = 100) {
-  const q =
+export async function fetchItemMovements(itemRefTable, itemRefId, limit = 100, orderNo = undefined) {
+  let q =
     `loc_location_movements?select=*` +
     `&item_ref_table=eq.${encodeURIComponent(itemRefTable)}` +
     `&item_ref_id=eq.${encodeURIComponent(itemRefId)}` +
     `&order=moved_at.desc&limit=${encodeURIComponent(String(limit))}`;
+  if (typeof orderNo === 'string') {
+    q += `&order_no=eq.${encodeURIComponent(orderNo.trim())}`;
+  }
   return sbReq(q);
 }
 

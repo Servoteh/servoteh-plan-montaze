@@ -157,7 +157,8 @@ Modal sada:
 ### Faza C — Istorija (novi tab „Istorija")
 
 - Paginirani pregled `loc_location_movements` sa filterima:
-  - Pretraga po `item_ref_id` (server-side ILIKE).
+  - Pretraga po `item_ref_id` ili `order_no` (server-side ILIKE, OR filter).
+  - „Samo nalog" — striktna jednakost `order_no=eq.<x>`.
   - Filter po lokaciji (OR `from`/`to`).
   - Filter po korisniku (prikazuje se samo za admine; RLS `user_roles_read_admin_all`).
   - Filter po `movement_type`.
@@ -165,3 +166,32 @@ Modal sada:
 - CSV export celokupnog filtriranog skupa (batch po 500, HARD_CAP 50 000).
 - Paginator whitelist veličina: 25, 50, 100, 250.
 - State se čuva u `src/state/lokacije.js` (`historyFilters`, `historyPage`, `historyPageSize`); normalizacije u state funkcijama čuvaju od XSS/SQL injection kroz LS.
+
+---
+
+## v3 — `order_no` kao dimenzija (nalog × crtež × lokacija)
+
+BigTehn nalepnica nosi `BROJ_NALOGA/BROJ_CRTEŽA` (npr. `9000/1091063`). Isti broj crteža može biti poručen na više različitih radnih naloga i zalihe iz pojedinog naloga ne smeju se mešati — ako operater ugradi 150 kom. crteža 1091063 sa naloga 9000, to ne sme da smanji stanje drugog naloga za isti crtež.
+
+Migracija `sql/migrations/add_loc_v3_order_scope.sql`:
+
+1. Dodaje `order_no TEXT NOT NULL DEFAULT ''` na `loc_item_placements` i `loc_location_movements` (max 40 karaktera, `''` je backward-compat bucket).
+2. Menja unique constraint sa `(item_ref_table, item_ref_id, location_id)` na `(item_ref_table, item_ref_id, order_no, location_id)`.
+3. Trigger `loc_after_movement_insert` radi aritmetiku po (crtež, nalog) bucketu.
+4. RPC `loc_create_movement` prihvata `order_no` iz payload-a i koristi ga u svim proverama (`already_placed`, `from_ambiguous`, kapacitet).
+5. Parcijalni indeksi `loc_location_movements_order_no_idx` i `loc_item_placements_order_no_idx` (`WHERE order_no <> ''`) za brzu filter pretragu.
+6. Sync outbound payload dobija `order_no` polje (MSSQL strana će ga primiti kada se implementira `sp_ApplyLocationEvent`).
+
+### UI uticaji
+- **Skener (`scanModal.js`)** i **Brzo premeštanje (`modals.js`)** imaju odvojena polja „Broj naloga" i „Broj crteža". Ako je nalog prazan, prikaz pokazuje SVE naloge za taj crtež (agregirano po nalogu i lokaciji) — klik na chip popuni nalog i re-scope-uje.
+- „Sa lokacije" dropdown aktivan je tek kada je nalog poznat, jer bez njega ne možemo sigurno odrediti iz kog bucketa oduzimamo.
+- **Stavke tab**: nova kolona „Nalog". Klik na red otvara istoriju scope-ovanu na taj tačan (crtež, nalog) bucket. CSV export dobija kolonu „Nalog".
+- **Istorija tab**: nova kolona „Nalog"; pretraga radi po crtežu ili nalogu; „Samo nalog" filter je striktna jednakost. CSV export dobija kolonu „Nalog".
+- Klijent uvek šalje `order_no` u payload-u `loc_create_movement` (prazan string = backward-compat bucket).
+
+### Redosled primene migracija
+```text
+… prethodne …
+sql/migrations/add_loc_v2_quantity.sql
+sql/migrations/add_loc_v3_order_scope.sql       ← OVO JE NOVO
+```

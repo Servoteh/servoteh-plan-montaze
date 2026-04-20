@@ -380,7 +380,8 @@ function attachItemsExport() {
       const locIdx = locationIndex(locs);
       const headers = [
         'Tabela',
-        'ID stavke',
+        'Crtež',
+        'Nalog',
         'Kod lokacije',
         'Naziv lokacije',
         'Putanja',
@@ -395,6 +396,7 @@ function attachItemsExport() {
         return [
           p.item_ref_table || '',
           p.item_ref_id || '',
+          p.order_no || '',
           loc.location_code || '',
           loc.name || '',
           loc.path_cached || '',
@@ -459,7 +461,7 @@ function downloadCsv(text, filename) {
   }, 100);
 }
 
-/** Klik po redu u `items` tabu → istorija premeštanja te stavke. */
+/** Klik po redu u `items` tabu → istorija premeštanja tog (crtež, nalog) bucketa. */
 function attachItemsActions() {
   const host = locPanelHost;
   if (!host) return;
@@ -467,7 +469,10 @@ function attachItemsActions() {
     tr.addEventListener('click', () => {
       const itemRefTable = tr.getAttribute('data-loc-item-table') || '';
       const itemRefId = tr.getAttribute('data-loc-item-id') || '';
-      openItemHistoryModal({ itemRefTable, itemRefId });
+      /* data-loc-item-order sadrži `''` za "bez naloga" — razlikujemo od
+       * "svi nalozi" (undefined). Ovde uvek prosleđujemo string. */
+      const orderNo = tr.getAttribute('data-loc-item-order') || '';
+      openItemHistoryModal({ itemRefTable, itemRefId, orderNo });
     });
   });
 }
@@ -668,8 +673,12 @@ async function renderPanel(host, tabId) {
               : `<span class="loc-path">${escHtml(String(r.location_id || '').slice(0, 8))}…</span>`;
             const tbl = escHtml(r.item_ref_table || '');
             const iid = escHtml(r.item_ref_id || '');
+            const ord = escHtml(r.order_no || '');
+            const orderCell = r.order_no
+              ? `<strong>${ord}</strong>`
+              : '<span class="loc-muted">—</span>';
             const qty = r.quantity == null ? '' : escHtml(String(r.quantity));
-            return `<tr class="loc-row-click" data-loc-item-table="${tbl}" data-loc-item-id="${iid}" title="Klik za istoriju premeštanja"><td>${tbl}</td><td>${iid}</td><td>${locCell}</td><td class="loc-qty-cell">${qty}</td><td>${escHtml(r.placement_status || '')}</td></tr>`;
+            return `<tr class="loc-row-click" data-loc-item-table="${tbl}" data-loc-item-id="${iid}" data-loc-item-order="${ord}" title="Klik za istoriju premeštanja"><td>${tbl}</td><td>${iid}</td><td>${orderCell}</td><td>${locCell}</td><td class="loc-qty-cell">${qty}</td><td>${escHtml(r.placement_status || '')}</td></tr>`;
           })
           .join('')
       : '';
@@ -697,8 +706,8 @@ async function renderPanel(host, tabId) {
         <p class="loc-muted">Klik na red otvara istoriju premeštanja te stavke.</p>
         <div class="loc-table-wrap">
           <table class="loc-table">
-            <thead><tr><th>Tabela</th><th>ID stavke</th><th>Lokacija</th><th class="loc-qty-cell">Količina</th><th>Status</th></tr></thead>
-            <tbody>${rows || '<tr><td colspan="5" class="loc-muted">Nema stavki.</td></tr>'}</tbody>
+            <thead><tr><th>Tabela</th><th>Crtež</th><th>Nalog</th><th>Lokacija</th><th class="loc-qty-cell">Količina</th><th>Status</th></tr></thead>
+            <tbody>${rows || '<tr><td colspan="6" class="loc-muted">Nema stavki.</td></tr>'}</tbody>
           </table>
         </div>
         ${pagerHtml}
@@ -771,7 +780,7 @@ async function loadHistoryUsers() {
 
 function historyRowsHtml(movs, locIdx, userIdx) {
   if (!Array.isArray(movs) || movs.length === 0) {
-    return '<tr><td colspan="8" class="loc-muted">Nema premeštanja za zadate filtere.</td></tr>';
+    return '<tr><td colspan="9" class="loc-muted">Nema premeštanja za zadate filtere.</td></tr>';
   }
   return movs
     .map(m => {
@@ -783,6 +792,9 @@ function historyRowsHtml(movs, locIdx, userIdx) {
       const from = formatLocBrief(m.from_location_id, locIdx);
       const to = formatLocBrief(m.to_location_id, locIdx);
       const item = `${escHtml(m.item_ref_table || '')} · ${escHtml(m.item_ref_id || '')}`;
+      const ord = m.order_no
+        ? `<strong>${escHtml(m.order_no)}</strong>`
+        : '<span class="loc-muted">—</span>';
       const note = escHtml((m.notes || '').slice(0, 80));
       return `<tr>
         <td class="loc-mov-when">${when}</td>
@@ -792,6 +804,7 @@ function historyRowsHtml(movs, locIdx, userIdx) {
         <td class="loc-path">${from}</td>
         <td class="loc-path">${to}</td>
         <td>${item}</td>
+        <td>${ord}</td>
         <td>${note}</td>
       </tr>`;
     })
@@ -872,8 +885,12 @@ async function renderHistoryTab(host) {
   const filtersHtml = `
     <div class="loc-history-filters" role="group" aria-label="Filteri istorije">
       <label class="loc-filter-field">
-        <span>Pretraga (ID stavke)</span>
-        <input type="search" id="locHistSearch" class="loc-search-input" value="${escHtml(f.search)}" autocomplete="off" placeholder="npr. 1084924" />
+        <span>Pretraga (crtež ili nalog)</span>
+        <input type="search" id="locHistSearch" class="loc-search-input" value="${escHtml(f.search)}" autocomplete="off" placeholder="npr. 1084924 ili 9000" />
+      </label>
+      <label class="loc-filter-field">
+        <span>Samo nalog</span>
+        <input type="text" id="locHistOrder" class="loc-search-input" value="${escHtml(f.orderNo)}" autocomplete="off" placeholder="npr. 9000" maxlength="40" />
       </label>
       <label class="loc-filter-field">
         <span>Lokacija (od ili do)</span>
@@ -920,6 +937,7 @@ async function renderHistoryTab(host) {
             <th>Sa lokacije</th>
             <th>Na lokaciju</th>
             <th>Stavka</th>
+            <th>Nalog</th>
             <th>Napomena</th>
           </tr></thead>
           <tbody>${historyRowsHtml(movs, locIdx, userIdx)}</tbody>
@@ -940,8 +958,9 @@ function attachHistoryFilters() {
 
   const apply = () => refreshLocPanel();
 
-  /* Debounce samo na text input-u; dropdown-ovi i date reaguju odmah. */
+  /* Debounce samo na text input-ima; dropdown-ovi i date reaguju odmah. */
   let t = null;
+  let tOrd = null;
   const onInput = () => {
     const el = host.querySelector('#locHistSearch');
     if (!el) return;
@@ -952,6 +971,15 @@ function attachHistoryFilters() {
     }, 300);
   };
   host.querySelector('#locHistSearch')?.addEventListener('input', onInput);
+  host.querySelector('#locHistOrder')?.addEventListener('input', () => {
+    const el = host.querySelector('#locHistOrder');
+    if (!el) return;
+    clearTimeout(tOrd);
+    tOrd = setTimeout(() => {
+      setHistoryFilters({ orderNo: el.value });
+      apply();
+    }, 300);
+  });
 
   host.querySelector('#locHistLocation')?.addEventListener('change', e => {
     setHistoryFilters({ locationId: e.target.value });
@@ -1044,7 +1072,8 @@ function attachHistoryExport(locs, users) {
         'Na lokaciju',
         'Na putanju',
         'Tabela',
-        'ID stavke',
+        'Crtež',
+        'Nalog',
         'Napomena',
       ];
       const fmtLoc = id => {
@@ -1068,6 +1097,7 @@ function attachHistoryExport(locs, users) {
           to.path,
           m.item_ref_table || '',
           m.item_ref_id || '',
+          m.order_no || '',
           m.notes || '',
         ];
       });

@@ -102,10 +102,25 @@ describe('state/lokacije — history filteri', () => {
       userId: '',
       locationId: '',
       movementType: '',
+      orderNo: '',
       dateFrom: '',
       dateTo: '',
     });
     expect(getLokacijeUiState().historyPage).toBe(0);
+  });
+
+  it('normalizuje orderNo (strip non-word, max 40 znakova)', () => {
+    setHistoryFilters({ orderNo: '  9000  ' });
+    expect(getLokacijeUiState().historyFilters.orderNo).toBe('9000');
+    setHistoryFilters({ orderNo: 'drop; SELECT * FROM users' });
+    expect(getLokacijeUiState().historyFilters.orderNo).toBe('dropSELECTFROMusers');
+    setHistoryFilters({ orderNo: '9'.repeat(80) });
+    expect(getLokacijeUiState().historyFilters.orderNo).toHaveLength(40);
+  });
+
+  it('orderNo dopušta cifru, slovo, - _ /', () => {
+    setHistoryFilters({ orderNo: '9836/76_A-1' });
+    expect(getLokacijeUiState().historyFilters.orderNo).toBe('9836/76_A-1');
   });
 
   it('setHistoryFilters patch-uje samo prosleđena polja', () => {

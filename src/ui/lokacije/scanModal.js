@@ -135,6 +135,9 @@ export async function openScanMoveModal({ onSuccess } = {}) {
     locs: [],
     locById: new Map(),
     currentPlacements: [],
+    /* Trenutni scope ordera — `''` kada user nije uneo broj naloga i
+     * pregledamo sve naloge za taj crtež. Set-uje se pri svakom refresh-u. */
+    scopedOrderNo: '',
     item_ref_table: 'bigtehn_rn',
   };
 
@@ -193,17 +196,27 @@ export async function openScanMoveModal({ onSuccess } = {}) {
     const el = $('#locScanChips');
     const pl = state.currentPlacements;
     if (!pl.length) {
-      el.innerHTML = '<span class="loc-muted" style="font-size:12px">Stavka nije trenutno nigde smeštena (novi unos = INITIAL_PLACEMENT).</span>';
+      el.innerHTML = '<span class="loc-muted" style="font-size:12px">Crtež + nalog još nisu smešteni (novi unos = INITIAL_PLACEMENT).</span>';
       return;
     }
     const total = pl.reduce((a, r) => a + Number(r.quantity || 0), 0);
+    /* Kada je order_no prazan, korisnik pregleda sve naloge za isti crtež —
+     * chip nosi i nalog, klik popuni `#locScanOrder` i re-scope-uje pogled. */
+    const showOrder = !state.scopedOrderNo;
+    const title = showOrder
+      ? `Svi nalozi za ovaj crtež (ukupno ${escHtml(String(total))} kom.) — klikni chip da izabereš nalog`
+      : `Nalog ${escHtml(state.scopedOrderNo)} — trenutno (ukupno ${escHtml(String(total))} kom.)`;
     el.innerHTML =
-      `<div class="loc-current-title">Trenutno (ukupno ${escHtml(String(total))} kom.)</div>` +
+      `<div class="loc-current-title">${title}</div>` +
       `<div class="loc-chip-row">${pl
         .map(r => {
           const loc = state.locById.get(r.location_id);
-          const label = loc ? `${loc.location_code}` : r.location_id.slice(0, 8);
-          return `<span class="loc-chip">${escHtml(label)} · <strong>${escHtml(String(r.quantity))}</strong></span>`;
+          const locLbl = loc ? loc.location_code : String(r.location_id).slice(0, 8);
+          const orderLbl = r.order_no ? `<strong>${escHtml(r.order_no)}</strong> · ` : '';
+          const dataAttr = showOrder && r.order_no
+            ? ` data-chip-order="${escHtml(r.order_no)}"`
+            : '';
+          return `<span class="loc-chip${showOrder && r.order_no ? ' loc-chip-click' : ''}"${dataAttr}>${orderLbl}${escHtml(locLbl)} · <strong>${escHtml(String(r.quantity))}</strong></span>`;
         })
         .join('')}</div>`;
   }
@@ -211,8 +224,12 @@ export async function openScanMoveModal({ onSuccess } = {}) {
   function populateFromSelect() {
     const sel = $('#locScanFrom');
     const pl = state.currentPlacements;
-    if (!pl.length) {
-      sel.innerHTML = '<option value="">— (INITIAL_PLACEMENT) —</option>';
+    /* "Sa lokacije" ima smisla samo kada smo scope-ovali na jedan nalog;
+     * inače ne možemo sigurno odrediti bucket od kojeg oduzimamo. */
+    if (!state.scopedOrderNo || !pl.length) {
+      sel.innerHTML = pl.length
+        ? '<option value="">— prvo izaberi nalog —</option>'
+        : '<option value="">— (INITIAL_PLACEMENT) —</option>';
       sel.disabled = true;
       return;
     }
@@ -276,25 +293,27 @@ export async function openScanMoveModal({ onSuccess } = {}) {
       hint.innerHTML = '';
     }
 
-    /* Nalog u `notes` — radnik može da izbriše ako ne želi. */
-    const noteInput = $('#locScanNote');
-    if (orderNo && !noteInput.value) {
-      noteInput.value = `Nalog: ${orderNo}`;
-    }
-
     populateToSelect();
     await refreshPlacements();
   }
 
   async function refreshPlacements() {
     const id = $('#locScanItemId').value.trim();
+    const order = $('#locScanOrder').value.trim();
+    state.scopedOrderNo = order;
     if (!id) {
       state.currentPlacements = [];
       renderChips();
       populateFromSelect();
       return;
     }
-    const rows = await fetchItemPlacements(state.item_ref_table, id);
+    /* Ako je nalog unet → striktno scope (order_no=eq.'9000').
+     * Ako nije → undefined (vraća SVE naloge za taj crtež, i bucket bez naloga). */
+    const rows = await fetchItemPlacements(
+      state.item_ref_table,
+      id,
+      order ? order : undefined,
+    );
     state.currentPlacements = (rows || []).filter(r => Number(r.quantity) > 0);
     renderChips();
     populateFromSelect();
@@ -304,14 +323,16 @@ export async function openScanMoveModal({ onSuccess } = {}) {
     const err = $('#locScanErr');
     err.textContent = '';
     const item_ref_id = $('#locScanItemId').value.trim();
+    const order_no = $('#locScanOrder').value.trim();
     const to_location_id = $('#locScanTo').value;
     const from_location_id = $('#locScanFrom').value || '';
     const qty = Number($('#locScanQty').value);
     const note = $('#locScanNote').value.trim();
+    /* INITIAL = nema nijednog placement-a za (crtež, nalog) par. */
     const isInitial = state.currentPlacements.length === 0;
 
     if (!item_ref_id) {
-      err.textContent = 'ID stavke je obavezan.';
+      err.textContent = 'Broj crteža je obavezan.';
       return;
     }
     if (!to_location_id) {
@@ -336,6 +357,7 @@ export async function openScanMoveModal({ onSuccess } = {}) {
     const res = await locCreateMovement({
       item_ref_table: state.item_ref_table,
       item_ref_id,
+      order_no,
       to_location_id,
       from_location_id: from_location_id || undefined,
       movement_type: isInitial ? 'INITIAL_PLACEMENT' : 'TRANSFER',
@@ -371,6 +393,7 @@ export async function openScanMoveModal({ onSuccess } = {}) {
       from_has_no_placement: 'Na polaznoj lokaciji nema komada ove stavke.',
       bad_to_location: 'Odredišna lokacija nije validna.',
       bad_quantity: 'Količina mora biti > 0.',
+      bad_order_no: 'Broj naloga je predugačak (max 40 karaktera).',
       not_authenticated: 'Prijavi se ponovo.',
     };
     return map[code] || code || 'Operacija nije uspela.';
@@ -378,6 +401,14 @@ export async function openScanMoveModal({ onSuccess } = {}) {
 
   /* Event wiring */
   overlay.addEventListener('click', async ev => {
+    /* Klik na chip sa nalogom → popuni #locScanOrder i re-scope. */
+    const chipOrder = ev.target.closest?.('[data-chip-order]')?.getAttribute('data-chip-order');
+    if (chipOrder) {
+      $('#locScanOrder').value = chipOrder;
+      refreshPlacements();
+      return;
+    }
+
     const act = ev.target.dataset?.act;
     if (!act) return;
     switch (act) {
@@ -409,10 +440,10 @@ export async function openScanMoveModal({ onSuccess } = {}) {
     }
   });
 
-  /* Debounce refresh kada korisnik menja ID ručno. */
+  /* Debounce refresh kada korisnik menja crtež ili nalog ručno. */
   let debT = null;
   overlay.addEventListener('input', ev => {
-    if (ev.target.id === 'locScanItemId') {
+    if (ev.target.id === 'locScanItemId' || ev.target.id === 'locScanOrder') {
       clearTimeout(debT);
       debT = setTimeout(refreshPlacements, 300);
     }

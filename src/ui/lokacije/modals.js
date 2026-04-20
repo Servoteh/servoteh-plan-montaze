@@ -109,6 +109,7 @@ function movementErrMsg(code, detail) {
     bad_from_uuid: 'Polazna lokacija ima neispravan ID.',
     bad_movement_type: 'Neispravan tip pokreta.',
     bad_quantity: 'Količina mora biti veća od 0.',
+    bad_order_no: 'Broj naloga je predugačak (max 40 karaktera).',
     already_placed:
       'Stavka već ima postojeće placement-e — koristi TRANSFER (ili INVENTORY_ADJUSTMENT da dodaš još komada).',
     no_current_placement:
@@ -300,19 +301,24 @@ export function openNewLocationModal(opts = {}) {
 
 /**
  * Modal sa istorijom premeštanja za jednu stavku.
- * @param {{ itemRefTable: string, itemRefId: string }} params
+ * Ako je `orderNo` prosleđen (string, uklj. `''`), istorija je scope-ovana samo
+ * na taj nalog. `undefined` → vraća istoriju za sve naloge tog crteža.
+ * @param {{ itemRefTable: string, itemRefId: string, orderNo?: string }} params
  */
-export function openItemHistoryModal({ itemRefTable, itemRefId }) {
+export function openItemHistoryModal({ itemRefTable, itemRefId, orderNo = undefined }) {
   if (!itemRefTable || !itemRefId) {
     showToast('⚠ Nedostaje referenca stavke');
     return;
   }
 
   const modalId = 'locModalHistory';
+  const scopeHint = typeof orderNo === 'string'
+    ? ` · nalog <code>${escHtml(orderNo || '(bez naloga)')}</code>`
+    : ' · svi nalozi';
   const { overlay, body } = createModalShell({
     id: modalId,
     title: 'Istorija premeštanja',
-    subtitle: `<code>${escHtml(itemRefTable)}</code> · <code>${escHtml(itemRefId)}</code>`,
+    subtitle: `<code>${escHtml(itemRefTable)}</code> · <code>${escHtml(itemRefId)}</code>${scopeHint}`,
   });
 
   let unbindEsc = null;
@@ -330,7 +336,7 @@ export function openItemHistoryModal({ itemRefTable, itemRefId }) {
 
   (async () => {
     const [movs, locs] = await Promise.all([
-      fetchItemMovements(itemRefTable, itemRefId, 200),
+      fetchItemMovements(itemRefTable, itemRefId, 200, orderNo),
       fetchLocations({ activeOnly: false }),
     ]);
 
@@ -357,8 +363,12 @@ export function openItemHistoryModal({ itemRefTable, itemRefId }) {
           .map(m => {
             const ts = (m.moved_at || '').replace('T', ' ').slice(0, 16);
             const qty = m.quantity == null ? '' : escHtml(String(m.quantity));
+            const ord = m.order_no
+              ? `<strong>${escHtml(m.order_no)}</strong>`
+              : '<span class="loc-muted">—</span>';
             return `<tr>
               <td class="loc-path">${escHtml(ts)}</td>
+              <td>${ord}</td>
               <td><span class="loc-mov-type">${escHtml(m.movement_type || '')}</span></td>
               <td class="loc-qty-cell">${qty}</td>
               <td>${locBrief(m.from_location_id)}</td>
@@ -367,12 +377,12 @@ export function openItemHistoryModal({ itemRefTable, itemRefId }) {
             </tr>`;
           })
           .join('')
-      : '<tr><td colspan="6" class="loc-muted">Nema zabeleženih premeštanja.</td></tr>';
+      : '<tr><td colspan="7" class="loc-muted">Nema zabeleženih premeštanja.</td></tr>';
 
     body.innerHTML = `
       <div class="loc-table-wrap" style="max-height:60vh">
         <table class="loc-table">
-          <thead><tr><th>Vreme</th><th>Tip</th><th class="loc-qty-cell">Količina</th><th>Odakle</th><th>Dokle</th><th>Napomena</th></tr></thead>
+          <thead><tr><th>Vreme</th><th>Nalog</th><th>Tip</th><th class="loc-qty-cell">Količina</th><th>Odakle</th><th>Dokle</th><th>Napomena</th></tr></thead>
           <tbody>${rowsHtml}</tbody>
         </table>
       </div>
@@ -483,8 +493,13 @@ export function openQuickMoveModal({ onSuccess } = {}) {
             <select id="locQmTable" required>${tableOpts}</select>
           </div>
           <div class="emp-field">
-            <label for="locQmItemId">ID stavke * <span class="loc-muted" style="font-weight:400">(npr. broj naloga 9836/76)</span></label>
+            <label for="locQmItemId">Broj crteža * <span class="loc-muted" style="font-weight:400">(npr. 1091063)</span></label>
             <input type="text" id="locQmItemId" required maxlength="200" placeholder="ERP / sync ID" autocomplete="off">
+          </div>
+
+          <div class="emp-field">
+            <label for="locQmOrder">Broj naloga <span class="loc-muted" style="font-weight:400">(opciono — isti crtež sa drugog naloga se vodi odvojeno)</span></label>
+            <input type="text" id="locQmOrder" maxlength="40" placeholder="npr. 9000" autocomplete="off">
           </div>
 
           <div class="emp-field col-full" id="locQmStateWrap" hidden>
@@ -526,6 +541,7 @@ export function openQuickMoveModal({ onSuccess } = {}) {
     const submitBtn = overlay.querySelector('#locQmSubmit');
     const tableSel = overlay.querySelector('#locQmTable');
     const itemIdInput = overlay.querySelector('#locQmItemId');
+    const orderInput = overlay.querySelector('#locQmOrder');
     const typeSel = overlay.querySelector('#locQmType');
     const qtyInput = overlay.querySelector('#locQmQty');
     const fromWrap = overlay.querySelector('#locQmFromWrap');
@@ -558,7 +574,7 @@ export function openQuickMoveModal({ onSuccess } = {}) {
       refreshFromHint();
     }
 
-    function renderState(rows) {
+    function renderState(rows, { scoped }) {
       currentPlacements = Array.isArray(rows) ? rows.filter(r => Number(r.quantity) > 0) : [];
       if (!currentPlacements.length) {
         stateWrap.hidden = true;
@@ -570,25 +586,38 @@ export function openQuickMoveModal({ onSuccess } = {}) {
         return;
       }
 
+      /* Kada je nalog prazan, prikazujemo sve naloge kao informaciju — u chipu
+       * dodajemo prefiks "9000 · K-A1 · 5"; korisnik klikom na chip popuni nalog. */
       const chips = currentPlacements.map(r => {
         const loc = locById.get(r.location_id);
-        const label = loc ? `${loc.location_code} — ${loc.name}` : r.location_id;
-        return `<span class="loc-chip">${escHtml(label)} · <strong>${escHtml(String(r.quantity))}</strong></span>`;
+        const locLbl = loc ? `${loc.location_code} — ${loc.name}` : r.location_id;
+        const orderPart = r.order_no ? `<strong>${escHtml(r.order_no)}</strong> · ` : '';
+        const clickable = !scoped && r.order_no;
+        const extra = clickable ? ` loc-chip-click" data-qm-order="${escHtml(r.order_no)}` : '';
+        return `<span class="loc-chip${extra}">${orderPart}${escHtml(locLbl)} · <strong>${escHtml(String(r.quantity))}</strong></span>`;
       }).join('');
       const total = currentPlacements.reduce((a, r) => a + Number(r.quantity || 0), 0);
+      const title = scoped
+        ? `Trenutno smešteno za nalog ${escHtml(orderInput.value.trim())} (ukupno ${escHtml(String(total))} kom.):`
+        : `Svi nalozi za ovaj crtež (ukupno ${escHtml(String(total))} kom.) — klikni nalog da ga popunite:`;
       stateEl.innerHTML = `
-        <div class="loc-current-title">Trenutno smešteno (ukupno ${escHtml(String(total))} kom.):</div>
+        <div class="loc-current-title">${title}</div>
         <div class="loc-chip-row">${chips}</div>`;
       stateWrap.hidden = false;
 
-      /* Popuni from select samo lokacijama gde postoji stanje. */
-      fromSel.innerHTML =
-        '<option value="">— izaberi polaznu —</option>' +
-        currentPlacements.map(r => {
-          const loc = locById.get(r.location_id);
-          const label = loc ? `${loc.location_code} — ${loc.name}` : r.location_id;
-          return `<option value="${escHtml(r.location_id)}">${escHtml(label)} (${escHtml(String(r.quantity))} kom.)</option>`;
-        }).join('');
+      /* From dropdown ima smisla samo kada znamo nalog — inače ne možemo
+       * striktno da oduzmemo iz bucketa. */
+      if (!scoped) {
+        fromSel.innerHTML = '<option value="">— prvo unesi nalog —</option>';
+      } else {
+        fromSel.innerHTML =
+          '<option value="">— izaberi polaznu —</option>' +
+          currentPlacements.map(r => {
+            const loc = locById.get(r.location_id);
+            const label = loc ? `${loc.location_code} — ${loc.name}` : r.location_id;
+            return `<option value="${escHtml(r.location_id)}">${escHtml(label)} (${escHtml(String(r.quantity))} kom.)</option>`;
+          }).join('');
+      }
 
       /* Default: TRANSFER (ako je već negde) — korisnik tipično prebacuje. */
       if (typeSel.value === 'INITIAL_PLACEMENT') typeSel.value = 'TRANSFER';
@@ -598,14 +627,15 @@ export function openQuickMoveModal({ onSuccess } = {}) {
     async function refreshItemState() {
       const table = tableSel.value.trim();
       const id = itemIdInput.value.trim();
+      const order = orderInput.value.trim();
       const myToken = ++lookupToken;
       if (!table || !id) {
-        renderState([]);
+        renderState([], { scoped: false });
         return;
       }
-      const rows = await fetchItemPlacements(table, id);
+      const rows = await fetchItemPlacements(table, id, order ? order : undefined);
       if (myToken !== lookupToken) return;
-      renderState(rows || []);
+      renderState(rows || [], { scoped: !!order });
     }
 
     /* Debounce da ne zovemo za svaki keypress. */
@@ -618,8 +648,18 @@ export function openQuickMoveModal({ onSuccess } = {}) {
     tableSel.addEventListener('change', refreshItemState);
     itemIdInput.addEventListener('input', scheduleRefresh);
     itemIdInput.addEventListener('blur', refreshItemState);
+    orderInput.addEventListener('input', scheduleRefresh);
+    orderInput.addEventListener('blur', refreshItemState);
     typeSel.addEventListener('change', applyTypeMode);
     fromSel.addEventListener('change', refreshFromHint);
+
+    /* Klik na chip sa nalogom u "svi nalozi" prikazu → popuni nalog. */
+    stateEl.addEventListener('click', ev => {
+      const chipOrder = ev.target.closest?.('[data-qm-order]')?.getAttribute('data-qm-order');
+      if (!chipOrder) return;
+      orderInput.value = chipOrder;
+      refreshItemState();
+    });
 
     overlay.querySelector('#locQmCancel').addEventListener('click', close);
     itemIdInput.focus();
@@ -630,6 +670,7 @@ export function openQuickMoveModal({ onSuccess } = {}) {
       errEl.textContent = '';
       const item_ref_table = tableSel.value.trim();
       const item_ref_id = itemIdInput.value.trim();
+      const order_no = orderInput.value.trim();
       const to_location_id = overlay.querySelector('#locQmTo').value;
       const movement_type = typeSel.value;
       const note = overlay.querySelector('#locQmNote').value.trim();
@@ -658,6 +699,7 @@ export function openQuickMoveModal({ onSuccess } = {}) {
       const res = await locCreateMovement({
         item_ref_table,
         item_ref_id,
+        order_no,
         to_location_id,
         from_location_id: from_location_id || undefined,
         movement_type,

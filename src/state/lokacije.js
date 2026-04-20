@@ -25,6 +25,7 @@ const state = {
     userId: '',
     locationId: '',
     movementType: '',
+    orderNo: '',
     dateFrom: '',
     dateTo: '',
   },
@@ -103,6 +104,14 @@ function normalizeIsoDate(v) {
   return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : '';
 }
 
+/* Nalog je kratak TEXT — whitelist 0-9A-Za-z/_- plus do 40 karaktera.
+ * Ako je korisnik nalepio "Nalog: 9000" → uzimamo samo ono što je validno.
+ * DB CHECK je 40, pa sečemo. */
+function normalizeOrderNo(v) {
+  if (typeof v !== 'string') return '';
+  return v.trim().replace(/[^\w\-/]/g, '').slice(0, 40);
+}
+
 export function setHistoryFilters(patch) {
   const next = { ...state.historyFilters };
   if (patch && typeof patch === 'object') {
@@ -113,6 +122,7 @@ export function setHistoryFilters(patch) {
       const t = typeof patch.movementType === 'string' ? patch.movementType : '';
       next.movementType = VALID_MOVEMENT_TYPES.has(t) ? t : '';
     }
+    if ('orderNo' in patch) next.orderNo = normalizeOrderNo(patch.orderNo);
     if ('dateFrom' in patch) next.dateFrom = normalizeIsoDate(patch.dateFrom);
     if ('dateTo' in patch) next.dateTo = normalizeIsoDate(patch.dateTo);
   }
@@ -126,6 +136,7 @@ export function resetHistoryFilters() {
     userId: '',
     locationId: '',
     movementType: '',
+    orderNo: '',
     dateFrom: '',
     dateTo: '',
   };
