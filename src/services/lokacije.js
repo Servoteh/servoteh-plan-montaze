@@ -121,12 +121,134 @@ export async function fetchAllPlacements({
 }
 
 /**
+ * Trenutni placement-i za JEDNU stavku (item_ref_table + item_ref_id) preko svih
+ * lokacija. Vraća rows sa {location_id, quantity, placement_status, updated_at}
+ * sortirane po lokaciji. Prazna lista znači da stavka još nije smeštena.
+ *
+ * @param {string} itemRefTable
+ * @param {string} itemRefId
+ * @returns {Promise<object[]|null>}
+ */
+export async function fetchItemPlacements(itemRefTable, itemRefId) {
+  if (!itemRefTable || !itemRefId) return [];
+  const q =
+    `loc_item_placements?select=*` +
+    `&item_ref_table=eq.${encodeURIComponent(itemRefTable)}` +
+    `&item_ref_id=eq.${encodeURIComponent(itemRefId)}` +
+    `&order=updated_at.desc`;
+  return sbReq(q);
+}
+
+/**
  * @returns {Promise<object[]|null>}
  */
 export async function fetchRecentMovements(limit = 50) {
   return sbReq(
     `loc_location_movements?select=*&order=moved_at.desc&limit=${encodeURIComponent(String(limit))}`,
   );
+}
+
+/**
+ * Istorija premeštanja sa filterima (paginated).
+ *
+ * @param {{
+ *   limit?: number,
+ *   offset?: number,
+ *   wantCount?: boolean,
+ *   search?: string,         // ilike nad item_ref_id
+ *   userId?: string,         // moved_by eq
+ *   locationId?: string,     // from OR to eq (bilo gde u tom pokretu)
+ *   movementType?: string,   // eq
+ *   dateFrom?: string,       // ISO 'YYYY-MM-DD' — moved_at >= taj dan 00:00
+ *   dateTo?: string,         // ISO 'YYYY-MM-DD' — moved_at < sledeći dan 00:00
+ * }} [params]
+ * @returns {Promise<object[]|{rows:object[], total:number}|null>}
+ */
+export async function fetchMovementsHistory({
+  limit = 100,
+  offset = 0,
+  wantCount = false,
+  search = '',
+  userId = '',
+  locationId = '',
+  movementType = '',
+  dateFrom = '',
+  dateTo = '',
+} = {}) {
+  const l = Math.max(1, Math.min(Number(limit) || 100, 500));
+  const o = Math.max(0, Number(offset) || 0);
+  const parts = [`select=*`, `order=moved_at.desc`, `limit=${l}`, `offset=${o}`];
+
+  const s = typeof search === 'string' ? search.trim() : '';
+  if (s) {
+    parts.push(`item_ref_id=ilike.${encodeURIComponent(`*${s}*`)}`);
+  }
+  if (userId) parts.push(`moved_by=eq.${encodeURIComponent(userId)}`);
+  if (locationId) {
+    const enc = encodeURIComponent(locationId);
+    parts.push(`or=(from_location_id.eq.${enc},to_location_id.eq.${enc})`);
+  }
+  if (movementType) parts.push(`movement_type=eq.${encodeURIComponent(movementType)}`);
+  if (dateFrom) {
+    const fromIso = `${dateFrom}T00:00:00`;
+    parts.push(`moved_at=gte.${encodeURIComponent(fromIso)}`);
+  }
+  if (dateTo) {
+    /* `dateTo` je inkluzivan kalendarski dan — šaljemo < (sledeći dan). */
+    const d = new Date(`${dateTo}T00:00:00`);
+    d.setDate(d.getDate() + 1);
+    const nextIso = d.toISOString().slice(0, 19);
+    parts.push(`moved_at=lt.${encodeURIComponent(nextIso)}`);
+  }
+
+  const q = `loc_location_movements?${parts.join('&')}`;
+  if (wantCount) return sbReqWithCount(q);
+  return sbReq(q);
+}
+
+/**
+ * Fetchuj SVE redove koji odgovaraju filterima (za CSV export). Zaustavlja
+ * se na `HARD_CAP` iz sigurnosnih razloga.
+ *
+ * @param {Parameters<typeof fetchMovementsHistory>[0] & { pageSize?: number, onProgress?: (p: {loaded: number, total: number|null}) => void }} params
+ */
+export async function fetchAllMovements({
+  pageSize = 500,
+  onProgress = null,
+  ...filters
+} = {}) {
+  const size = Math.max(1, Math.min(Number(pageSize) || 500, 1000));
+  const HARD_CAP = 50_000;
+  const all = [];
+  let offset = 0;
+  let total = null;
+  let truncated = false;
+
+  while (true) {
+    const wantCount = offset === 0;
+    const res = await fetchMovementsHistory({
+      ...filters,
+      limit: size,
+      offset,
+      wantCount,
+    });
+    const rows = wantCount ? (res && typeof res === 'object' ? res.rows : null) : res;
+    if (wantCount && res && typeof res === 'object' && typeof res.total === 'number') {
+      total = res.total;
+    }
+    if (!Array.isArray(rows) || rows.length === 0) break;
+    all.push(...rows);
+    if (typeof onProgress === 'function') onProgress({ loaded: all.length, total });
+    if (rows.length < size) break;
+    if (total != null && all.length >= total) break;
+    if (all.length >= HARD_CAP) {
+      truncated = true;
+      break;
+    }
+    offset += size;
+  }
+
+  return { rows: all, total, truncated };
 }
 
 /**

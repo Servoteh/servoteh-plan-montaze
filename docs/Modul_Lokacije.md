@@ -84,3 +84,84 @@ Ako koristite **Background Agent** (ako je uključen u planu), ista logika: nova
 
 - Spoljašnja specifikacija: `Modul_Lokacije_Delova_Specifikacija.md` (prilozi sa strane).
 - Repo: `README.md`, `MIGRATION.md`, `sql/schema.sql`, `sql/migrations/`.
+
+---
+
+## v2 — Quantity + multi-placement (obavezno za probu)
+
+BigTehn model zahteva da **ista stavka može biti istovremeno na više lokacija sa različitim količinama** (tipičan primer: jedan broj naloga ima 50 komada, 2 na K-C3, 6 na K-B2, 5 ugrađenih, ostatak u proizvodnji). Zato je uvedena migracija `sql/migrations/add_loc_v2_quantity.sql` koja:
+
+1. Dodaje `quantity NUMERIC(12,3) NOT NULL DEFAULT 1 CHECK (> 0)` na `loc_item_placements` i `loc_location_movements`.
+2. Zamenjuje unique constraint sa `(item_ref_table, item_ref_id)` na `(item_ref_table, item_ref_id, location_id)`.
+3. Trigger `loc_after_movement_insert` radi aritmetiku umesto overwrite-a (`TO += qty`, `FROM -= qty`, brisanje reda kad qty ≤ 0).
+4. RPC `loc_create_movement` prima `quantity` i validira kapacitet na `from_location_id` pre INSERT-a.
+
+Redosled primene migracija:
+```text
+sql/migrations/add_loc_module.sql
+sql/migrations/add_loc_step2_ci_unique.sql        (ako nije primenjeno ranije)
+sql/migrations/add_loc_step3_cleanup.sql
+sql/migrations/add_loc_step4_pgcron.sql           (opciono — pg_cron retention)
+sql/migrations/add_loc_step5_sync_rpcs.sql        (opciono — worker RPCs)
+sql/migrations/add_loc_v2_quantity.sql            ← OVO JE NOVO
+```
+
+### Virtualne lokacije
+
+Za delove koji napuštaju fizičko skladište uvode se **virtualne lokacije** koje sede uz master lokacije u istoj tabeli `loc_locations`:
+
+| Kod           | Tip (enum)  | Kada se koristi                                              |
+|---------------|-------------|--------------------------------------------------------------|
+| `UGRADJENO`   | `ASSEMBLY`  | Deo je ugrađen u finalni proizvod — izlazi iz bilansa.      |
+| `PROIZVODNJA` | `PRODUCTION`| Deo je u radnom procesu (WIP), nije još završen.            |
+| `OTPISANO`    | `SCRAPPED`  | Škart / otpis.                                               |
+
+Tako „ugradnja 5 komada“ je običan TRANSFER iz fizičke police u `UGRADJENO`, evidentiran kao pokret sa `quantity=5`. Nikakav novi enum/RPC.
+
+### Jednokratan seed iz BigTehn-a
+
+Fajl `sql/seed/loc_seed_bigtehn_positions.sql` je **one-shot** skripta:
+- Sekcija A kreira root `MAG` + virtualne lokacije (idempotentna).
+- Sekcija B očekuje da se VALUES lista zameni realnim redovima iz `SELECT Pozicija, Opis FROM dbo.tPozicije`. Excel formula za generisanje VALUES reda data u komentarima skripte.
+- Ne ide nikakva replikacija nazad u MSSQL — nova aplikacija je autoritet za sve operacije nakon seed-a.
+
+### UI — Brzo premeštanje (v2)
+
+Modal sada:
+- Prikazuje **live** trenutne placement-e za uneseni `item_ref_id` (chips: `K-C3 · 4`).
+- Auto-prebacuje `movement_type` na `TRANSFER` ako stavka već postoji negde, odnosno `INITIAL_PLACEMENT` ako ne postoji.
+- `from_location` select se popunjava isključivo lokacijama gde ima stanja, sa prikazanom količinom.
+- Prikazuje `max` i hint pored `quantity` input-a kada je `from` izabran.
+- Validacija na klijentu (qty > 0, from ≠ to) + detaljne server-side poruke (`insufficient_quantity` vraća `available`/`requested`).
+
+---
+
+## Mobilni tok rada: skeniranje barkoda + istorija
+
+### Faza A — Skener (Lokacije → dugme „📷 Skeniraj")
+
+- Puni ekran, kamera okrenuta unazad, flash (ako uređaj to podržava).
+- Radi na Android Chrome, iOS Safari (iOS 17+) i desktop browserima sa kamerom.
+- Biblioteka `@zxing/browser` se **lazy-loaduje** (~410KB JS samo po otvaranju modala), tako da početni bundle ostaje mali.
+- Posle skena: automatsko prebacivanje u formu sa popunjenim `item_ref_id`, prikazom postojećih placement-a, predlogom `from_location`/`quantity`. Dovoljno je izabrati `to_location` i pritisnuti Sačuvaj.
+- Fallback: dugme „Ručni unos" ako kamera zakaže.
+- **Napomena o BigTehn nalepnicama:** iPhone Camera trenutno iz tih nalepnica čita samo broj crteža. To je dovoljno za `item_ref_id = <broj_crteža>`, ali značajno je da **jedan broj crteža može biti na više radnih naloga**; ako UI kasnije doda izbor radnog naloga, izmena je lokalizovana na `scanModal.js` (između `showForm` i `submit`).
+
+### Faza B — Nalepnice polica (admin → „🏷 Nalepnice polica")
+
+- Otvara poseban browser prozor sa print-ready HTML-om (A4, 3 kolone × 8 redova = 24 nalepnice po strani).
+- Svaka nalepnica: veliki tekst koda + Code128 barkod (iscrtan kao SVG preko `jsbarcode`, lazy-import) + naziv lokacije.
+- Filter: samo aktivne `SHELF | RACK | BIN` lokacije (virtualne i skladišta se preskaču).
+- Štampa: `Ctrl+P` ili dugme „Štampaj" u top baru prozora.
+
+### Faza C — Istorija (novi tab „Istorija")
+
+- Paginirani pregled `loc_location_movements` sa filterima:
+  - Pretraga po `item_ref_id` (server-side ILIKE).
+  - Filter po lokaciji (OR `from`/`to`).
+  - Filter po korisniku (prikazuje se samo za admine; RLS `user_roles_read_admin_all`).
+  - Filter po `movement_type`.
+  - Datumski opseg (`moved_at >= from`, `< to+1 dan`).
+- CSV export celokupnog filtriranog skupa (batch po 500, HARD_CAP 50 000).
+- Paginator whitelist veličina: 25, 50, 100, 250.
+- State se čuva u `src/state/lokacije.js` (`historyFilters`, `historyPage`, `historyPageSize`); normalizacije u state funkcijama čuvaju od XSS/SQL injection kroz LS.

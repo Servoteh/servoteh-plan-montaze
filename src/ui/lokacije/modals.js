@@ -7,6 +7,7 @@ import { canEdit } from '../../state/auth.js';
 import {
   createLocation,
   fetchItemMovements,
+  fetchItemPlacements,
   fetchLocations,
   locCreateMovement,
   updateLocation,
@@ -45,9 +46,12 @@ const MOVEMENT_TYPES = [
   'INVENTORY_ADJUSTMENT',
 ];
 
-/* Whitelist ERP tabela kojima se može referencirati stavka. Proširiti po potrebi;
- * ekvivalentna validacija ne postoji u SQL-u jer se payload trenutno ne verifikuje. */
+/* Whitelist ERP tabela kojima se može referencirati stavka. `bigtehn_rn` je
+ * osnovna u praksi — jer jedan isti broj crteža može biti na više radnih
+ * naloga i svaki se zasebno prati po lokacijama. `item_ref_id` tipično nosi
+ * broj naloga (npr. "9836/76"). Proširiti po potrebi. */
 const ITEM_REF_TABLES = [
+  { value: 'bigtehn_rn', label: 'bigtehn_rn — radni nalog (BigTehn)' },
   { value: 'parts', label: 'parts — delovi' },
   { value: 'tools', label: 'tools — alati' },
   { value: 'machines', label: 'machines — mašine' },
@@ -97,16 +101,26 @@ function bindEscClose(onClose) {
   return () => document.removeEventListener('keydown', handler);
 }
 
-function movementErrMsg(code) {
+function movementErrMsg(code, detail) {
   const m = {
     missing_fields: 'Popuni sva obavezna polja.',
     bad_to_location: 'Odredišna lokacija nije validna ili nije aktivna.',
     bad_to_uuid: 'Odredišna lokacija ima neispravan ID.',
     bad_from_uuid: 'Polazna lokacija ima neispravan ID.',
     bad_movement_type: 'Neispravan tip pokreta.',
-    already_placed: 'Stavka već ima lokaciju — koristi TRANSFER ili drugi tip (ne INITIAL_PLACEMENT).',
-    no_current_placement: 'Nema trenutnog placement-a — izaberi INITIAL_PLACEMENT.',
+    bad_quantity: 'Količina mora biti veća od 0.',
+    already_placed:
+      'Stavka već ima postojeće placement-e — koristi TRANSFER (ili INVENTORY_ADJUSTMENT da dodaš još komada).',
+    no_current_placement:
+      'Stavka nije trenutno nigde smeštena — prvo iskoristi INITIAL_PLACEMENT.',
+    from_has_no_placement:
+      'Na izabranoj polaznoj lokaciji nema komada ove stavke.',
+    from_ambiguous:
+      'Stavka se trenutno nalazi na više lokacija — eksplicitno izaberi polaznu.',
     from_mismatch: 'Polazna lokacija ne odgovara trenutnoj.',
+    insufficient_quantity: detail?.available != null
+      ? `Tražena količina (${detail.requested ?? '?'}) je veća od raspoložive na polaznoj lokaciji (${detail.available}).`
+      : 'Tražena količina je veća od raspoložive na polaznoj lokaciji.',
     not_authenticated: 'Prijavi se ponovo.',
   };
   return m[code] || code || 'Operacija nije uspela.';
@@ -342,21 +356,23 @@ export function openItemHistoryModal({ itemRefTable, itemRefId }) {
       ? movs
           .map(m => {
             const ts = (m.moved_at || '').replace('T', ' ').slice(0, 16);
+            const qty = m.quantity == null ? '' : escHtml(String(m.quantity));
             return `<tr>
               <td class="loc-path">${escHtml(ts)}</td>
               <td><span class="loc-mov-type">${escHtml(m.movement_type || '')}</span></td>
+              <td class="loc-qty-cell">${qty}</td>
               <td>${locBrief(m.from_location_id)}</td>
               <td>${locBrief(m.to_location_id)}</td>
               <td class="loc-path">${escHtml((m.note || m.movement_reason || '').slice(0, 120))}</td>
             </tr>`;
           })
           .join('')
-      : '<tr><td colspan="5" class="loc-muted">Nema zabeleženih premeštanja.</td></tr>';
+      : '<tr><td colspan="6" class="loc-muted">Nema zabeleženih premeštanja.</td></tr>';
 
     body.innerHTML = `
       <div class="loc-table-wrap" style="max-height:60vh">
         <table class="loc-table">
-          <thead><tr><th>Vreme</th><th>Tip</th><th>Odakle</th><th>Dokle</th><th>Napomena</th></tr></thead>
+          <thead><tr><th>Vreme</th><th>Tip</th><th class="loc-qty-cell">Količina</th><th>Odakle</th><th>Dokle</th><th>Napomena</th></tr></thead>
           <tbody>${rowsHtml}</tbody>
         </table>
       </div>
@@ -455,6 +471,9 @@ export function openQuickMoveModal({ onSuccess } = {}) {
       t => `<option value="${escHtml(t.value)}">${escHtml(t.label)}</option>`,
     ).join('');
 
+    /* Index lokacija po UUID-u — za brzi lookup labele u "trenutno na..." pregledu. */
+    const locById = new Map(locs.map(l => [l.id, l]));
+
     body.innerHTML = `
       <div class="kadr-modal-err" id="locModalQuickMoveErr"></div>
       <form id="locFormQuickMove">
@@ -464,17 +483,34 @@ export function openQuickMoveModal({ onSuccess } = {}) {
             <select id="locQmTable" required>${tableOpts}</select>
           </div>
           <div class="emp-field">
-            <label for="locQmItemId">ID stavke *</label>
+            <label for="locQmItemId">ID stavke * <span class="loc-muted" style="font-weight:400">(npr. broj naloga 9836/76)</span></label>
             <input type="text" id="locQmItemId" required maxlength="200" placeholder="ERP / sync ID" autocomplete="off">
           </div>
-          <div class="emp-field col-full">
-            <label for="locQmTo">Odredišna lokacija *</label>
-            <select id="locQmTo" required>${toOpts}</select>
+
+          <div class="emp-field col-full" id="locQmStateWrap" hidden>
+            <div class="loc-current-state" id="locQmState"></div>
           </div>
+
           <div class="emp-field">
             <label for="locQmType">Tip pokreta *</label>
             <select id="locQmType" required>${movOpts}</select>
           </div>
+          <div class="emp-field">
+            <label for="locQmQty">Količina *</label>
+            <input type="number" id="locQmQty" required min="0.001" step="0.001" value="1">
+          </div>
+
+          <div class="emp-field col-full" id="locQmFromWrap" hidden>
+            <label for="locQmFrom">Sa lokacije *</label>
+            <select id="locQmFrom"></select>
+            <div class="loc-muted" id="locQmFromHint" style="font-size:11px;margin-top:4px"></div>
+          </div>
+
+          <div class="emp-field col-full">
+            <label for="locQmTo">Odredišna lokacija *</label>
+            <select id="locQmTo" required>${toOpts}</select>
+          </div>
+
           <div class="emp-field col-full">
             <label for="locQmNote">Napomena</label>
             <textarea id="locQmNote" maxlength="500" rows="2" placeholder="Opciono"></textarea>
@@ -488,28 +524,144 @@ export function openQuickMoveModal({ onSuccess } = {}) {
 
     const errEl = overlay.querySelector('#locModalQuickMoveErr');
     const submitBtn = overlay.querySelector('#locQmSubmit');
+    const tableSel = overlay.querySelector('#locQmTable');
+    const itemIdInput = overlay.querySelector('#locQmItemId');
+    const typeSel = overlay.querySelector('#locQmType');
+    const qtyInput = overlay.querySelector('#locQmQty');
+    const fromWrap = overlay.querySelector('#locQmFromWrap');
+    const fromSel = overlay.querySelector('#locQmFrom');
+    const fromHint = overlay.querySelector('#locQmFromHint');
+    const stateWrap = overlay.querySelector('#locQmStateWrap');
+    const stateEl = overlay.querySelector('#locQmState');
+
+    /* Stanje: trenutni placement-i za (table,id) par — mapa location_id → qty. */
+    let currentPlacements = [];
+    let lookupToken = 0;
+
+    function refreshFromHint() {
+      const locId = fromSel.value;
+      const row = currentPlacements.find(r => r.location_id === locId);
+      if (row) {
+        fromHint.textContent = `Trenutno na izabranoj polaznoj lokaciji: ${row.quantity} kom.`;
+        qtyInput.max = row.quantity;
+      } else {
+        fromHint.textContent = '';
+        qtyInput.removeAttribute('max');
+      }
+    }
+
+    function applyTypeMode() {
+      const t = typeSel.value;
+      const needsFrom = t !== 'INITIAL_PLACEMENT' && t !== 'INVENTORY_ADJUSTMENT';
+      fromWrap.hidden = !needsFrom;
+      fromSel.required = needsFrom;
+      refreshFromHint();
+    }
+
+    function renderState(rows) {
+      currentPlacements = Array.isArray(rows) ? rows.filter(r => Number(r.quantity) > 0) : [];
+      if (!currentPlacements.length) {
+        stateWrap.hidden = true;
+        stateEl.innerHTML = '';
+        fromSel.innerHTML = '';
+        /* Nove stavke default-uju na INITIAL_PLACEMENT. */
+        if (itemIdInput.value.trim()) typeSel.value = 'INITIAL_PLACEMENT';
+        applyTypeMode();
+        return;
+      }
+
+      const chips = currentPlacements.map(r => {
+        const loc = locById.get(r.location_id);
+        const label = loc ? `${loc.location_code} — ${loc.name}` : r.location_id;
+        return `<span class="loc-chip">${escHtml(label)} · <strong>${escHtml(String(r.quantity))}</strong></span>`;
+      }).join('');
+      const total = currentPlacements.reduce((a, r) => a + Number(r.quantity || 0), 0);
+      stateEl.innerHTML = `
+        <div class="loc-current-title">Trenutno smešteno (ukupno ${escHtml(String(total))} kom.):</div>
+        <div class="loc-chip-row">${chips}</div>`;
+      stateWrap.hidden = false;
+
+      /* Popuni from select samo lokacijama gde postoji stanje. */
+      fromSel.innerHTML =
+        '<option value="">— izaberi polaznu —</option>' +
+        currentPlacements.map(r => {
+          const loc = locById.get(r.location_id);
+          const label = loc ? `${loc.location_code} — ${loc.name}` : r.location_id;
+          return `<option value="${escHtml(r.location_id)}">${escHtml(label)} (${escHtml(String(r.quantity))} kom.)</option>`;
+        }).join('');
+
+      /* Default: TRANSFER (ako je već negde) — korisnik tipično prebacuje. */
+      if (typeSel.value === 'INITIAL_PLACEMENT') typeSel.value = 'TRANSFER';
+      applyTypeMode();
+    }
+
+    async function refreshItemState() {
+      const table = tableSel.value.trim();
+      const id = itemIdInput.value.trim();
+      const myToken = ++lookupToken;
+      if (!table || !id) {
+        renderState([]);
+        return;
+      }
+      const rows = await fetchItemPlacements(table, id);
+      if (myToken !== lookupToken) return;
+      renderState(rows || []);
+    }
+
+    /* Debounce da ne zovemo za svaki keypress. */
+    let debounceT = null;
+    const scheduleRefresh = () => {
+      clearTimeout(debounceT);
+      debounceT = setTimeout(refreshItemState, 300);
+    };
+
+    tableSel.addEventListener('change', refreshItemState);
+    itemIdInput.addEventListener('input', scheduleRefresh);
+    itemIdInput.addEventListener('blur', refreshItemState);
+    typeSel.addEventListener('change', applyTypeMode);
+    fromSel.addEventListener('change', refreshFromHint);
 
     overlay.querySelector('#locQmCancel').addEventListener('click', close);
-    overlay.querySelector('#locQmItemId').focus();
+    itemIdInput.focus();
+    applyTypeMode();
 
     overlay.querySelector('#locFormQuickMove').addEventListener('submit', async ev => {
       ev.preventDefault();
       errEl.textContent = '';
-      const item_ref_table = overlay.querySelector('#locQmTable').value.trim();
-      const item_ref_id = overlay.querySelector('#locQmItemId').value.trim();
+      const item_ref_table = tableSel.value.trim();
+      const item_ref_id = itemIdInput.value.trim();
       const to_location_id = overlay.querySelector('#locQmTo').value;
-      const movement_type = overlay.querySelector('#locQmType').value;
+      const movement_type = typeSel.value;
       const note = overlay.querySelector('#locQmNote').value.trim();
+      const qty = Number(qtyInput.value);
+      const needsFrom = movement_type !== 'INITIAL_PLACEMENT' && movement_type !== 'INVENTORY_ADJUSTMENT';
+      const from_location_id = needsFrom ? fromSel.value : '';
+
       if (!item_ref_table || !item_ref_id || !to_location_id || !movement_type) {
         errEl.textContent = 'Popuni obavezna polja.';
         return;
       }
+      if (!Number.isFinite(qty) || qty <= 0) {
+        errEl.textContent = 'Količina mora biti veća od 0.';
+        return;
+      }
+      if (needsFrom && !from_location_id) {
+        errEl.textContent = 'Izaberi polaznu lokaciju.';
+        return;
+      }
+      if (needsFrom && from_location_id === to_location_id) {
+        errEl.textContent = 'Polazna i odredišna lokacija moraju biti različite.';
+        return;
+      }
+
       submitBtn.disabled = true;
       const res = await locCreateMovement({
         item_ref_table,
         item_ref_id,
         to_location_id,
+        from_location_id: from_location_id || undefined,
         movement_type,
+        quantity: qty,
         note: note || undefined,
       });
       submitBtn.disabled = false;
@@ -518,7 +670,7 @@ export function openQuickMoveModal({ onSuccess } = {}) {
         return;
       }
       if (!res.ok) {
-        errEl.textContent = movementErrMsg(res.error);
+        errEl.textContent = movementErrMsg(res.error, res);
         return;
       }
       showToast('✓ Premeštanje zabeleženo');

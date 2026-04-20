@@ -7,7 +7,7 @@ import { STORAGE_KEYS } from '../lib/constants.js';
 
 /* Whitelist legitimnih tab ID-jeva — sprečava da korumpirana LS vrednost dovede
  * do praznog panela (renderPanel ima if-grane po tabId-u). */
-const VALID_TABS = new Set(['dashboard', 'browse', 'items', 'sync']);
+const VALID_TABS = new Set(['dashboard', 'browse', 'items', 'history', 'sync']);
 const DEFAULT_TAB = 'dashboard';
 
 /* Veličine stranice za items paginator — striktan whitelist da se LS ne koristi kao XSS vektor. */
@@ -20,6 +20,16 @@ const state = {
   itemsFilter: '',
   itemsPage: 0,
   itemsPageSize: DEFAULT_PAGE_SIZE,
+  historyFilters: {
+    search: '',
+    userId: '',
+    locationId: '',
+    movementType: '',
+    dateFrom: '',
+    dateTo: '',
+  },
+  historyPage: 0,
+  historyPageSize: DEFAULT_PAGE_SIZE,
 };
 
 function normalizeTab(v) {
@@ -69,4 +79,64 @@ export function setItemsPage(n) {
 export function setItemsPageSize(n) {
   state.itemsPageSize = normalizePageSize(n);
   state.itemsPage = 0;
+}
+
+const VALID_MOVEMENT_TYPES = new Set([
+  '',
+  'INITIAL_PLACEMENT',
+  'TRANSFER',
+  'RETURN',
+  'INVENTORY_ADJUSTMENT',
+  'REMOVAL',
+]);
+
+function normalizeUuid(v) {
+  if (typeof v !== 'string') return '';
+  const s = v.trim().toLowerCase();
+  /* Ako ne liči na UUID, ignorišemo. Sprečava da se korumpirana vrednost pošalje u REST. */
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(s) ? s : '';
+}
+
+function normalizeIsoDate(v) {
+  if (typeof v !== 'string') return '';
+  const s = v.trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : '';
+}
+
+export function setHistoryFilters(patch) {
+  const next = { ...state.historyFilters };
+  if (patch && typeof patch === 'object') {
+    if ('search' in patch) next.search = normalizeFilter(patch.search);
+    if ('userId' in patch) next.userId = normalizeUuid(patch.userId);
+    if ('locationId' in patch) next.locationId = normalizeUuid(patch.locationId);
+    if ('movementType' in patch) {
+      const t = typeof patch.movementType === 'string' ? patch.movementType : '';
+      next.movementType = VALID_MOVEMENT_TYPES.has(t) ? t : '';
+    }
+    if ('dateFrom' in patch) next.dateFrom = normalizeIsoDate(patch.dateFrom);
+    if ('dateTo' in patch) next.dateTo = normalizeIsoDate(patch.dateTo);
+  }
+  state.historyFilters = next;
+  state.historyPage = 0;
+}
+
+export function resetHistoryFilters() {
+  state.historyFilters = {
+    search: '',
+    userId: '',
+    locationId: '',
+    movementType: '',
+    dateFrom: '',
+    dateTo: '',
+  };
+  state.historyPage = 0;
+}
+
+export function setHistoryPage(n) {
+  state.historyPage = Math.max(0, Number(n) || 0);
+}
+
+export function setHistoryPageSize(n) {
+  state.historyPageSize = normalizePageSize(n);
+  state.historyPage = 0;
 }

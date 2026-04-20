@@ -6,6 +6,10 @@ import {
   setItemsFilter,
   setItemsPage,
   setItemsPageSize,
+  setHistoryFilters,
+  resetHistoryFilters,
+  setHistoryPage,
+  setHistoryPageSize,
 } from '../../src/state/lokacije.js';
 
 /* storage.js je fail-safe (try/catch na localStorage), pa testovi rade
@@ -83,5 +87,73 @@ describe('state/lokacije — paginacija', () => {
     setItemsPage(5);
     setItemsPageSize(100);
     expect(getLokacijeUiState().itemsPage).toBe(0);
+  });
+});
+
+describe('state/lokacije — history filteri', () => {
+  beforeEach(() => {
+    resetHistoryFilters();
+  });
+
+  it('početno stanje je prazno', () => {
+    const f = getLokacijeUiState().historyFilters;
+    expect(f).toEqual({
+      search: '',
+      userId: '',
+      locationId: '',
+      movementType: '',
+      dateFrom: '',
+      dateTo: '',
+    });
+    expect(getLokacijeUiState().historyPage).toBe(0);
+  });
+
+  it('setHistoryFilters patch-uje samo prosleđena polja', () => {
+    setHistoryFilters({ search: 'abc' });
+    expect(getLokacijeUiState().historyFilters.search).toBe('abc');
+    setHistoryFilters({ movementType: 'TRANSFER' });
+    const f = getLokacijeUiState().historyFilters;
+    expect(f.search).toBe('abc');
+    expect(f.movementType).toBe('TRANSFER');
+  });
+
+  it('odbija nevažeći UUID za userId / locationId', () => {
+    setHistoryFilters({ userId: 'not-a-uuid', locationId: '' });
+    expect(getLokacijeUiState().historyFilters.userId).toBe('');
+    setHistoryFilters({
+      userId: 'AB123456-7890-4bcd-8ef0-1234567890ab',
+      locationId: 'AB123456-7890-4bcd-8ef0-1234567890ab',
+    });
+    expect(getLokacijeUiState().historyFilters.userId).toBe('ab123456-7890-4bcd-8ef0-1234567890ab');
+  });
+
+  it('odbija nepoznat movement_type', () => {
+    setHistoryFilters({ movementType: 'EVIL_DROP' });
+    expect(getLokacijeUiState().historyFilters.movementType).toBe('');
+  });
+
+  it('samo ISO date format za from/to', () => {
+    setHistoryFilters({ dateFrom: '2025-13-45', dateTo: 'xxx' });
+    const f = getLokacijeUiState().historyFilters;
+    expect(f.dateFrom).toBe('2025-13-45');
+    /* regex samo formatno; invalidni meseci/dani se vide u RPC-u, a ovde samo struktura */
+    setHistoryFilters({ dateFrom: 'bad', dateTo: '2025-01-01' });
+    expect(getLokacijeUiState().historyFilters.dateFrom).toBe('');
+    expect(getLokacijeUiState().historyFilters.dateTo).toBe('2025-01-01');
+  });
+
+  it('bilo koji patch resetuje paginaciju na 0', () => {
+    setHistoryPage(4);
+    setHistoryFilters({ search: 'xyz' });
+    expect(getLokacijeUiState().historyPage).toBe(0);
+  });
+
+  it('setHistoryPageSize whitelist + reset page', () => {
+    setHistoryPage(2);
+    setHistoryPageSize(7);
+    expect(getLokacijeUiState().historyPageSize).toBe(50);
+    setHistoryPageSize(250);
+    expect(getLokacijeUiState().historyPageSize).toBe(250);
+    expect(getLokacijeUiState().historyPage).toBe(0);
   });
 });

@@ -15,16 +15,23 @@ import {
   setItemsFilter,
   setItemsPage,
   setItemsPageSize,
+  setHistoryFilters,
+  resetHistoryFilters,
+  setHistoryPage,
+  setHistoryPageSize,
 } from '../../state/lokacije.js';
 import { filterLocationsHierarchical } from '../../lib/lokacijeFilters.js';
 import { rowsToCsv, CSV_BOM } from '../../lib/csv.js';
 import {
+  fetchAllMovements,
   fetchAllPlacements,
   fetchLocations,
+  fetchMovementsHistory,
   fetchPlacements,
   fetchRecentMovements,
   fetchSyncOutboundEvents,
 } from '../../services/lokacije.js';
+import { loadUsersFromDb } from '../../services/users.js';
 import { hasSupabaseConfig } from '../../services/supabase.js';
 import {
   openItemHistoryModal,
@@ -33,13 +40,36 @@ import {
   openQuickMoveModal,
   toggleLocationActive,
 } from './modals.js';
+import { openScanMoveModal } from './scanModal.js';
+import { openShelfLabelsPrint } from './labelsPrint.js';
+
+/* Jeftina provera može li kamera — bez uvoza barcode modula (koji vuče ZXing).
+ * Barcode.js ima istu logiku; držimo je singleton-level za bundle splitting. */
+function canUseCamera() {
+  return (
+    typeof navigator !== 'undefined' &&
+    !!navigator.mediaDevices?.getUserMedia
+  );
+}
 
 const TABS = [
   { id: 'dashboard', label: 'Početna' },
   { id: 'browse', label: 'Lokacije' },
   { id: 'items', label: 'Stavke' },
+  { id: 'history', label: 'Istorija' },
   { id: 'sync', label: 'Sync', adminOnly: true },
 ];
+
+const MOVEMENT_TYPE_LABELS = {
+  INITIAL_PLACEMENT: 'Prvo zaduženje',
+  TRANSFER: 'Premeštanje',
+  RETURN: 'Povrat',
+  INVENTORY_ADJUSTMENT: 'Inventar',
+  REMOVAL: 'Uklonjeno',
+};
+
+/* Cache user-a (id → prikaz) — rekešira se pri svakom mount-u, ali ne per-render. */
+let historyUsersCache = null;
 
 let mountRef = null;
 /** @type {HTMLElement|null} */
@@ -50,11 +80,18 @@ let showInactiveLocations = false;
 let browseViewMode = 'table';
 
 function locToolbarHtml({ extra = '' } = {}) {
-  const parts = [
-    `<button type="button" class="btn btn-primary" id="locBtnQuickMove">Brzo premeštanje</button>`,
-  ];
+  const parts = [];
+  if (canUseCamera()) {
+    parts.push(
+      `<button type="button" class="btn btn-primary" id="locBtnScanMove" title="Skeniraj barkod telefonom">📷 Skeniraj</button>`,
+    );
+  }
+  parts.push(
+    `<button type="button" class="btn" id="locBtnQuickMove">Brzo premeštanje</button>`,
+  );
   if (canEdit()) {
     parts.push(`<button type="button" class="btn" id="locBtnNewLoc">Nova lokacija</button>`);
+    parts.push(`<button type="button" class="btn" id="locBtnLabels" title="Generiši nalepnice sa barkodom za štampu">🏷 Nalepnice polica</button>`);
   }
   if (extra) parts.push(extra);
   return `<div class="loc-toolbar">${parts.join('')}</div>`;
@@ -63,11 +100,17 @@ function locToolbarHtml({ extra = '' } = {}) {
 function attachLocToolbar() {
   const host = locPanelHost;
   if (!host) return;
+  host.querySelector('#locBtnScanMove')?.addEventListener('click', () => {
+    openScanMoveModal({ onSuccess: refreshLocPanel });
+  });
   host.querySelector('#locBtnQuickMove')?.addEventListener('click', () => {
     openQuickMoveModal({ onSuccess: refreshLocPanel });
   });
   host.querySelector('#locBtnNewLoc')?.addEventListener('click', () => {
     openNewLocationModal({ onSuccess: refreshLocPanel });
+  });
+  host.querySelector('#locBtnLabels')?.addEventListener('click', () => {
+    openShelfLabelsPrint();
   });
   const showInactiveCb = host.querySelector('#locBrowseShowInactive');
   if (showInactiveCb) {
@@ -341,6 +384,7 @@ function attachItemsExport() {
         'Kod lokacije',
         'Naziv lokacije',
         'Putanja',
+        'Količina',
         'Status',
         'Napomena',
         'Premeštena u',
@@ -354,6 +398,7 @@ function attachItemsExport() {
           loc.location_code || '',
           loc.name || '',
           loc.path_cached || '',
+          p.quantity == null ? '' : p.quantity,
           p.placement_status || '',
           p.notes || '',
           p.placed_at || '',
@@ -623,7 +668,8 @@ async function renderPanel(host, tabId) {
               : `<span class="loc-path">${escHtml(String(r.location_id || '').slice(0, 8))}…</span>`;
             const tbl = escHtml(r.item_ref_table || '');
             const iid = escHtml(r.item_ref_id || '');
-            return `<tr class="loc-row-click" data-loc-item-table="${tbl}" data-loc-item-id="${iid}" title="Klik za istoriju premeštanja"><td>${tbl}</td><td>${iid}</td><td>${locCell}</td><td>${escHtml(r.placement_status || '')}</td></tr>`;
+            const qty = r.quantity == null ? '' : escHtml(String(r.quantity));
+            return `<tr class="loc-row-click" data-loc-item-table="${tbl}" data-loc-item-id="${iid}" title="Klik za istoriju premeštanja"><td>${tbl}</td><td>${iid}</td><td>${locCell}</td><td class="loc-qty-cell">${qty}</td><td>${escHtml(r.placement_status || '')}</td></tr>`;
           })
           .join('')
       : '';
@@ -651,8 +697,8 @@ async function renderPanel(host, tabId) {
         <p class="loc-muted">Klik na red otvara istoriju premeštanja te stavke.</p>
         <div class="loc-table-wrap">
           <table class="loc-table">
-            <thead><tr><th>Tabela</th><th>ID stavke</th><th>Lokacija</th><th>Status</th></tr></thead>
-            <tbody>${rows || '<tr><td colspan="4" class="loc-muted">Nema stavki.</td></tr>'}</tbody>
+            <thead><tr><th>Tabela</th><th>ID stavke</th><th>Lokacija</th><th class="loc-qty-cell">Količina</th><th>Status</th></tr></thead>
+            <tbody>${rows || '<tr><td colspan="5" class="loc-muted">Nema stavki.</td></tr>'}</tbody>
           </table>
         </div>
         ${pagerHtml}
@@ -662,6 +708,11 @@ async function renderPanel(host, tabId) {
     attachItemsSearch();
     attachItemsPager();
     attachItemsExport();
+    return;
+  }
+
+  if (tabId === 'history') {
+    await renderHistoryTab(host);
     return;
   }
 
@@ -692,6 +743,361 @@ async function renderPanel(host, tabId) {
         </div>
       </div>`;
   }
+}
+
+/**
+ * Učitaj listu korisnika za user filter. Za obične korisnike RLS vraća samo
+ * njihov red — tada filter nije koristan i sakrivamo ga.
+ */
+async function loadHistoryUsers() {
+  if (historyUsersCache !== null) return historyUsersCache;
+  try {
+    const rows = await loadUsersFromDb();
+    if (!Array.isArray(rows) || rows.length <= 1) {
+      historyUsersCache = [];
+    } else {
+      historyUsersCache = rows
+        .map(r => ({
+          id: r.id,
+          label: r.full_name || r.email || String(r.id).slice(0, 8),
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label));
+    }
+  } catch {
+    historyUsersCache = [];
+  }
+  return historyUsersCache;
+}
+
+function historyRowsHtml(movs, locIdx, userIdx) {
+  if (!Array.isArray(movs) || movs.length === 0) {
+    return '<tr><td colspan="8" class="loc-muted">Nema premeštanja za zadate filtere.</td></tr>';
+  }
+  return movs
+    .map(m => {
+      const when = escHtml((m.moved_at || '').replace('T', ' ').slice(0, 19));
+      const who = userIdx.get(String(m.moved_by || '').toLowerCase());
+      const whoLabel = who ? escHtml(who) : `<span class="loc-muted">${escHtml(String(m.moved_by || '').slice(0, 8))}…</span>`;
+      const type = escHtml(MOVEMENT_TYPE_LABELS[m.movement_type] || m.movement_type || '');
+      const qty = m.quantity == null ? '' : escHtml(String(m.quantity));
+      const from = formatLocBrief(m.from_location_id, locIdx);
+      const to = formatLocBrief(m.to_location_id, locIdx);
+      const item = `${escHtml(m.item_ref_table || '')} · ${escHtml(m.item_ref_id || '')}`;
+      const note = escHtml((m.notes || '').slice(0, 80));
+      return `<tr>
+        <td class="loc-mov-when">${when}</td>
+        <td>${whoLabel}</td>
+        <td>${type}</td>
+        <td class="loc-qty-cell">${qty}</td>
+        <td class="loc-path">${from}</td>
+        <td class="loc-path">${to}</td>
+        <td>${item}</td>
+        <td>${note}</td>
+      </tr>`;
+    })
+    .join('');
+}
+
+function renderHistoryPager({ page, pageSize, total, loadedCount }) {
+  const from = total === 0 ? 0 : page * pageSize + 1;
+  const to = page * pageSize + loadedCount;
+  const totalLabel = total == null ? '?' : String(total);
+  const isLast = total != null ? to >= total : loadedCount < pageSize;
+  const rangeLabel = total === 0 ? '0–0' : `${from}–${to}`;
+  const sizeOpts = [25, 50, 100, 250]
+    .map(n => `<option value="${n}"${n === pageSize ? ' selected' : ''}>${n}</option>`)
+    .join('');
+  return `
+    <div class="loc-pager" role="navigation" aria-label="Paginacija istorije">
+      <div class="loc-pager-info"><span>${rangeLabel} od ${escHtml(totalLabel)}</span></div>
+      <div class="loc-pager-controls">
+        <label class="loc-pager-size">
+          <span>Po stranici:</span>
+          <select id="locHistPageSize">${sizeOpts}</select>
+        </label>
+        <button type="button" class="btn btn-xs" id="locHistPrev" ${page === 0 ? 'disabled' : ''}>← Prethodna</button>
+        <button type="button" class="btn btn-xs" id="locHistNext" ${isLast ? 'disabled' : ''}>Sledeća →</button>
+      </div>
+    </div>`;
+}
+
+async function renderHistoryTab(host) {
+  const ui = getLokacijeUiState();
+  const { historyFilters: f, historyPage, historyPageSize } = ui;
+  const offset = historyPage * historyPageSize;
+
+  const [movsRes, locs, users] = await Promise.all([
+    fetchMovementsHistory({
+      ...f,
+      limit: historyPageSize,
+      offset,
+      wantCount: true,
+    }),
+    fetchLocations({ activeOnly: false }),
+    loadHistoryUsers(),
+  ]);
+
+  const movs = movsRes?.rows ?? null;
+  const total = typeof movsRes?.total === 'number' ? movsRes.total : null;
+  const locIdx = locationIndex(locs);
+  const userIdx = new Map((users || []).map(u => [String(u.id).toLowerCase(), u.label]));
+
+  const err = movs === null ? `<p class="loc-warn">Učitavanje neuspešno.</p>` : '';
+
+  const locOptions = (Array.isArray(locs) ? locs : [])
+    .sort((a, b) => (a.location_code || '').localeCompare(b.location_code || ''))
+    .map(
+      l => `<option value="${escHtml(l.id)}"${l.id === f.locationId ? ' selected' : ''}>${escHtml(l.location_code || '')} — ${escHtml(l.name || '')}</option>`,
+    )
+    .join('');
+
+  const userOptions = (users || [])
+    .map(
+      u => `<option value="${escHtml(u.id)}"${u.id === f.userId ? ' selected' : ''}>${escHtml(u.label)}</option>`,
+    )
+    .join('');
+  const userFilterHtml = (users || []).length
+    ? `<label class="loc-filter-field">
+        <span>Korisnik</span>
+        <select id="locHistUser"><option value="">Svi</option>${userOptions}</select>
+      </label>`
+    : '';
+
+  const typeOptions = Object.entries(MOVEMENT_TYPE_LABELS)
+    .map(
+      ([v, lbl]) => `<option value="${v}"${v === f.movementType ? ' selected' : ''}>${escHtml(lbl)}</option>`,
+    )
+    .join('');
+
+  const filtersHtml = `
+    <div class="loc-history-filters" role="group" aria-label="Filteri istorije">
+      <label class="loc-filter-field">
+        <span>Pretraga (ID stavke)</span>
+        <input type="search" id="locHistSearch" class="loc-search-input" value="${escHtml(f.search)}" autocomplete="off" placeholder="npr. 1084924" />
+      </label>
+      <label class="loc-filter-field">
+        <span>Lokacija (od ili do)</span>
+        <select id="locHistLocation"><option value="">Sve</option>${locOptions}</select>
+      </label>
+      ${userFilterHtml}
+      <label class="loc-filter-field">
+        <span>Tip</span>
+        <select id="locHistType"><option value="">Svi</option>${typeOptions}</select>
+      </label>
+      <label class="loc-filter-field">
+        <span>Od</span>
+        <input type="date" id="locHistFrom" value="${escHtml(f.dateFrom)}" />
+      </label>
+      <label class="loc-filter-field">
+        <span>Do</span>
+        <input type="date" id="locHistTo" value="${escHtml(f.dateTo)}" />
+      </label>
+      <div class="loc-filter-actions">
+        <button type="button" class="btn btn-xs" id="locHistReset">Resetuj</button>
+        <button type="button" class="btn btn-xs" id="locHistExport" title="Preuzmi CSV koji odgovara trenutnim filterima">Export CSV</button>
+      </div>
+    </div>`;
+
+  const pagerHtml = renderHistoryPager({
+    page: historyPage,
+    pageSize: historyPageSize,
+    total,
+    loadedCount: Array.isArray(movs) ? movs.length : 0,
+  });
+
+  host.innerHTML = `
+    <div class="kadr-panel active loc-panel">
+      ${err}
+      ${locToolbarHtml({ extra: '' })}
+      ${filtersHtml}
+      <div class="loc-table-wrap">
+        <table class="loc-table loc-history-table">
+          <thead><tr>
+            <th>Vreme</th>
+            <th>Korisnik</th>
+            <th>Tip</th>
+            <th class="loc-qty-cell">Količina</th>
+            <th>Sa lokacije</th>
+            <th>Na lokaciju</th>
+            <th>Stavka</th>
+            <th>Napomena</th>
+          </tr></thead>
+          <tbody>${historyRowsHtml(movs, locIdx, userIdx)}</tbody>
+        </table>
+      </div>
+      ${pagerHtml}
+    </div>`;
+
+  attachLocToolbar();
+  attachHistoryFilters();
+  attachHistoryPager();
+  attachHistoryExport(locs, users);
+}
+
+function attachHistoryFilters() {
+  const host = locPanelHost;
+  if (!host) return;
+
+  const apply = () => refreshLocPanel();
+
+  /* Debounce samo na text input-u; dropdown-ovi i date reaguju odmah. */
+  let t = null;
+  const onInput = () => {
+    const el = host.querySelector('#locHistSearch');
+    if (!el) return;
+    clearTimeout(t);
+    t = setTimeout(() => {
+      setHistoryFilters({ search: el.value });
+      apply();
+    }, 300);
+  };
+  host.querySelector('#locHistSearch')?.addEventListener('input', onInput);
+
+  host.querySelector('#locHistLocation')?.addEventListener('change', e => {
+    setHistoryFilters({ locationId: e.target.value });
+    apply();
+  });
+  host.querySelector('#locHistUser')?.addEventListener('change', e => {
+    setHistoryFilters({ userId: e.target.value });
+    apply();
+  });
+  host.querySelector('#locHistType')?.addEventListener('change', e => {
+    setHistoryFilters({ movementType: e.target.value });
+    apply();
+  });
+  host.querySelector('#locHistFrom')?.addEventListener('change', e => {
+    setHistoryFilters({ dateFrom: e.target.value });
+    apply();
+  });
+  host.querySelector('#locHistTo')?.addEventListener('change', e => {
+    setHistoryFilters({ dateTo: e.target.value });
+    apply();
+  });
+
+  host.querySelector('#locHistReset')?.addEventListener('click', () => {
+    resetHistoryFilters();
+    apply();
+  });
+}
+
+function attachHistoryPager() {
+  const host = locPanelHost;
+  if (!host) return;
+  host.querySelector('#locHistPrev')?.addEventListener('click', () => {
+    const { historyPage } = getLokacijeUiState();
+    if (historyPage > 0) {
+      setHistoryPage(historyPage - 1);
+      refreshLocPanel();
+    }
+  });
+  host.querySelector('#locHistNext')?.addEventListener('click', () => {
+    const { historyPage } = getLokacijeUiState();
+    setHistoryPage(historyPage + 1);
+    refreshLocPanel();
+  });
+  const sel = host.querySelector('#locHistPageSize');
+  if (sel) {
+    sel.addEventListener('change', () => {
+      setHistoryPageSize(Number(sel.value));
+      refreshLocPanel();
+    });
+  }
+}
+
+function attachHistoryExport(locs, users) {
+  const host = locPanelHost;
+  if (!host) return;
+  const btn = host.querySelector('#locHistExport');
+  if (!btn) return;
+
+  const locIdx = locationIndex(locs);
+  const userIdx = new Map((users || []).map(u => [String(u.id).toLowerCase(), u.label]));
+
+  btn.addEventListener('click', async () => {
+    const orig = btn.textContent || 'Export CSV';
+    btn.disabled = true;
+    btn.textContent = 'Export… 0';
+    try {
+      const { historyFilters } = getLokacijeUiState();
+      const { rows, total, truncated } = await fetchAllMovements({
+        ...historyFilters,
+        pageSize: 500,
+        onProgress: ({ loaded, total }) => {
+          btn.textContent = total != null
+            ? `Export… ${loaded}/${total}`
+            : `Export… ${loaded}`;
+        },
+      });
+
+      if (!Array.isArray(rows) || rows.length === 0) {
+        alert('Nema zapisa koji odgovaraju trenutnim filterima.');
+        return;
+      }
+
+      const headers = [
+        'Vreme',
+        'Korisnik',
+        'Tip',
+        'Količina',
+        'Sa lokacije',
+        'Sa putanje',
+        'Na lokaciju',
+        'Na putanju',
+        'Tabela',
+        'ID stavke',
+        'Napomena',
+      ];
+      const fmtLoc = id => {
+        if (!id) return { code: '', path: '' };
+        const l = locIdx.get(id);
+        return { code: l?.location_code || '', path: l?.path_cached || '' };
+      };
+
+      const data = rows.map(m => {
+        const from = fmtLoc(m.from_location_id);
+        const to = fmtLoc(m.to_location_id);
+        const who = userIdx.get(String(m.moved_by || '').toLowerCase()) || '';
+        return [
+          (m.moved_at || '').replace('T', ' ').slice(0, 19),
+          who,
+          MOVEMENT_TYPE_LABELS[m.movement_type] || m.movement_type || '',
+          m.quantity == null ? '' : m.quantity,
+          from.code,
+          from.path,
+          to.code,
+          to.path,
+          m.item_ref_table || '',
+          m.item_ref_id || '',
+          m.notes || '',
+        ];
+      });
+
+      const csv = CSV_BOM + rowsToCsv(headers, data);
+      downloadCsv(csv, buildHistoryExportFilename());
+
+      if (truncated) {
+        alert(
+          `Export prekinut na 50 000 zapisa radi sigurnosti. Ukupno u bazi: ${total ?? '?'}. ` +
+            `Suzi filtere za kompletniji izvoz.`,
+        );
+      }
+    } catch (err) {
+      console.error('[lokacije/history] CSV export failed', err);
+      alert(`Export neuspešan: ${err?.message || err}`);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = orig;
+    }
+  });
+}
+
+function buildHistoryExportFilename() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const ts =
+    `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}` +
+    `_${pad(now.getHours())}${pad(now.getMinutes())}`;
+  return `lokacije_istorija_${ts}.csv`;
 }
 
 function wireTabs(container, initialTabId) {
@@ -753,4 +1159,5 @@ export function renderLokacijeModule(mountEl, { onBackToHub, onLogout } = {}) {
 export function teardownLokacijeModule() {
   mountRef = null;
   locPanelHost = null;
+  historyUsersCache = null;
 }

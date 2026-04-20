@@ -2539,6 +2539,72 @@ body.module-lokacije #module-lokacije { display:flex !important; flex:1; flex-di
 .loc-firstrun-sub { font-size:12px; color:var(--text2); margin:0 0 8px; }
 .loc-firstrun-steps { margin:0; padding-left:20px; font-size:12px; color:var(--text2); line-height:1.6; }
 .loc-firstrun-steps code { font-family:var(--mono); font-size:11px; padding:1px 4px; background:var(--surface); border:1px solid var(--border2); border-radius:3px; }
+
+/* Quick move modal — trenutni placement-i za izabranu stavku. */
+.loc-current-state { padding:8px 10px; background:var(--surface2); border:1px solid var(--border2); border-radius:6px; }
+.loc-current-title { font-size:11px; color:var(--text3); margin-bottom:6px; text-transform:uppercase; letter-spacing:.4px; }
+.loc-chip-row { display:flex; flex-wrap:wrap; gap:6px; }
+.loc-current-state .loc-chip { display:inline-block; padding:3px 8px; background:var(--surface); border:1px solid var(--border2); border-radius:10px; font-size:11px; color:var(--text2); font-family:var(--mono); }
+.loc-current-state .loc-chip strong { color:var(--text); font-weight:700; }
+.loc-qty-cell { text-align:right; font-family:var(--mono); white-space:nowrap; }
+
+/* ── Full-screen barkod skener (mobile-first) ───────────────── */
+.loc-scan-overlay { position:fixed; inset:0; z-index:9999; background:#000; color:#fff; display:flex; flex-direction:column; overflow:hidden; }
+.loc-scan-stage { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:#000; }
+.loc-scan-video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+.loc-scan-reticle {
+  position:absolute; top:50%; left:50%;
+  width:min(78vw, 360px); aspect-ratio:3/1;
+  transform:translate(-50%, -50%);
+  border:2px solid rgba(255,255,255,.9);
+  border-radius:10px;
+  box-shadow:0 0 0 9999px rgba(0,0,0,.45);
+  pointer-events:none;
+}
+.loc-scan-topbar {
+  position:absolute; top:0; left:0; right:0;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:10px 14px;
+  background:linear-gradient(rgba(0,0,0,.55), transparent);
+  z-index:2;
+}
+.loc-scan-title { flex:1; text-align:center; font-size:15px; font-weight:600; color:#fff; }
+.loc-scan-btn {
+  width:44px; height:44px; border:0; border-radius:22px;
+  background:rgba(255,255,255,.15); color:#fff; font-size:18px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+}
+.loc-scan-btn:hover { background:rgba(255,255,255,.28); }
+.loc-scan-hint {
+  position:absolute; left:0; right:0; bottom:28px;
+  text-align:center; color:rgba(255,255,255,.9);
+  font-size:13px; line-height:1.5; z-index:2;
+}
+.loc-scan-manual {
+  display:inline-block; margin-top:6px;
+  padding:6px 12px; background:rgba(255,255,255,.18); border-radius:14px;
+  font-size:12px; cursor:pointer;
+}
+/* Form stage (posle skeniranja). */
+.loc-scan-form-wrap { position:absolute; inset:0; background:var(--bg, #0c0f14); overflow-y:auto; -webkit-overflow-scrolling:touch; }
+.loc-scan-form-inner { max-width:560px; margin:0 auto; padding:0 0 24px; }
+.loc-scan-form-head {
+  position:sticky; top:0; z-index:2;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:10px 14px;
+  background:var(--surface, #14181f);
+  border-bottom:1px solid var(--border2, #262c36);
+}
+.loc-scan-form-head .loc-scan-title { color:var(--text, #f1f1f1); }
+.loc-scan-form-head .loc-scan-btn { background:var(--surface2, #1d242e); color:var(--text, #f1f1f1); }
+.loc-scan-form-body { padding:14px 16px; display:flex; flex-direction:column; gap:12px; }
+.loc-scan-form-body input, .loc-scan-form-body select { font-size:16px; padding:10px 12px; }
+.loc-scan-chips { padding:10px 12px; background:var(--surface2, #1d242e); border:1px solid var(--border2, #262c36); border-radius:6px; }
+.loc-scan-err { min-height:18px; color:var(--err, #ff6b6b); font-size:13px; }
+.loc-scan-actions { display:flex; gap:8px; margin-top:8px; }
+.loc-scan-actions .btn { flex:1; padding:12px; font-size:15px; }
+.loc-scan-actions .btn-primary { flex:2; }
+
 .loc-kpi {
   min-width:140px; padding:12px 14px;
   background:var(--surface2); border:1px solid var(--border2); border-radius:8px;
@@ -2587,6 +2653,34 @@ body.module-lokacije #module-lokacije { display:flex !important; flex:1; flex-di
 .loc-search-input { flex:1 1 auto; min-width:180px; padding:6px 10px; font-size:12px; border:1px solid var(--border2); border-radius:6px; background:var(--surface); color:var(--text); }
 .loc-search-input:focus { outline:2px solid color-mix(in srgb, var(--accent) 50%, transparent); outline-offset:0; border-color:var(--accent); }
 .loc-filter-hint { font-size:11px; color:var(--text3); white-space:nowrap; }
+
+/* ── Istorija — filteri grid ─────────────────────────────────── */
+.loc-history-filters {
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
+  gap:10px;
+  padding:10px 12px;
+  margin:10px 0;
+  background:var(--surface2);
+  border:1px solid var(--border2);
+  border-radius:8px;
+}
+.loc-filter-field { display:flex; flex-direction:column; gap:4px; font-size:12px; }
+.loc-filter-field span { color:var(--text2); font-weight:500; }
+.loc-filter-field input[type="search"],
+.loc-filter-field input[type="date"],
+.loc-filter-field select {
+  padding:6px 10px; font-size:12px;
+  border:1px solid var(--border2); border-radius:6px;
+  background:var(--surface); color:var(--text); min-height:30px;
+}
+.loc-filter-field select:focus,
+.loc-filter-field input:focus {
+  outline:2px solid color-mix(in srgb, var(--accent) 50%, transparent);
+  border-color:var(--accent);
+}
+.loc-filter-actions { display:flex; align-items:flex-end; gap:6px; }
+.loc-history-table .loc-mov-when { white-space:nowrap; font-variant-numeric:tabular-nums; font-size:11px; color:var(--text2); }
 
 /* ── Paginator (items tab) ────────────────────────────────────────── */
 .loc-pager { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:8px; padding:8px 10px; border:1px solid var(--border2); border-radius:6px; background:var(--surface2); flex-wrap:wrap; }
