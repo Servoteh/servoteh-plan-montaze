@@ -95,23 +95,34 @@ jobs:
         env:
           PGPASSWORD: postgres
         run: |
-          set -euo pipefail
+          set -uo pipefail
           mkdir -p /tmp/ci-logs
+          overall_rc=0
           while IFS= read -r line; do
             # preskoči prazne i komentare
             [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
-            echo "::group::Applying $line"
-            # -a = echo SQL pre izvršavanja (olakšava debug u stdout log-u)
-            # stderr+stdout se pipe-uje i u fajl (artifact) i na konzolu.
+            echo ""
+            echo "=================================================="
+            echo ">>> APPLYING: $line"
+            echo "=================================================="
             log_file="/tmp/ci-logs/$(echo "$line" | tr '/' '_').log"
-            if ! psql -h localhost -U postgres -d ci_test \
-                 -v ON_ERROR_STOP=1 -a -f "$line" 2>&1 | tee "$log_file"; then
-              echo "::error::Migration failed: $line"
-              echo "::endgroup::"
-              exit 1
+            # -a echo-uje sve SQL naredbe pre izvršavanja u stdout.
+            # NE koristimo `tee | ::group::` da GitHub UI ne collapsira izlaz
+            # — sav output ide direktno na konzolu.
+            psql -h localhost -U postgres -d ci_test \
+                 -v ON_ERROR_STOP=1 -a -f "$line" > "$log_file" 2>&1
+            rc=$?
+            # Prikaži poslednjih 200 linija (ako fajl ogroman, vidimo greške na kraju).
+            tail -n 200 "$log_file" || true
+            if [ "$rc" -ne 0 ]; then
+              echo ""
+              echo "!!! psql exited with code $rc for: $line"
+              echo "!!! FULL LOG ABOVE (last 200 lines of $log_file)"
+              overall_rc=1
+              break
             fi
-            echo "::endgroup::"
           done < sql/ci/migrations.txt
+          exit "$overall_rc"
 
       - name: Upload migration logs on failure
         if: failure()
