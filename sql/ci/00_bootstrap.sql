@@ -83,10 +83,20 @@ END;
 $fn$;
 
 -- ── public.user_roles — minimalni shape koji koriste RLS politike ───────
+-- NB: produkcioni shape ima vise kolona (project_id, full_name, team, itd.) —
+-- ovde drzimo samo one na koje se oslanja loc_* / ostali moduli (email, role,
+-- is_active). Ako neka buduca migracija zahteva neku drugu kolonu, dopuni je
+-- ovde (ili uradi `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`) da CI prode.
 CREATE TABLE IF NOT EXISTS public.user_roles (
-  email TEXT PRIMARY KEY,
-  role  TEXT NOT NULL CHECK (role IN ('admin','leadpm','pm','user','viewer'))
+  email     TEXT PRIMARY KEY,
+  role      TEXT NOT NULL CHECK (role IN ('admin','leadpm','pm','user','viewer')),
+  is_active BOOLEAN NOT NULL DEFAULT true
 );
+
+-- Idempotentno dodaje `is_active` ako neka starija verzija CI cache-a vec
+-- ima `user_roles` bez te kolone (npr. iz ranijeg bootstrap-a).
+ALTER TABLE public.user_roles
+  ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
 
 -- Grant-ovi očekivani u migracijama (PostgREST style).
 GRANT USAGE ON SCHEMA public TO authenticated, anon, service_role;
