@@ -164,16 +164,50 @@ jobs:
             -f body="$(cat "$body_file")" || true
 
       - name: Run pgTAP tests
+        id: pgtap
         env:
           PGPASSWORD: postgres
         run: |
+          set -uo pipefail
+          mkdir -p /tmp/ci-logs
           shopt -s nullglob
           tests=(sql/tests/*.sql)
           if [ ${#tests[@]} -eq 0 ]; then
             echo "Nema pgTAP testova u sql/tests/."
             exit 1
           fi
-          pg_prove --verbose -h localhost -U postgres -d ci_test "${tests[@]}"
+          # pg_prove output ide i u konzolu (tee) i u log fajl koji kasnije
+          # postavljamo kao commit comment ako CI padne.
+          pg_prove --verbose -h localhost -U postgres -d ci_test "${tests[@]}" \
+            2>&1 | tee /tmp/ci-logs/pgtap.log
+          exit ${PIPESTATUS[0]}
+
+      - name: Post pgTAP errors as commit comment
+        if: failure() && steps.pgtap.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          body_file=/tmp/ci-pgtap-comment.md
+          {
+            echo "## CI failure — pgTAP tests"
+            echo ""
+            echo "Run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo ""
+            echo '```'
+            tail -n 400 /tmp/ci-logs/pgtap.log || echo "(no log)"
+            echo '```'
+          } > "$body_file"
+          gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/comments" \
+            -f body="$(cat "$body_file")" || true
+
+      - name: Upload pgTAP log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pgtap-log
+          path: /tmp/ci-logs/pgtap.log
+          if-no-files-found: warn
 
       - name: Dump Postgres container logs on failure
         if: failure()
