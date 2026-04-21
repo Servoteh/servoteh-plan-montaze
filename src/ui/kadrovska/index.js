@@ -13,7 +13,7 @@
  *   renderKadrovskaModule(rootEl);
  */
 
-import { canAccessKadrovska, canEdit, getAuth } from '../../state/auth.js';
+import { canAccessKadrovska, canAccessSalary, canEdit, getAuth } from '../../state/auth.js';
 import { showToast } from '../../lib/dom.js';
 import { logout } from '../../services/auth.js';
 import { toggleTheme } from '../../lib/theme.js';
@@ -47,16 +47,40 @@ import {
   renderReportsTab,
   wireReportsTab,
 } from './reportsTab.js';
+import {
+  renderVacationTab,
+  wireVacationTab,
+} from './vacationTab.js';
+import {
+  renderSalaryTab,
+  wireSalaryTab,
+} from './salaryTab.js';
+import {
+  renderHrNotificationsTab,
+  wireHrNotificationsTab,
+} from './hrNotificationsTab.js';
 import { renderComingSoonTab } from './comingSoon.js';
 
-const TABS = [
+/**
+ * Lista svih tabova. Tabovi sa `adminOnly:true` se prikazuju u strip-u
+ * samo admin korisnicima — ostali ih uopšte ne vide.
+ */
+const ALL_TABS = [
   { id: 'employees', label: 'Zaposleni' },
   { id: 'absences', label: 'Odsustva' },
+  { id: 'vacation', label: 'Godišnji odmor' },
   { id: 'grid', label: 'Mesečni grid' },
   { id: 'hours', label: 'Sati (pojedinačno)' },
   { id: 'contracts', label: 'Ugovori' },
+  { id: 'salary', label: 'Zarade', adminOnly: true },
+  { id: 'notifications', label: 'Notifikacije' },
   { id: 'reports', label: 'Izveštaji' },
 ];
+
+function visibleTabs() {
+  const adminOk = canAccessSalary();
+  return ALL_TABS.filter(t => !t.adminOnly || adminOk);
+}
 
 let rootEl = null;
 let onBackToHubCb = null;
@@ -79,7 +103,12 @@ export function renderKadrovskaModule(root, { onBackToHub, onLogout } = {}) {
     return;
   }
 
-  const activeTab = kadrovskaState.activeTab || 'employees';
+  /* UX odluka: pri ulasku u Kadrovsku UVEK otvori Mesečni grid (najčešća radnja).
+     Unutar iste sesije korisnik dalje može menjati tab — to se pamti u sessionStorage,
+     ali na svaki fresh mount resetujemo na 'grid'. */
+  kadrovskaState.activeTab = 'grid';
+  setActiveKadrTab('grid');
+  const activeTab = 'grid';
 
   root.innerHTML = `
     <section id="module-kadrovska" class="kadrovska-section" aria-label="Modul Kadrovska">
@@ -129,6 +158,16 @@ function switchTab(id) {
 function mountTabBody(id) {
   const host = rootEl?.querySelector('#kadrPanelHost');
   if (!host) return;
+
+  /* Menadzment je ograničen na „grid" tab — svaki pokušaj otvaranja drugog
+     taba (stari aktivni u storage-u, deep-link) se neutralizuje. */
+  if (getAuth().role === 'menadzment' && id !== 'grid') {
+    kadrovskaState.activeTab = 'grid';
+    setActiveKadrTab('grid');
+    mountTabBody('grid');
+    return;
+  }
+
   host.innerHTML = `<div class="kadr-panel active" id="kadrPanel-${id}" role="tabpanel" aria-label="${id}"></div>`;
   const panel = host.firstElementChild;
 
@@ -137,13 +176,23 @@ function mountTabBody(id) {
   const tabImpl = {
     employees: { render: renderEmployeesTab, wire: wireEmployeesTab },
     absences: { render: renderAbsencesTab, wire: wireAbsencesTab },
+    vacation: { render: renderVacationTab, wire: wireVacationTab },
     grid: { render: renderGridTab, wire: wireGridTab },
     hours: { render: renderWorkHoursTab, wire: wireWorkHoursTab },
     contracts: { render: renderContractsTab, wire: wireContractsTab },
+    salary: { render: renderSalaryTab, wire: wireSalaryTab, adminOnly: true },
+    notifications: { render: renderHrNotificationsTab, wire: wireHrNotificationsTab },
     reports: { render: renderReportsTab, wire: wireReportsTab },
   };
 
   const impl = tabImpl[id];
+  if (impl?.adminOnly && !canAccessSalary()) {
+    /* Neovlašćen pokušaj (stari aktivni tab u storage-u) — fallback na grid. */
+    kadrovskaState.activeTab = 'grid';
+    setActiveKadrTab('grid');
+    mountTabBody('grid');
+    return;
+  }
   if (impl) {
     panel.innerHTML = impl.render();
     Promise.resolve()

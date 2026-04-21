@@ -19,7 +19,7 @@
  */
 
 import { escHtml, showToast } from '../../lib/dom.js';
-import { canEdit, getIsOnline } from '../../state/auth.js';
+import { canEditKadrovskaGrid, getIsOnline } from '../../state/auth.js';
 import { hasSupabaseConfig } from '../../services/supabase.js';
 import { kadrovskaState } from '../../state/kadrovska.js';
 import { ensureEmployeesLoaded } from '../../services/kadrovska.js';
@@ -197,7 +197,7 @@ function _gridUpdateDirtyBadge() {
   const n = _gridDirtyCount();
   if (el) el.textContent = n + ' izmena';
   if (btn) {
-    btn.disabled = !canEdit() || n === 0 || gridState.saving;
+    btn.disabled = !canEditKadrovskaGrid() || n === 0 || gridState.saving;
     btn.style.opacity = btn.disabled ? '0.55' : '1';
   }
 }
@@ -318,7 +318,7 @@ function _renderGridBody() {
   const groups = _gridGroupedByDepartment(emps);
   const today = _gridIsoToday();
   const totalCols = 4 + days.length + 1;
-  const editable = canEdit();
+  const editable = canEditKadrovskaGrid();
 
   let html = '<table class="grid-table"><thead>';
   html += '<tr>';
@@ -650,7 +650,7 @@ function _gridRefreshSums(empId) {
 /* ─── BATCH SAVE / LOAD ───────────────────────────────────────────────── */
 
 async function _saveAllGrid() {
-  if (!canEdit()) { showToast('⚠ Samo PM/LeadPM može da snima'); return; }
+  if (!canEditKadrovskaGrid()) { showToast('⚠ Nemaš ovlašćenje za snimanje sati'); return; }
   if (gridState.saving) return;
   if (_gridDirtyCount() === 0) return;
   if (!getIsOnline() || !hasSupabaseConfig()) {

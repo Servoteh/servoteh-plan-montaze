@@ -100,11 +100,65 @@ export function isAdmin() {
 export function isHR() {
   return state.role === 'hr' || isAdmin();
 }
+/**
+ * ERP admin ili menadzment — širi krug ovlašćenja koji sme da radi
+ * destruktivne operacije nad katalogom (npr. trajno brisanje mašine
+ * u modulu Održavanje). Sinhronizovano sa Postgres helperom
+ * `maint_is_erp_admin_or_management()`.
+ */
+export function isAdminOrMenadzment() {
+  return state.role === 'admin' || state.role === 'menadzment';
+}
+/**
+ * Da li trenutni korisnik može da vidi i uređuje osetljiva polja zaposlenog
+ * (JMBG, adresa, broj računa, privatni telefon, kontakt osobe, deca)?
+ * Sinhronizovano sa Postgres helperom `current_user_is_hr_or_admin()`.
+ */
+export function isHrOrAdmin() {
+  return state.role === 'hr' || state.role === 'admin';
+}
 export function canManageUsers() {
   return isAdmin();
 }
+/**
+ * Ko može da uđe u Kadrovska modul?
+ *  - admin / hr: pun pristup svim tabovima (uz dalje provere canEditKadrovska /
+ *    canAccessSalary / canEditKadrovskaGrid)
+ *  - menadzment: OGRANIČEN pristup — vidi samo „Mesečni grid" (unos sati).
+ *    Ne vidi Zarade, Zaposlene, Odsustva, Godišnji, Ugovore, Notifikacije,
+ *    Izveštaje. UI (shared.js / index.js) forsira taj filter.
+ */
 export function canAccessKadrovska() {
-  return isHR() || isAdmin();
+  return isHR() || isAdmin() || state.role === 'menadzment';
+}
+/**
+ * Kadrovska modul — CRUD nad zaposlenima / odsustvima / godišnjim / ugovorima.
+ * Po dogovoru „svako kao HR" — bilo koja rola koja ima pristup modulu može
+ * i da edituje, OSIM menadzment-a koji je read-only oko tih sekcija (on
+ * menja samo mesečni grid → videti `canEditKadrovskaGrid`). Viewer ostaje
+ * read-only.
+ */
+export function canEditKadrovska() {
+  return ['admin', 'leadpm', 'pm', 'hr'].includes(state.role);
+}
+/**
+ * Mesečni grid (unos sati / odsustva na nivou dana): zajedno sa HR-om i
+ * menadzment-om — sve role koje realno pune tabelu za obračun. Admin/PM/
+ * LeadPM su ovde iz istih razloga kao i u `canEdit`.
+ *
+ * Napomena: RLS na `work_hours` trenutno dozvoljava svim authenticated
+ * (pilot), ali UI dodatno štiti od slučajnih izmena.
+ */
+export function canEditKadrovskaGrid() {
+  return ['admin', 'leadpm', 'pm', 'hr', 'menadzment'].includes(state.role);
+}
+/**
+ * Zarade (Faza K3): STRIKTNO samo admin može da vidi i menja.
+ * HR (Mrkajić) namerno NEMA pristup — zarade drži uprava.
+ * Sinhronizovano sa RLS politikama na `salary_terms` u bazi.
+ */
+export function canAccessSalary() {
+  return state.role === 'admin';
 }
 /**
  * Plan Proizvodnje (Sprint F): šef mašinske obrade ('pm') i admin imaju

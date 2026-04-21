@@ -10,7 +10,7 @@
  */
 
 import { escHtml, showToast } from '../../lib/dom.js';
-import { getAuth } from '../../state/auth.js';
+import { getAuth, isAdminOrMenadzment } from '../../state/auth.js';
 import {
   fetchMaintMachines,
   insertMaintMachine,
@@ -20,8 +20,12 @@ import {
   fetchMaintMachinesImportable,
   importMaintMachinesFromCache,
   renameMaintMachine,
+  deleteMaintMachineHard,
+  fetchMaintMachineDeletionLog,
+  fetchMaintMachineFilesCounts,
 } from '../../services/maintenance.js';
 import { buildMaintenanceMachinePath } from '../../lib/appPaths.js';
+import { renderMaintFilesTab } from './maintFilesTab.js';
 
 /* Kolone za inline spreadsheet. Red je i TAB-redosled. */
 const MACHINE_TYPE_SUGGESTIONS = [
@@ -47,6 +51,23 @@ const MACHINE_TYPE_SUGGESTIONS = [
  */
 export function canManageMaintCatalog(prof) {
   if (getAuth().role === 'admin') return true;
+  const r = prof?.role;
+  return r === 'chief' || r === 'admin';
+}
+
+/**
+ * Trajno brisanje mašine (hard delete) i pristup audit log-u brisanja.
+ * Širi krug ovlašćenja od `canManageMaintCatalog`: pored maint chief/admin
+ * dozvoljeno i ERP menadzment-u (`role='menadzment'` u user_roles), tako da
+ * rukovodstvo može da uklanja mašine iz katalogа bez maint profila.
+ *
+ * Sinhronizovano sa Postgres helperom `maint_is_erp_admin_or_management()`
+ * i RLS politikom `maint_machines_delete`.
+ *
+ * @param {object|null} prof
+ */
+export function canHardDeleteMaintMachine(prof) {
+  if (isAdminOrMenadzment()) return true;
   const r = prof?.role;
   return r === 'chief' || r === 'admin';
 }
@@ -89,6 +110,7 @@ const EDIT_COLS = /** @type {EditColDef[]} */ ([
   { key: 'year_of_manufacture', label: 'God. pr.',    type: 'number', sortable: true, sortType: 'number', colClass: 'mnt-col-year', inputClass: 'mnt-cell-input--num', min: 1900, max: 2099 },
   { key: 'year_commissioned',   label: 'God. pogon',  type: 'number', sortable: true, sortType: 'number', colClass: 'mnt-col-year', inputClass: 'mnt-cell-input--num', min: 1900, max: 2099 },
   { key: 'location',            label: 'Lokacija',    type: 'text', sortable: true, sortType: 'string', colClass: 'mnt-col-loc',   maxLen: 200, placeholder: 'Hala 2' },
+  { key: '__docs',              label: 'Dok.',        sortable: false, colClass: 'mnt-col-docs' },
   { key: 'power_kw',            label: 'kW',          type: 'number', sortable: true, sortType: 'number', colClass: 'mnt-col-num', inputClass: 'mnt-cell-input--num', min: 0, step: 0.1 },
   { key: 'weight_kg',           label: 'kg',          type: 'number', sortable: true, sortType: 'number', colClass: 'mnt-col-num', inputClass: 'mnt-cell-input--num', min: 0, step: 1 },
   { key: 'tracked',             label: 'Praćena',     type: 'checkbox', sortable: false, colClass: 'mnt-col-track' },
@@ -156,14 +178,24 @@ export async function renderMaintCatalogPanel(host, ctx, state = {}) {
   /** @type {Map<string, Record<string, any>>} */
   const originals = new Map();
 
+  /** Broj aktivnih dokumenata po mašini (osvežava se na svako load()). */
+  /** @type {Map<string, number>} */
+  let filesCounts = new Map();
+
+  const canHardDelete = canHardDeleteMaintMachine(ctx.prof);
+
   const typeDatalistHtml = `<datalist id="mntEditTypeList">${
     MACHINE_TYPE_SUGGESTIONS.map(t => `<option value="${escAttr(t)}">`).join('')
   }</datalist>`;
 
-  const adminToolbar = canManage
+  const historyBtn = canHardDelete
+    ? `<button type="button" class="btn" id="mntCatHistBtn" style="background:var(--surface3)" title="Pregled svih trajno obrisanih mašina">📋 Istorija brisanja</button>`
+    : '';
+  const adminToolbar = canManage || canHardDelete
     ? `<span style="flex-basis:100%;height:0"></span>
-       <button type="button" class="btn" id="mntCatAdd">+ Dodaj mašinu</button>
-       <button type="button" class="btn" id="mntCatImport" style="background:var(--surface3)">Uvezi iz BigTehn-a…</button>`
+       ${canManage ? `<button type="button" class="btn" id="mntCatAdd">+ Dodaj mašinu</button>` : ''}
+       ${canManage ? `<button type="button" class="btn" id="mntCatImport" style="background:var(--surface3)">Uvezi iz BigTehn-a…</button>` : ''}
+       ${historyBtn}`
     : '';
 
   host.innerHTML = `
@@ -352,6 +384,38 @@ export async function renderMaintCatalogPanel(host, ctx, state = {}) {
       load();
     });
 
+    tr.querySelector('[data-mnt-row-delete]')?.addEventListener('click', () => {
+      openMaintMachineDeleteDialog({
+        machine: row,
+        filesCount: filesCounts.get(code) || 0,
+        onDeleted: () => {
+          showToast('🗑 Mašina trajno obrisana (audit zapis sačuvan)');
+          load();
+        },
+      });
+    });
+
+    tr.querySelector('[data-mnt-row-docs]')?.addEventListener('click', () => {
+      openMaintMachineDocsDialog({
+        machineCode: code,
+        machineName: row.name,
+        prof: ctx.prof,
+        archived: !!row.archived_at,
+        onChanged: () => {
+          /* Re-fetchuj samo brojače pa osveži badge u redu — ne čitamo ceo katalog. */
+          fetchMaintMachineFilesCounts().then(c => {
+            filesCounts = c instanceof Map ? c : new Map();
+            const btn = tr.querySelector('[data-mnt-row-docs]');
+            if (btn) {
+              const n = filesCounts.get(code) || 0;
+              btn.textContent = n ? `📎 ${n}` : '📎 +';
+              btn.className = n ? 'mnt-docs-badge mnt-docs-badge--has' : 'mnt-docs-badge';
+            }
+          }).catch(() => { /* ignore */ });
+        },
+      });
+    });
+
     tr.querySelector('[data-mnt-nav]')?.addEventListener('click', e => {
       e.stopPropagation();
       const p = /** @type {HTMLElement} */ (e.currentTarget).getAttribute('data-mnt-nav');
@@ -371,6 +435,15 @@ export async function renderMaintCatalogPanel(host, ctx, state = {}) {
         : '';
       return `<button type="button" class="mnt-linkish" data-mnt-nav="${escAttr(path)}" tabindex="-1"><code>${escHtml(row.machine_code || '')}</code></button>${srcBadge}${archBadge}`;
     }
+    if (k === '__docs') {
+      const n = filesCounts.get(row.machine_code) || 0;
+      const titleTxt = n
+        ? `${n} dokument${n === 1 ? '' : 'a'} (klik = upravljanje)`
+        : 'Dodaj dokument (uputstva, slike, crteže…)';
+      const cls = n ? 'mnt-docs-badge mnt-docs-badge--has' : 'mnt-docs-badge';
+      const label = n ? `📎 ${n}` : '📎 +';
+      return `<button type="button" class="${cls}" tabindex="-1" data-mnt-row-docs title="${escAttr(titleTxt)}">${label}</button>`;
+    }
     if (k === '__actions') {
       const archived = !!row.archived_at;
       const renameBtn = canManage
@@ -379,7 +452,10 @@ export async function renderMaintCatalogPanel(host, ctx, state = {}) {
       const archBtn = canManage
         ? (archived
           ? `<button type="button" class="btn" tabindex="-1" data-mnt-row-restore title="Vrati iz arhive" style="background:var(--surface3)">Vrati</button>`
-          : `<button type="button" class="btn" tabindex="-1" data-mnt-row-archive title="Arhiviraj" style="background:var(--red-bg);color:var(--red)">Arhiv.</button>`)
+          : `<button type="button" class="btn" tabindex="-1" data-mnt-row-archive title="Arhiviraj (čuva istoriju)" style="background:var(--red-bg);color:var(--red)">Arhiv.</button>`)
+        : '';
+      const delBtn = canHardDelete
+        ? `<button type="button" class="btn" tabindex="-1" data-mnt-row-delete title="TRAJNO obriši mašinu (audit zapis ostaje)" style="background:#3a1414;color:#ff8b8b;border:1px solid #5a1d1d">🗑 Obriši</button>`
         : '';
       const saveBtn = canManage
         ? `<button type="button" class="btn" tabindex="-1" data-mnt-row-save title="Sačuvaj red (Enter)" disabled>💾</button>`
@@ -387,7 +463,7 @@ export async function renderMaintCatalogPanel(host, ctx, state = {}) {
       const revertBtn = canManage
         ? `<button type="button" class="btn" tabindex="-1" data-mnt-row-revert title="Vrati izmene (Esc)" style="background:var(--surface3)" disabled>↺</button>`
         : '';
-      return `<div class="mnt-row-act">${saveBtn}${revertBtn}${renameBtn}${archBtn}</div>`;
+      return `<div class="mnt-row-act">${saveBtn}${revertBtn}${renameBtn}${archBtn}${delBtn}</div>`;
     }
     const val = row[k];
     const readonly = !canManage;
@@ -411,7 +487,11 @@ export async function renderMaintCatalogPanel(host, ctx, state = {}) {
   async function load() {
     tableHost.innerHTML = `<p class="mnt-muted">Učitavam…</p>`;
     const includeArchived = filter !== 'active';
-    const rows = await fetchMaintMachines({ includeArchived });
+    const [rows, counts] = await Promise.all([
+      fetchMaintMachines({ includeArchived }),
+      fetchMaintMachineFilesCounts().catch(() => new Map()),
+    ]);
+    filesCounts = counts instanceof Map ? counts : new Map();
     if (rows === null) {
       tableHost.innerHTML = `<p class="mnt-muted">Ne mogu da učitam katalog (RLS ili migracija nije primenjena).</p>`;
       countEl.textContent = '';
@@ -450,7 +530,7 @@ export async function renderMaintCatalogPanel(host, ctx, state = {}) {
     list.forEach(r => {
       const snap = {};
       EDIT_COLS.forEach(c => {
-        if (c.key === 'machine_code' || c.key === '__actions') return;
+        if (c.key.startsWith('__') || c.key === 'machine_code') return;
         snap[c.key] = normalizeStoredValue(r[c.key], c.key);
       });
       originals.set(r.machine_code, snap);
@@ -526,6 +606,10 @@ export async function renderMaintCatalogPanel(host, ctx, state = {}) {
       host.querySelector('#mntCatApply').click();
     }
   });
+  host.querySelector('#mntCatHistBtn')?.addEventListener('click', () => {
+    openMaintDeletionLogDialog();
+  });
+
   if (canManage) {
     host.querySelector('#mntCatAdd')?.addEventListener('click', () => {
       openMaintMachineModal({
@@ -923,4 +1007,254 @@ export async function openMaintMachinesImportDialog(opts) {
   });
 
   await reload();
+}
+
+/* ── Modal: TRAJNO brisanje mašine (admin/menadzment) ─────────────────── */
+
+/**
+ * Modal sa upozorenjem, brojačem povezanih redova i obaveznim razlogom.
+ * Po potvrdi: poziva `deleteMaintMachineHard` (snapshot + cascade DB delete +
+ * Storage cleanup + audit log).
+ *
+ * @param {{ machine: object, filesCount: number, onDeleted?: ()=>void }} opts
+ */
+export function openMaintMachineDeleteDialog(opts) {
+  const m = opts.machine || {};
+  const code = m.machine_code || '';
+  const wrap = document.createElement('div');
+  wrap.className = 'kadr-modal-overlay';
+  wrap.innerHTML = `
+    <div class="kadr-modal" style="max-width:560px">
+      <div class="kadr-modal-title" style="color:#ff6b6b">⚠ Trajno brisanje mašine</div>
+      <div class="kadr-modal-subtitle">
+        <code>${escHtml(code)}</code> — <strong>${escHtml(m.name || '')}</strong>
+        ${m.manufacturer ? ` · ${escHtml(m.manufacturer)}` : ''}${m.model ? ` ${escHtml(m.model)}` : ''}
+      </div>
+      <div class="kadr-modal-err" id="mntDelErr"></div>
+      <div style="background:#3a1414;border:1px solid #5a1d1d;border-radius:6px;padding:12px;margin-bottom:12px;color:#ffb3b3">
+        <p style="margin:0 0 6px"><strong>Ova akcija je nepovratna.</strong></p>
+        <p style="margin:0;font-size:13px">Brišu se: red iz katalogа, svi <em>incidenti</em>, <em>checks</em>, <em>tasks</em>, <em>napomene</em>, <em>dokumenti</em> (uključujući fajlove iz Storage-a) i <em>override status</em> za ovu mašinu.</p>
+        <p style="margin:6px 0 0;font-size:13px">Audit zapis (snapshot + ko/kada/zašto) ostaje u <code>maint_machines_deletion_log</code>.</p>
+      </div>
+      ${opts.filesCount > 0
+        ? `<p style="margin:0 0 8px;font-size:13px">📎 Trenutno ima <strong>${opts.filesCount}</strong> dokument(a) — biće obrisani uključujući fajlove iz Storage bucket-a.</p>`
+        : ''}
+      <p style="margin:0 0 6px;font-size:13px">Ako nisi siguran/sigurna — koristi <strong>Arhiviraj</strong> (soft-delete, lako se vraća).</p>
+      <form id="mntDelForm">
+        <label class="form-label" for="mntDelReason">Razlog brisanja * <span class="form-hint" style="font-weight:normal">(min 5 karaktera, čuva se u audit log)</span></label>
+        <textarea class="form-input" id="mntDelReason" rows="3" required minlength="5" maxlength="500"
+          placeholder="npr. Mašina rashodovana 2024 — premeštena u staro skladište. Uneo: NJ."></textarea>
+        <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px">
+          <input type="checkbox" id="mntDelConfirm">
+          <span>Razumem, želim <strong>trajno</strong> da obrišem mašinu <code>${escHtml(code)}</code></span>
+        </label>
+        <div class="kadr-modal-actions" style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
+          <span style="flex:1"></span>
+          <button type="button" class="btn" id="mntDelCancel" style="background:var(--surface3)">Otkaži</button>
+          <button type="submit" class="btn" id="mntDelGo" disabled
+            style="background:#5a1d1d;color:#ffb3b3;border:1px solid #7a2828">Obriši trajno</button>
+        </div>
+      </form>
+    </div>`;
+  document.body.appendChild(wrap);
+
+  const close = () => wrap.remove();
+  wrap.querySelector('#mntDelCancel')?.addEventListener('click', close);
+  wrap.addEventListener('click', e => { if (e.target === wrap) close(); });
+
+  const errEl = wrap.querySelector('#mntDelErr');
+  const setErr = msg => {
+    errEl.textContent = msg || '';
+    errEl.style.display = msg ? 'block' : 'none';
+  };
+  setErr('');
+
+  const reasonEl = /** @type {HTMLTextAreaElement} */ (wrap.querySelector('#mntDelReason'));
+  const confirmEl = /** @type {HTMLInputElement} */ (wrap.querySelector('#mntDelConfirm'));
+  const goBtn = /** @type {HTMLButtonElement} */ (wrap.querySelector('#mntDelGo'));
+  function refreshGo() {
+    goBtn.disabled = !(confirmEl.checked && reasonEl.value.trim().length >= 5);
+  }
+  reasonEl.addEventListener('input', refreshGo);
+  confirmEl.addEventListener('change', refreshGo);
+
+  wrap.querySelector('#mntDelForm')?.addEventListener('submit', async ev => {
+    ev.preventDefault();
+    setErr('');
+    if (goBtn.disabled) return;
+    goBtn.disabled = true;
+    goBtn.textContent = 'Brišem…';
+    const res = await deleteMaintMachineHard(code, reasonEl.value.trim());
+    if (!res.ok) {
+      goBtn.disabled = false;
+      goBtn.textContent = 'Obriši trajno';
+      setErr(res.error || 'Brisanje nije uspelo.');
+      return;
+    }
+    if (res.storageFailures) {
+      showToast(`⚠ DB obrisan, ali ${res.storageFailures} Storage fajl(a) nije uspelo da se ukloni`);
+    }
+    close();
+    opts.onDeleted?.();
+  });
+}
+
+/* ── Modal: dokumenti uz mašinu (reuse renderMaintFilesTab) ─────────────── */
+
+/**
+ * Otvara modal sa kompletnim file managementom (upload, preview, delete, edit
+ * metapodataka). Reuse-uje `renderMaintFilesTab` iz tab-a u detalju mašine
+ * tako da imamo jedno mesto istine za UX.
+ *
+ * @param {{ machineCode: string, machineName?: string, prof: object|null,
+ *           archived?: boolean, onChanged?: ()=>void }} opts
+ */
+export function openMaintMachineDocsDialog(opts) {
+  const wrap = document.createElement('div');
+  wrap.className = 'kadr-modal-overlay';
+  wrap.innerHTML = `
+    <div class="kadr-modal" style="max-width:760px;max-height:90vh;display:flex;flex-direction:column">
+      <div class="kadr-modal-title">📎 Dokumenti — <code>${escHtml(opts.machineCode)}</code> ${opts.machineName ? `· ${escHtml(opts.machineName)}` : ''}</div>
+      <div class="kadr-modal-subtitle">Uputstva, fotografije, tehnički crteži, servisni izveštaji, garantni listovi.</div>
+      <div id="mntDocsHost" style="flex:1;overflow:auto;padding:4px"></div>
+      <div class="kadr-modal-actions" style="margin-top:12px;display:flex;gap:8px">
+        <span style="flex:1"></span>
+        <button type="button" class="btn" id="mntDocsClose" style="background:var(--surface3)">Zatvori</button>
+      </div>
+    </div>`;
+  document.body.appendChild(wrap);
+
+  const close = () => {
+    wrap.remove();
+    opts.onChanged?.();
+  };
+  wrap.querySelector('#mntDocsClose')?.addEventListener('click', close);
+  wrap.addEventListener('click', e => { if (e.target === wrap) close(); });
+
+  const host = wrap.querySelector('#mntDocsHost');
+  renderMaintFilesTab(host, opts.machineCode, opts.prof, {
+    archived: opts.archived,
+    onChanged: opts.onChanged,
+  });
+}
+
+/* ── Modal: audit log trajnih brisanja ────────────────────────────────── */
+
+function fmtCounts(c) {
+  if (!c || typeof c !== 'object') return '';
+  const parts = [];
+  if (c.tasks)     parts.push(`${c.tasks} task(s)`);
+  if (c.checks)    parts.push(`${c.checks} check(s)`);
+  if (c.incidents) parts.push(`${c.incidents} incid.`);
+  if (c.notes)     parts.push(`${c.notes} napom.`);
+  if (c.files)     parts.push(`${c.files} dok.`);
+  if (c.override)  parts.push(`${c.override} override`);
+  return parts.join(' · ');
+}
+
+function fmtSnapshot(snap) {
+  if (!snap || typeof snap !== 'object') return '';
+  const fields = [
+    ['type', 'Tip'],
+    ['manufacturer', 'Proizvođač'],
+    ['model', 'Model'],
+    ['serial_number', 'Serijski'],
+    ['year_of_manufacture', 'Godina proiz.'],
+    ['year_commissioned', 'Godina pogon'],
+    ['location', 'Lokacija'],
+    ['power_kw', 'kW'],
+    ['weight_kg', 'kg'],
+    ['notes', 'Napomene'],
+  ];
+  const parts = fields
+    .filter(([k]) => snap[k] != null && snap[k] !== '')
+    .map(([k, lab]) => `<div><span class="mnt-muted" style="font-size:11px">${lab}:</span> ${escHtml(String(snap[k]))}</div>`);
+  return parts.length
+    ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:6px;font-size:12px">${parts.join('')}</div>`
+    : '<p class="mnt-muted" style="font-size:12px;margin-top:6px">(snimak je bio prazan)</p>';
+}
+
+/**
+ * Modal sa listom svih trajno obrisanih mašina (audit log). Read-only.
+ */
+export function openMaintDeletionLogDialog() {
+  const wrap = document.createElement('div');
+  wrap.className = 'kadr-modal-overlay';
+  wrap.innerHTML = `
+    <div class="kadr-modal" style="max-width:820px;max-height:90vh;display:flex;flex-direction:column">
+      <div class="kadr-modal-title">📋 Istorija brisanja mašina</div>
+      <div class="kadr-modal-subtitle">Pun snapshot reda iz katalogа u trenutku brisanja, razlog, ko je i kada obrisao. Vidljivo za chief/admin/menadzment.</div>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <input class="form-input" id="mntHistFilter" placeholder="Filter (šifra, naziv, email, razlog)" style="flex:1">
+      </div>
+      <div id="mntHistHost" style="flex:1;overflow:auto;border:1px solid var(--border);border-radius:6px;padding:8px">
+        <p class="mnt-muted">Učitavam…</p>
+      </div>
+      <div class="kadr-modal-actions" style="margin-top:12px;display:flex;gap:8px">
+        <span style="flex:1"></span>
+        <button type="button" class="btn" id="mntHistClose" style="background:var(--surface3)">Zatvori</button>
+      </div>
+    </div>`;
+  document.body.appendChild(wrap);
+
+  const close = () => wrap.remove();
+  wrap.querySelector('#mntHistClose')?.addEventListener('click', close);
+  wrap.addEventListener('click', e => { if (e.target === wrap) close(); });
+
+  const host = wrap.querySelector('#mntHistHost');
+  const filterEl = /** @type {HTMLInputElement} */ (wrap.querySelector('#mntHistFilter'));
+
+  /** @type {Array<any>} */
+  let all = [];
+
+  function render() {
+    const q = filterEl.value.trim().toLowerCase();
+    const list = q
+      ? all.filter(r => {
+          const hay = [r.machine_code, r.machine_name, r.deleted_by_email, r.reason]
+            .filter(Boolean).join(' ').toLowerCase();
+          return hay.includes(q);
+        })
+      : all;
+    if (!list.length) {
+      host.innerHTML = `<p class="mnt-muted">Nema obrisanih mašina${q ? ' (za filter)' : ''}.</p>`;
+      return;
+    }
+    host.innerHTML = list.map(r => {
+      const ts = r.deleted_at ? new Date(r.deleted_at).toLocaleString('sr-Latn-RS') : '';
+      const counts = fmtCounts(r.related_counts);
+      return `
+        <div style="border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:8px;background:var(--surface)">
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:baseline">
+            <code style="font-weight:600">${escHtml(r.machine_code || '')}</code>
+            <span style="font-weight:600">${escHtml(r.machine_name || '')}</span>
+            <span style="flex:1"></span>
+            <span class="mnt-muted" style="font-size:12px">${escHtml(ts)}</span>
+          </div>
+          <div class="mnt-muted" style="font-size:12px;margin-top:4px">
+            obrisao: <strong>${escHtml(r.deleted_by_email || '—')}</strong>${counts ? ` · kaskadno: ${escHtml(counts)}` : ''}
+          </div>
+          <div style="margin-top:6px;padding:6px 8px;background:var(--surface2);border-left:3px solid var(--red);border-radius:3px;font-size:13px;white-space:pre-wrap">
+            ${escHtml(r.reason || '')}
+          </div>
+          <details style="margin-top:6px">
+            <summary class="mnt-muted" style="font-size:12px;cursor:pointer">Snapshot mašine</summary>
+            ${fmtSnapshot(r.snapshot)}
+          </details>
+        </div>`;
+    }).join('');
+  }
+
+  filterEl.addEventListener('input', render);
+
+  fetchMaintMachineDeletionLog({ limit: 500 }).then(rows => {
+    if (rows === null) {
+      host.innerHTML = `<p class="mnt-muted">Ne mogu da učitam log (RLS ili migracija nije primenjena).</p>`;
+      return;
+    }
+    all = Array.isArray(rows) ? rows : [];
+    render();
+  }).catch(() => {
+    host.innerHTML = `<p class="mnt-muted">Greška pri učitavanju log-a.</p>`;
+  });
 }

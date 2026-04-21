@@ -289,9 +289,42 @@
 .mnt-col-year   { width: 70px;  min-width: 70px; }
 .mnt-col-loc    { min-width: 160px; }
 .mnt-col-num    { width: 80px;  min-width: 70px; }
+.mnt-col-docs   { width: 70px;  min-width: 60px; text-align: center; }
 .mnt-col-track  { width: 60px;  min-width: 50px; text-align: center; }
 .mnt-col-notes  { min-width: 220px; }
-.mnt-col-act    { width: 160px; min-width: 140px; white-space: nowrap; text-align: right; }
+.mnt-col-act    { width: 240px; min-width: 220px; white-space: nowrap; text-align: right; }
+
+/* Dugme „📎 N" u koloni Dok. — diskretno kad nema fajlova, naglašeno kad ima. */
+.mnt-docs-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--text2);
+  background: transparent;
+  border: 1px dashed var(--border2);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background-color 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.mnt-docs-badge:hover {
+  color: var(--text);
+  background: var(--surface2);
+  border-color: var(--accent);
+  border-style: solid;
+}
+
+.mnt-docs-badge--has {
+  color: var(--accent);
+  background: var(--accent-dim);
+  border-style: solid;
+  border-color: var(--accent);
+}
 
 /* Dirty indikator: levi akcenat + pastelna pozadina. */
 .mnt-row-dirty > td {

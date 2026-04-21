@@ -490,6 +490,110 @@ export async function fetchMaintMachinesImportable(opts = {}) {
 }
 
 /**
+ * Trajno brisanje mašine + audit zapis. Pošto se kaskadno briše i meta-data
+ * dokumenata, ovde PRVO ručno brišemo binarne fajlove iz Storage bucket-a
+ * (RPC ne može da priča sa Storage HTTP API-jem) — zatim atomski RPC briše
+ * sve red-ove iz baze i upisuje audit zapis.
+ *
+ * Ovlašćenja (proverava i RPC, ovde samo gradimo poziv):
+ *   • ERP admin
+ *   • ERP menadzment
+ *   • maint chief / admin
+ *
+ * @param {string} machineCode
+ * @param {string} reason min. 5 karaktera (RPC pada inače sa 22023)
+ * @returns {Promise<{ ok: boolean, result?: object, error?: string,
+ *                     storageFailures?: number }>}
+ */
+export async function deleteMaintMachineHard(machineCode, reason) {
+  const code = String(machineCode || '').trim();
+  const why = String(reason || '').trim();
+  if (!code) return { ok: false, error: 'Šifra mašine je obavezna.' };
+  if (why.length < 5) return { ok: false, error: 'Razlog je obavezan (min 5 karaktera).' };
+
+  /* 1) Pokušaj da pokupimo fajlove (sa obrisanim) i obrišemo ih iz Storage-a.
+     Best-effort: ako ne uspe, idemo dalje — RPC svejedno čisti DB. */
+  let storageFailures = 0;
+  const files = await fetchMaintMachineFiles(code, { includeDeleted: true });
+  if (Array.isArray(files) && files.length) {
+    const user = getCurrentUser();
+    const token = user?._token || getSupabaseAnonKey();
+    const apiKey = getSupabaseAnonKey();
+    const baseUrl = getSupabaseUrl();
+    for (const f of files) {
+      if (!f?.storage_path) continue;
+      try {
+        const r = await fetch(
+          `${baseUrl}/storage/v1/object/${MAINT_FILES_BUCKET}/${encodeURI(f.storage_path)}`,
+          {
+            method: 'DELETE',
+            headers: { 'Authorization': 'Bearer ' + token, 'apikey': apiKey },
+          },
+        );
+        if (!r.ok && r.status !== 404) storageFailures++;
+      } catch {
+        storageFailures++;
+      }
+    }
+  }
+
+  /* 2) Atomski RPC: snapshot + cascade DB delete + audit. */
+  const r = await sbReq('rpc/maint_machine_delete_hard', 'POST', {
+    p_code: code,
+    p_reason: why,
+  });
+  if (r && typeof r === 'object' && !Array.isArray(r) && r.ok === true) {
+    return { ok: true, result: r, storageFailures };
+  }
+  if (Array.isArray(r) && r[0]?.ok === true) {
+    return { ok: true, result: r[0], storageFailures };
+  }
+  return {
+    ok: false,
+    error: 'Brisanje nije uspelo (ovlašćenja, mašina ne postoji ili RPC greška).',
+    storageFailures,
+  };
+}
+
+/**
+ * Audit log trajno obrisanih mašina (RLS: chief/admin/management/ERP admin).
+ * @param {{ limit?: number, machineCode?: string }} [opts]
+ * @returns {Promise<Array<object>|null>}
+ */
+export async function fetchMaintMachineDeletionLog(opts = {}) {
+  const limit = opts.limit ?? 200;
+  const parts = [
+    'select=id,machine_code,machine_name,snapshot,related_counts,reason,deleted_at,deleted_by_email',
+    `order=deleted_at.desc&limit=${limit}`,
+  ];
+  if (opts.machineCode) {
+    parts.push(`machine_code=eq.${enc(opts.machineCode)}`);
+  }
+  return await sbReq(`maint_machines_deletion_log?${parts.join('&')}`);
+}
+
+/**
+ * Brojači aktivnih dokumenata po mašini — koristi se za badge u katalogu.
+ * Vraća Map<machine_code, number>. Klijentska agregacija (do par hiljada redova
+ * je ok); ako naraste, dodati view sa GROUP BY u SQL-u.
+ * @returns {Promise<Map<string, number>>}
+ */
+export async function fetchMaintMachineFilesCounts() {
+  const rows = await sbReq(
+    'maint_machine_files?select=machine_code&deleted_at=is.null&limit=10000',
+  );
+  const m = new Map();
+  if (Array.isArray(rows)) {
+    for (const r of rows) {
+      const k = r?.machine_code;
+      if (!k) continue;
+      m.set(k, (m.get(k) || 0) + 1);
+    }
+  }
+  return m;
+}
+
+/**
  * Atomski preimenuje šifru mašine u svim `maint_*` tabelama.
  * Zove RPC `maint_machine_rename(old, new)`. Chief/admin only.
  * @param {string} oldCode
