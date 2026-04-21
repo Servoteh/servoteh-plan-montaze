@@ -261,3 +261,53 @@ export async function startScan(videoEl, { onResult, onError, forceDeviceId }) {
 
 /* `normalizeBarcodeText` i `parseBigTehnBarcode` su izvojeni u
  * `src/lib/barcodeParse.js` da bi bili testabilni bez ZXing runtime-a. */
+
+/**
+ * Dekoduj barkod iz unapred izabrane slike (iz Photos / Files / Viber).
+ * Korisno kada:
+ *   - radnik ima fotografiju nalepnice na telefonu (nije ispred nje);
+ *   - live kamera pati od moire-a / refleksije / fokusa;
+ *   - prošle nalepnice sa oštećenog komada su dokumentovane slikom.
+ *
+ * ZXing `decodeFromImageElement` radi nad nativnim `HTMLImageElement`-om —
+ * ne treba WebRTC kamera, radi čak i na uređajima koji odbijaju
+ * getUserMedia. Takođe značajno pouzdanije od live feed-a jer slika
+ * ne trepeće — ZXing radi TRY_HARDER na punoj rezoluciji koliko god
+ * je dugo potrebno.
+ *
+ * @param {File|Blob} file Slika iz `<input type="file">`, drag-drop, ili clipboard.
+ * @returns {Promise<{ text: string, format?: string } | { error: 'not_image' | 'no_barcode' | 'decode_failed', cause?: any }>}
+ */
+export async function decodeBarcodeFromFile(file) {
+  if (!file || !(file instanceof Blob)) return { error: 'not_image' };
+  if (!/^image\//.test(file.type || '')) return { error: 'not_image' };
+
+  /* Kreiraj <img> iz File blob-a preko ObjectURL — 10× efikasnije od
+   * FileReader.readAsDataURL (koji base64 encode-uje u memoriji). */
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await loadImage(url);
+    const reader = new BrowserMultiFormatReader(SCAN_HINTS);
+    try {
+      const result = await reader.decodeFromImageElement(img);
+      return { text: result.getText(), format: result.getBarcodeFormat?.().toString() };
+    } catch (e) {
+      /* ZXing baca `NotFoundException` kada ne vidi barkod — tretira se
+       * kao "nije pronađen" a ne kao error. */
+      if (e?.name === 'NotFoundException') return { error: 'no_barcode' };
+      return { error: 'decode_failed', cause: e };
+    }
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+/** @param {string} url */
+function loadImage(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = url;
+  });
+}

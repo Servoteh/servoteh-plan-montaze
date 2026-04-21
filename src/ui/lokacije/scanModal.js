@@ -56,7 +56,7 @@ export async function openScanMoveModal({ onSuccess, onClose, startMode = 'scan'
     showToast('⚠ Ne mogu da učitam modul za skeniranje');
     return;
   }
-  const { isScanSupported, normalizeBarcodeText, parseBigTehnBarcode, startScan } = barcodeMod;
+  const { isScanSupported, normalizeBarcodeText, parseBigTehnBarcode, startScan, decodeBarcodeFromFile } = barcodeMod;
 
   if (!isScanSupported()) {
     showToast('⚠ Ovaj pregledač ne podržava skeniranje');
@@ -82,8 +82,14 @@ export async function openScanMoveModal({ onSuccess, onClose, startMode = 'scan'
 
       <div class="loc-scan-hint">
         📏 Drži telefon 10-15 cm od nalepnice<br>
-        Tap-ni na ekran za fokus · <span class="loc-scan-manual" data-act="manual">ili unesi ručno</span>
+        Tap-ni na ekran za fokus ·
+        <span class="loc-scan-manual" data-act="pickImage">📂 iz slike</span> ·
+        <span class="loc-scan-manual" data-act="manual">unesi ručno</span>
       </div>
+      <!-- Skriveni file input za upload slike — klik na "iz slike" u hint-u
+           ga okida preko label/for ili programmatic .click(). Prihvatamo
+           samo slike (iOS Safari daje Photo Library + Take Photo opcije). -->
+      <input type="file" id="locScanFile" accept="image/*" hidden>
 
       <!-- Zoom slider — pojavi se samo ako track.getCapabilities().zoom
            postoji (iOS 17.2+, Android Chrome). Na iPhone 11+ native hardware
@@ -733,6 +739,12 @@ export async function openScanMoveModal({ onSuccess, onClose, startMode = 'scan'
         /* Fokus na nalog — radnik obično prvo gleda prvi broj na nalepnici. */
         setTimeout(() => $('#locScanOrder').focus(), 50);
         break;
+      case 'pickImage':
+        /* Otvori Photo Library — iOS nudi "Take Photo" + "Photo Library".
+         * Preporučeno za slike iz Viber-a / SMS-a gde live camera decode
+         * ne radi zbog moire/kompresije. */
+        $('#locScanFile')?.click();
+        break;
       case 'back':
       case 'rescan':
         startScanner();
@@ -742,6 +754,40 @@ export async function openScanMoveModal({ onSuccess, onClose, startMode = 'scan'
         break;
       default:
         break;
+    }
+  });
+
+  /* File input za upload slike — decoder radi iz still slike umesto iz
+   * live stream-a. Radi i za screenshot iz Viber-a, slike iz mail-a,
+   * fotografije sa drugog telefona. */
+  $('#locScanFile')?.addEventListener('change', async ev => {
+    const file = ev.target.files?.[0];
+    ev.target.value = ''; /* reset za ponovni izbor iste slike */
+    if (!file) return;
+    setScanStatus('🔍 Čitam sliku…', 'info');
+    try {
+      const res = await decodeBarcodeFromFile(file);
+      if ('text' in res) {
+        /* Hit — isti tok kao live camera decode. */
+        cleanupScan();
+        if (navigator.vibrate) navigator.vibrate(80);
+        const clean = normalizeBarcodeText(res.text);
+        const parsed = parseBigTehnBarcode(clean);
+        showForm(parsed || clean);
+      } else if (res.error === 'no_barcode') {
+        setScanStatus(
+          '❌ Na slici nema prepoznatljivog barkoda.\n' +
+          'Proba sa većom / oštrijom fotografijom, ili unesi ručno.',
+          'warn',
+        );
+      } else if (res.error === 'not_image') {
+        setScanStatus('⚠ Odaberi fajl tipa slike (JPG / PNG).', 'warn');
+      } else {
+        setScanStatus('⚠ Greška pri čitanju slike — probaj ponovo.', 'error');
+      }
+    } catch (e) {
+      console.error('[scan] decodeFromImage failed', e);
+      setScanStatus('⚠ Greška: ' + (e?.message || e), 'error');
     }
   });
 
