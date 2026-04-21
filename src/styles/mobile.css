@@ -593,3 +593,63 @@ body.m-body #app {
 .m-batch-err:empty {
   display: none;
 }
+
+/* ── Scan stage status banner ────────────────────────────────────────────
+ * Plutajuća poruka preko kamera overlay-a. Koristi se i za info
+ * ("Tražim kameru…") i za greške (permission denied, front kamera itd.).
+ * Namerno u mobile.css jer isti fajl ide i u PWA i u native wrapper, pa
+ * ne mešam sa legacy.css (koji menja drugi agent).
+ */
+.loc-scan-status {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: calc(80px + env(safe-area-inset-bottom, 0));
+  z-index: 3;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.45;
+  white-space: pre-line; /* poštuj \n iz teksta */
+  text-align: center;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  /* Suptilni "fade-in" kad se tekst promeni. */
+  animation: loc-scan-status-in 0.2s ease-out;
+}
+
+.loc-scan-status:empty {
+  display: none;
+}
+
+.loc-scan-status[data-kind='ok'] {
+  background: rgba(34, 197, 94, 0.88);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.loc-scan-status[data-kind='warn'] {
+  background: rgba(234, 179, 8, 0.92);
+  color: #1a1400;
+  border-color: rgba(0, 0, 0, 0.15);
+  font-weight: 600;
+}
+
+.loc-scan-status[data-kind='error'] {
+  background: rgba(220, 38, 38, 0.95);
+  border-color: rgba(255, 255, 255, 0.2);
+  font-weight: 600;
+}
+
+@keyframes loc-scan-status-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

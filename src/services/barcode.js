@@ -43,10 +43,17 @@ export function isScanSupported() {
  * prvi hit, ali ostavljamo klijentu da odluči (npr. double-read).
  *
  * @param {HTMLVideoElement} videoEl
- * @param {{ onResult: (text: string, format?: string) => void, onError?: (err: Error) => void }} handlers
+ * @param {{
+ *   onResult: (text: string, format?: string) => void,
+ *   onError?: (err: Error) => void,
+ *   forceDeviceId?: string,
+ * }} handlers
+ *   - `forceDeviceId` — zaobilazi facingMode logiku i bira tačno zadatu
+ *     kameru. Koristi se kao iOS Safari fallback kada `ideal: environment`
+ *     vrati front kameru (poznat WebKit bug).
  * @returns {Promise<ScanController>}
  */
-export async function startScan(videoEl, { onResult, onError }) {
+export async function startScan(videoEl, { onResult, onError, forceDeviceId }) {
   if (!videoEl) throw new Error('Video element is required.');
   if (typeof onResult !== 'function') throw new Error('onResult handler is required.');
   if (!isScanSupported()) {
@@ -57,17 +64,40 @@ export async function startScan(videoEl, { onResult, onError }) {
 
   const reader = new BrowserMultiFormatReader();
 
-  /* ZXing baca `NotFoundException` za svaki frame u kom nema barkoda —
-   * to NIJE greška, ignorišemo je. Svi ostali error-i idu u onError. */
-  const controls = await reader.decodeFromConstraints(
-    {
+  /* Constraint izbor:
+   *   - `forceDeviceId` → eksplicitni deviceId (iOS fallback path).
+   *   - Inače → `facingMode` sa prvo `exact` pokušajem, pa ako failure
+   *     i Safari nema back kameru po toj konvenciji, `ideal` kao safety-net.
+   * Na kraju, ako sve padne, bacamo originalnu grešku gore.
+   */
+  let constraints;
+  if (forceDeviceId) {
+    constraints = {
       video: {
+        deviceId: { exact: forceDeviceId },
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+      },
+    };
+  } else {
+    constraints = {
+      video: {
+        /* iOS Safari u CrOS i nekad u običnom tabu ignoriše `ideal` —
+         * `exact` je striktnije, ali baca `OverconstrainedError` na iPad-ovima
+         * sa jednom kamerom. Pa prvo `ideal`, a scanModal.js detektuje front
+         * output i restart-uje sa `forceDeviceId`. */
         facingMode: { ideal: 'environment' },
         /* blagi "zoom" da kameri pomognemo: Code128 treba dovoljno piksela */
         width: { ideal: 1280 },
         height: { ideal: 720 },
       },
-    },
+    };
+  }
+
+  /* ZXing baca `NotFoundException` za svaki frame u kom nema barkoda —
+   * to NIJE greška, ignorišemo je. Svi ostali error-i idu u onError. */
+  const controls = await reader.decodeFromConstraints(
+    constraints,
     videoEl,
     (result, err) => {
       if (result) {

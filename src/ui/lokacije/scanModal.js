@@ -68,7 +68,10 @@ export async function openScanMoveModal({ onSuccess, onClose, startMode = 'scan'
   overlay.className = 'loc-scan-overlay';
   overlay.innerHTML = `
     <div class="loc-scan-stage" data-stage="scan">
-      <video class="loc-scan-video" id="locScanVideo" playsinline autoplay muted></video>
+      <!-- playsinline + webkit-playsinline je OBAVEZAN na iOS Safari-ju da video
+           ne uđe u fullscreen nativni plejer i ne "otme" prikaz kamere.
+           muted je preduslov za autoplay u bilo kom browser-u. -->
+      <video class="loc-scan-video" id="locScanVideo" playsinline webkit-playsinline autoplay muted></video>
       <div class="loc-scan-reticle" aria-hidden="true"></div>
 
       <div class="loc-scan-topbar">
@@ -81,6 +84,11 @@ export async function openScanMoveModal({ onSuccess, onClose, startMode = 'scan'
         Drži kod u centru — automatski se pokupi<br>
         <span class="loc-scan-manual" data-act="manual">…ili unesi ručno</span>
       </div>
+
+      <!-- Vidljiv status/dijagnostika dok je skener aktivan. Ne diramo layout:
+           apsolutno je pozicioniran iznad video-a. Koristi se i za error poruke
+           (koje inače idu u hidden formu i user ih ne vidi). -->
+      <div class="loc-scan-status" id="locScanStatus" aria-live="polite"></div>
     </div>
 
     <div class="loc-scan-form-wrap" hidden data-stage="form">
@@ -210,6 +218,23 @@ export async function openScanMoveModal({ onSuccess, onClose, startMode = 'scan'
     stageForm.hidden = true;
     stageScan.hidden = false;
     const videoEl = $('#locScanVideo');
+
+    /* Zeleni ok / crveni error banner unutar scan stage (iOS korisnik nema
+     * DevTools, ovo je njegov jedini prozor u stanje kamere). Radi kao
+     * šablon za sve statusne poruke. */
+    setScanStatus('📷 Tražim kameru…', 'info');
+
+    /* iOS Safari caveats diagnostika — pre nego što zovemo getUserMedia. */
+    const diag = detectIOSCameraPitfalls();
+    if (diag.blocker) {
+      setScanStatus(diag.blocker, 'error');
+      return;
+    }
+    if (diag.warning) {
+      /* Nije blocker — samo upozori i nastavi. */
+      console.warn('[scan] iOS warning:', diag.warning);
+    }
+
     try {
       state.scanCtrl = await startScan(videoEl, {
         onResult: text => {
@@ -222,14 +247,160 @@ export async function openScanMoveModal({ onSuccess, onClose, startMode = 'scan'
           showForm(parsed || clean);
         },
         onError: err => {
-          console.error('[scan] error', err);
+          /* ZXing baca `NotFoundException` za svaki frame bez barkoda — to je
+           * tiho ignorisano u barcode.js. Sve što stigne ovde je stvarna
+           * greška (dekoder, stream drop itd.). */
+          console.error('[scan] decode error', err);
         },
       });
+
+      /* Kad se stream inicijalizuje, prikaži šta je back kamera uspela da
+       * nam da — ovo user vidi, i ako kaže "front kamera" znamo tačno
+       * problem (facingMode ignoring). */
+      setTimeout(() => reportCameraDiag(videoEl), 600);
     } catch (err) {
-      $('#locScanErr') && ($('#locScanErr').textContent = `Kamera: ${err.message || err}`);
-      showToast('⚠ Ne mogu da uključim kameru — proveri permisije');
+      /* Ovde stižemo kada getUserMedia odbije permisiju, nema kamere, ili
+       * kad je sistem zauzeo kameru (npr. FaceTime). */
+      const msg = formatCameraError(err);
+      setScanStatus(msg, 'error');
+      console.error('[scan] camera start failed', err);
       /* ne zatvaramo modal; user može "manual" da klikne */
     }
+  }
+
+  /**
+   * Upisi/ažuriraj status traku unutar scan stage. `kind` bira boju.
+   * @param {string} text HTML-safe plain text (koristi `\n` za line break).
+   * @param {'info'|'ok'|'warn'|'error'} [kind='info']
+   */
+  function setScanStatus(text, kind = 'info') {
+    const el = $('#locScanStatus');
+    if (!el) return;
+    el.dataset.kind = kind;
+    el.textContent = text;
+  }
+
+  /** Prikaži kratak info koji stream iOS dao (front/back + rezolucija). */
+  function reportCameraDiag(videoEl) {
+    try {
+      const stream = /** @type {MediaStream|null} */ (videoEl?.srcObject);
+      if (!stream) return;
+      const track = stream.getVideoTracks()[0];
+      if (!track) return;
+      const s = track.getSettings?.() || {};
+      const label = track.label || '(bez labele)';
+      const looksFront = /front|user|face/i.test(label);
+      const parts = [
+        looksFront ? '⚠ FRONT kamera' : '✓ back kamera',
+        `${s.width || '?'}×${s.height || '?'}`,
+      ];
+      setScanStatus(parts.join(' · ') + ' — drži kod u centru', looksFront ? 'warn' : 'ok');
+      /* Ako je front kamera, pokušaj ručno da prebacimo na back preko
+       * enumerateDevices → deviceId. iOS Safari često ignoriše
+       * `facingMode: ideal` i vrati front. */
+      if (looksFront) void tryForceBackCamera(videoEl);
+    } catch (e) {
+      console.warn('[scan] diag failed', e);
+    }
+  }
+
+  /**
+   * iOS Safari PWA fallback: ako `facingMode: environment` vrati front
+   * kameru, enumeriraj uređaje i pokušaj eksplicitni `deviceId` za prvu
+   * koja NE miriše na "front/user/face". Restart ZXing stream.
+   */
+  async function tryForceBackCamera(videoEl) {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const cams = devices.filter(d => d.kind === 'videoinput');
+      if (cams.length < 2) return; /* nema alternative */
+      const back = cams.find(d => !/front|user|face/i.test(d.label)) || cams[cams.length - 1];
+      if (!back?.deviceId) return;
+
+      /* Restart ZXing sa konkretnim deviceId-em. */
+      cleanupScan();
+      state.scanCtrl = await startScan(videoEl, {
+        /* deviceId idemo pre nego facingMode, pa u startScan ovo mora i da bude
+         * podržano. Dodajemo treći argument — vidi barcode.js promene. */
+        forceDeviceId: back.deviceId,
+        onResult: text => {
+          const clean = normalizeBarcodeText(text);
+          if (!clean) return;
+          cleanupScan();
+          if (navigator.vibrate) navigator.vibrate(80);
+          const parsed = parseBigTehnBarcode(clean);
+          showForm(parsed || clean);
+        },
+        onError: err => console.error('[scan] decode error (back)', err),
+      });
+      setTimeout(() => reportCameraDiag(videoEl), 600);
+    } catch (e) {
+      console.warn('[scan] force back camera failed', e);
+    }
+  }
+
+  /**
+   * Mapiraj getUserMedia/DOMException u kratku poruku za radnika.
+   * @param {any} err
+   */
+  function formatCameraError(err) {
+    const name = err?.name || '';
+    const msg = err?.message || String(err);
+    if (name === 'NotAllowedError' || /denied|blocked/i.test(msg)) {
+      return '🚫 Kamera je blokirana — Settings → Safari → Camera: Allow, pa otvori link ponovo';
+    }
+    if (name === 'NotFoundError' || /no.*camera|not found/i.test(msg)) {
+      return '🚫 Nije pronađena kamera na uređaju';
+    }
+    if (name === 'NotReadableError' || /in use|busy/i.test(msg)) {
+      return '🚫 Kamera je zauzeta drugom aplikacijom — zatvori FaceTime/Kamera app';
+    }
+    if (name === 'SecurityError' || /secure|https/i.test(msg)) {
+      return '🚫 Kamera radi samo preko HTTPS — otvori sa `https://…`';
+    }
+    return `⚠ Kamera: ${msg}`;
+  }
+
+  /**
+   * Detektuj poznate iOS Safari "rupe" koje bi blokirale kameru PRE
+   * getUserMedia-a (da ne čekamo permission prompt za ništa).
+   * @returns {{ blocker?: string, warning?: string }}
+   */
+  function detectIOSCameraPitfalls() {
+    const ua = navigator.userAgent || '';
+    const isIOS = /iPad|iPhone|iPod/.test(ua) || (ua.includes('Mac') && 'ontouchend' in document);
+    if (!isIOS) return {};
+
+    /* Chrome/Firefox na iPhone-u koriste WebKit bez kamera permisija —
+     * korisnik MORA da otvori u Safari-ju. */
+    const isCriOS = /CriOS|FxiOS|EdgiOS/i.test(ua);
+    if (isCriOS) {
+      return {
+        blocker:
+          '🚫 Chrome/Firefox na iPhone-u ne može kameru.\nOtvori isti link u Safari-ju (tamna ikona kompasa).',
+      };
+    }
+
+    /* PWA standalone mode pre iOS 16.4 blokira getUserMedia. */
+    const isStandalone =
+      window.matchMedia?.('(display-mode: standalone)')?.matches ||
+      /** @type {any} */ (navigator).standalone === true;
+    if (isStandalone) {
+      /* Pokušaj da parsiraš iOS verziju iz UA-a (npr. "iPhone OS 16_3"). */
+      const m = ua.match(/OS (\d+)[_.](\d+)/);
+      const major = m ? parseInt(m[1], 10) : 0;
+      const minor = m ? parseInt(m[2], 10) : 0;
+      if (major && (major < 16 || (major === 16 && minor < 4))) {
+        return {
+          blocker:
+            '🚫 iOS ' + major + '.' + minor + ' ne dopušta kameru u "Add to Home Screen" aplikaciji.\n' +
+            'Ili: 1) ukloni ikonu sa home screen-a i otvori u Safari tabu,\n' +
+            '     2) ili ažuriraj iOS na 16.4+',
+        };
+      }
+      return { warning: 'iOS standalone mode (16.4+) — ako ne radi, probaj u Safari tabu' };
+    }
+    return {};
   }
 
   function renderChips() {
