@@ -2608,6 +2608,14 @@ body.module-lokacije #module-lokacije { display:flex !important; flex:1; flex-di
   font-size:12px; line-height:1.5;
 }
 .loc-scan-parsed-raw { font-family:var(--mono); color:var(--text); }
+.loc-scan-parsed-badge {
+  display:inline-block; padding:1px 6px; margin-right:4px;
+  background:color-mix(in srgb, var(--accent) 25%, transparent);
+  border:1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border-radius:3px; font-size:10px; font-weight:600; letter-spacing:.5px;
+  color:var(--accent); text-transform:uppercase;
+}
+.loc-scan-form-body .emp-field.col-full { grid-column: 1 / -1; }
 .loc-scan-err { min-height:18px; color:var(--err, #ff6b6b); font-size:13px; }
 .loc-scan-actions { display:flex; gap:8px; margin-top:8px; }
 .loc-scan-actions .btn { flex:1; padding:12px; font-size:15px; }

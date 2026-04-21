@@ -32,6 +32,60 @@ function removeModal() {
   document.getElementById(MODAL_ID)?.remove();
 }
 
+/* ── Drawing-number cache (localStorage) ─────────────────────────────────
+ * RNZ barkod ne nosi broj crteža — radnik ga prvi put prepisuje sa teksta
+ * nalepnice. Mi mapu (order_no, item_ref_id) → drawing_no čuvamo lokalno
+ * da sledeći skenir iste nalepnice autofill-uje. Keš je best-effort: ne
+ * zove server, pa ako se telefon očisti / promeni uređaj — radnik upiše
+ * ponovo (sledeći put ponovo keš).
+ *
+ * Struktura: { "7351|1088": "1128816", ... }
+ * Ograničenje: 500 unosa (LRU pruning) da LS ne eksplodira.
+ */
+const DRAWING_CACHE_KEY = 'loc_drawing_cache_v1';
+const DRAWING_CACHE_LIMIT = 500;
+
+function readDrawingCache() {
+  try {
+    const raw = localStorage.getItem(DRAWING_CACHE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeDrawingCache(obj) {
+  try {
+    localStorage.setItem(DRAWING_CACHE_KEY, JSON.stringify(obj));
+  } catch {
+    /* Quota exceeded — tiho preskoči; autofill je nice-to-have, ne kritično. */
+  }
+}
+
+function getDrawingCache(orderNo, itemRefId) {
+  if (!orderNo || !itemRefId) return '';
+  const key = `${orderNo}|${itemRefId}`;
+  return readDrawingCache()[key] || '';
+}
+
+function setDrawingCache(orderNo, itemRefId, drawingNo) {
+  if (!orderNo || !itemRefId || !drawingNo) return;
+  const key = `${orderNo}|${itemRefId}`;
+  const cache = readDrawingCache();
+  cache[key] = String(drawingNo);
+
+  /* LRU pruning: ako pređemo limit, obriši najstarije (prvi ključ-evi u
+   * insertion order-u — JS ES2015+ garantuje redosled). */
+  const keys = Object.keys(cache);
+  if (keys.length > DRAWING_CACHE_LIMIT) {
+    const toDrop = keys.slice(0, keys.length - DRAWING_CACHE_LIMIT);
+    for (const k of toDrop) delete cache[k];
+  }
+  writeDrawingCache(cache);
+}
+
 /**
  * Otvori skener modal.
  * @param {{
@@ -120,12 +174,21 @@ export async function openScanMoveModal({ onSuccess, onClose, startMode = 'scan'
 
           <div class="emp-form-grid">
             <div class="emp-field">
-              <label for="locScanOrder">Broj naloga</label>
-              <input type="text" id="locScanOrder" autocomplete="off" maxlength="20" placeholder="npr. 9000">
+              <label for="locScanOrder">Broj naloga *</label>
+              <input type="text" id="locScanOrder" autocomplete="off" maxlength="20" placeholder="npr. 7351" required>
             </div>
             <div class="emp-field">
-              <label for="locScanItemId">Broj crteža *</label>
-              <input type="text" id="locScanItemId" autocomplete="off" maxlength="40" required>
+              <label for="locScanItemId">Broj TP *</label>
+              <input type="text" id="locScanItemId" autocomplete="off" maxlength="40" placeholder="npr. 1088" required>
+            </div>
+            <div class="emp-field col-full">
+              <label for="locScanDrawing">
+                Broj crteža
+                <span class="loc-muted" style="font-weight:400;font-size:12px">
+                  — prepiši sa teksta nalepnice (nije u barkodu)
+                </span>
+              </label>
+              <input type="text" id="locScanDrawing" autocomplete="off" maxlength="40" placeholder="npr. 1128816">
             </div>
           </div>
 
@@ -530,27 +593,52 @@ export async function openScanMoveModal({ onSuccess, onClose, startMode = 'scan'
     stageForm.hidden = false;
     $('#locScanErr').textContent = '';
 
-    let drawingNo = '';
+    /* Payload može biti:
+     *   - object iz parseBigTehnBarcode: { orderNo, itemRefId, drawingNo, format, raw }
+     *   - plain string (ručni unos sa manual bubble-a) → tretiramo kao itemRefId
+     *   - prazan string → čista forma (user popunjava sve ručno) */
+    let itemRefId = '';
     let orderNo = '';
+    let drawingNo = '';
     let rawHint = '';
+    let format = '';
 
     if (payload && typeof payload === 'object') {
-      drawingNo = payload.drawingNo;
-      orderNo = payload.orderNo;
-      rawHint = payload.raw;
+      /* Backward compat: stariji parser nije imao `itemRefId`, samo `drawingNo`.
+       * Ako je objekat bez `itemRefId`, fall-back na `drawingNo`. */
+      itemRefId = payload.itemRefId ?? payload.drawingNo ?? '';
+      orderNo = payload.orderNo || '';
+      drawingNo = payload.drawingNo || '';
+      rawHint = payload.raw || '';
+      format = payload.format || '';
     } else if (typeof payload === 'string') {
-      drawingNo = payload;
+      itemRefId = payload;
     }
 
-    $('#locScanItemId').value = drawingNo;
+    $('#locScanItemId').value = itemRefId;
     $('#locScanOrder').value = orderNo;
 
+    /* Autofill broja crteža: RNZ barkod ga ne nosi, ali ga je radnik nekad ranije
+     * upisao za isti (nalog, TP). Cache je u localStorage da preživi F5. */
+    const cachedDrawing =
+      drawingNo || (orderNo && itemRefId ? getDrawingCache(orderNo, itemRefId) : '');
+    $('#locScanDrawing').value = cachedDrawing;
+
     const hint = $('#locScanParsed');
-    if (rawHint && orderNo && drawingNo) {
+    if (rawHint && (orderNo || itemRefId)) {
       hint.hidden = false;
+      const fmtBadge = format === 'rnz' ? 'RNZ' : format === 'short' ? 'legacy' : '';
+      const badgeHtml = fmtBadge
+        ? `<span class="loc-scan-parsed-badge">${escHtml(fmtBadge)}</span> `
+        : '';
+      const drawingPart = drawingNo
+        ? `, crtež <strong>${escHtml(drawingNo)}</strong>`
+        : cachedDrawing
+          ? `, crtež <strong>${escHtml(cachedDrawing)}</strong> <em class="loc-muted">(iz keša)</em>`
+          : ' <em class="loc-muted">(upiši broj crteža sa teksta nalepnice)</em>';
       hint.innerHTML =
-        `<span class="loc-scan-parsed-raw">Skenirano: <strong>${escHtml(rawHint)}</strong></span> ` +
-        `<span class="loc-muted">→ nalog <strong>${escHtml(orderNo)}</strong>, crtež <strong>${escHtml(drawingNo)}</strong></span>`;
+        `${badgeHtml}<span class="loc-scan-parsed-raw">Skenirano: <strong>${escHtml(rawHint)}</strong></span> ` +
+        `<span class="loc-muted">→ nalog <strong>${escHtml(orderNo)}</strong>, TP <strong>${escHtml(itemRefId)}</strong>${drawingPart}</span>`;
     } else {
       hint.hidden = true;
       hint.innerHTML = '';
@@ -587,15 +675,20 @@ export async function openScanMoveModal({ onSuccess, onClose, startMode = 'scan'
     err.textContent = '';
     const item_ref_id = $('#locScanItemId').value.trim();
     const order_no = $('#locScanOrder').value.trim();
+    const drawing_no = $('#locScanDrawing').value.trim();
     const to_location_id = $('#locScanTo').value;
     const from_location_id = $('#locScanFrom').value || '';
     const qty = Number($('#locScanQty').value);
-    const note = $('#locScanNote').value.trim();
-    /* INITIAL = nema nijednog placement-a za (crtež, nalog) par. */
+    const note_raw = $('#locScanNote').value.trim();
+    /* INITIAL = nema nijednog placement-a za (TP, nalog) par. */
     const isInitial = state.currentPlacements.length === 0;
 
     if (!item_ref_id) {
-      err.textContent = 'Broj crteža je obavezan.';
+      err.textContent = 'Broj TP (sa barkoda) je obavezan.';
+      return;
+    }
+    if (!order_no) {
+      err.textContent = 'Broj naloga je obavezan.';
       return;
     }
     if (!to_location_id) {
@@ -617,6 +710,22 @@ export async function openScanMoveModal({ onSuccess, onClose, startMode = 'scan'
 
     const btn = overlay.querySelector('[data-act="submit"]');
     btn.disabled = true;
+
+    /* Broj crteža nije u DB schemi kao zaseban column — čuvamo ga u `note`
+     * kao strukturisani prefix "Crtež:NNNN |" + slobodan tekst. Tako ne
+     * moramo sada DB migraciju (faza B). Parsing iz note radi `extractDrawing`
+     * u services/maintenance-style helper-u — zasad samo zapisujemo. */
+    const noteParts = [];
+    if (drawing_no) noteParts.push(`Crtež:${drawing_no}`);
+    if (note_raw) noteParts.push(note_raw);
+    const note = noteParts.join(' | ');
+
+    /* Keširaj (order_no, item_ref_id) → drawing_no za sledeći skenir iste
+     * nalepnice. Cache živi u localStorage, deli se između skener-a i
+     * manual flow-a. Pogoni autofill u `showForm`. */
+    if (drawing_no && order_no && item_ref_id) {
+      setDrawingCache(order_no, item_ref_id, drawing_no);
+    }
 
     const payload = {
       item_ref_table: state.item_ref_table,
