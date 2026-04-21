@@ -15,6 +15,7 @@ export function mapDbAbsence(d) {
     dateTo: d.date_to || '',
     daysCount: d.days_count == null ? null : Number(d.days_count),
     note: d.note || '',
+    paidReason: d.paid_reason || '',
     createdAt: d.created_at || null,
     updatedAt: d.updated_at || null,
   };
@@ -28,6 +29,8 @@ export function buildAbsencePayload(a) {
     date_to: a.dateTo,
     days_count: a.daysCount == null ? null : Number(a.daysCount),
     note: a.note || '',
+    /* paid_reason je relevantan samo za type='placeno'. Za ostale tipove šaljemo NULL. */
+    paid_reason: (a.type === 'placeno' && a.paidReason) ? a.paidReason : null,
     updated_at: new Date().toISOString(),
   };
   if (a.id) p.id = a.id;

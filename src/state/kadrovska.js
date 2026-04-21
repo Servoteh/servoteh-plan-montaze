@@ -20,8 +20,8 @@ export const kadrovskaState = {
   employees: [],
   loaded: false,
   _schemaSupported: true,
-  /** Trenutno aktivan tab (sync sa session storage; default 'employees'). */
-  activeTab: ssGet(SESSION_KEYS.KADR_TAB, 'employees'),
+  /** Trenutno aktivan tab (sync sa session storage; default 'grid' — Mesečni grid). */
+  activeTab: ssGet(SESSION_KEYS.KADR_TAB, 'grid'),
 };
 
 export const kadrAbsencesState = {
@@ -42,9 +42,45 @@ export const kadrContractsState = {
   _schema: true,
 };
 
+/* Faza K2 — godišnji odmor (entitlements + saldo) */
+export const kadrVacationState = {
+  /** lista entitlement redova (po zaposlenom × po godini) */
+  entitlements: [],
+  /** saldo iz view-a: { employeeId, year, daysTotal, daysCarriedOver, daysUsed, daysRemaining } */
+  balances: [],
+  loadedYear: null,
+  loaded: false,
+  _schema: true,
+};
+
+/* Faza K2 — deca zaposlenih (samo HR/admin vide) */
+export const kadrChildrenState = {
+  /** Map<employeeId, Array<{id, firstName, birthDate, ...}>> — lazy po zaposlenom */
+  byEmp: new Map(),
+};
+
+/* Faza K3 — zarade (samo admin vidi) */
+export const kadrSalaryState = {
+  /** Aktuelne zarade (iz v_employee_current_salary) po employeeId */
+  current: [],
+  /** Map<employeeId, Array<termRow>> — istorija zarada (lazy) */
+  termsByEmp: new Map(),
+  loaded: false,
+  _schema: true,
+};
+
+/* Faza K3.2 — mesečni obračun plata (samo admin) */
+export const kadrPayrollState = {
+  /** Izabrani mesec (ISO „YYYY-MM"); default = tekući */
+  selectedYear: new Date().getFullYear(),
+  selectedMonth: new Date().getMonth() + 1,
+  /** Key „YYYY-MM" → Array<payrollRow> */
+  byPeriod: new Map(),
+};
+
 /* ── Aktivni tab (sessionStorage, traje koliko i tab browsera) ── */
 export function getActiveKadrTab() {
-  return ssGet(SESSION_KEYS.KADR_TAB, 'employees');
+  return ssGet(SESSION_KEYS.KADR_TAB, 'grid');
 }
 
 export function setActiveKadrTab(tab) {
@@ -90,4 +126,15 @@ export function resetKadrovskaState() {
   kadrWorkHoursState.loaded = false;
   kadrContractsState.items = [];
   kadrContractsState.loaded = false;
+  kadrVacationState.entitlements = [];
+  kadrVacationState.balances = [];
+  kadrVacationState.loadedYear = null;
+  kadrVacationState.loaded = false;
+  kadrChildrenState.byEmp.clear();
+  kadrSalaryState.current = [];
+  kadrSalaryState.termsByEmp.clear();
+  kadrSalaryState.loaded = false;
+  kadrPayrollState.byPeriod.clear();
+  kadrPayrollState.selectedYear = new Date().getFullYear();
+  kadrPayrollState.selectedMonth = new Date().getMonth() + 1;
 }

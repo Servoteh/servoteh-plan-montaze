@@ -12,8 +12,8 @@
 
 import { escHtml, showToast } from '../../lib/dom.js';
 import { formatDate, formatYMD, daysInclusive } from '../../lib/date.js';
-import { canEdit, getIsOnline } from '../../state/auth.js';
-import { hasSupabaseConfig, KADR_ABS_TYPE_LABELS } from '../../lib/constants.js';
+import { canEditKadrovska, getIsOnline } from '../../state/auth.js';
+import { hasSupabaseConfig, KADR_ABS_TYPE_LABELS, KADR_PAID_REASON_LABELS } from '../../lib/constants.js';
 import {
   kadrovskaState,
   kadrAbsencesState,
@@ -37,10 +37,18 @@ let panelRef = null;
 const ABS_TYPE_OPTS = [
   { v: 'godisnji', l: 'Godišnji odmor' },
   { v: 'bolovanje', l: 'Bolovanje' },
-  { v: 'slobodan', l: 'Slobodan dan' },
+  { v: 'sluzbeno', l: 'Službeni put' },
+  { v: 'slava', l: 'Krsna slava' },
   { v: 'placeno', l: 'Plaćeno odsustvo' },
   { v: 'neplaceno', l: 'Neplaćeno odsustvo' },
-  { v: 'sluzbeno', l: 'Službeno putovanje' },
+  { v: 'slobodan', l: 'Slobodan dan' },
+  { v: 'ostalo', l: 'Ostalo' },
+];
+const PAID_REASON_OPTS = [
+  { v: 'rodjenje', l: 'Rođenje deteta' },
+  { v: 'svadba', l: 'Svadba' },
+  { v: 'smrt', l: 'Smrtni slučaj' },
+  { v: 'selidba', l: 'Selidba' },
   { v: 'ostalo', l: 'Ostalo' },
 ];
 
@@ -129,7 +137,7 @@ export function refreshAbsencesTab() {
   const addBtn = panelRef.querySelector('#absAddBtn');
 
   if (addBtn) {
-    const edit = canEdit();
+    const edit = canEditKadrovska();
     addBtn.disabled = !edit;
     addBtn.style.opacity = edit ? '1' : '0.55';
     addBtn.style.cursor = edit ? 'pointer' : 'not-allowed';
@@ -186,10 +194,13 @@ export function refreshAbsencesTab() {
   }
   if (emptyBox) emptyBox.style.display = 'none';
 
-  const edit = canEdit();
+  const edit = canEditKadrovska();
   tbody.innerHTML = filtered.map(a => {
     const days = a.daysCount != null ? a.daysCount : daysInclusive(a.dateFrom, a.dateTo);
-    const typeLbl = KADR_ABS_TYPE_LABELS[a.type] || a.type;
+    let typeLbl = KADR_ABS_TYPE_LABELS[a.type] || a.type;
+    if (a.type === 'placeno' && a.paidReason) {
+      typeLbl += ' — ' + (KADR_PAID_REASON_LABELS[a.paidReason] || a.paidReason);
+    }
     const id = escHtml(a.id || '');
     return `<tr data-id="${id}">
       <td><div class="emp-name">${escHtml(employeeNameById(a.employeeId))}</div></td>
@@ -238,6 +249,13 @@ function buildAbsenceModalHtml(a) {
                 ${ABS_TYPE_OPTS.map(o => `<option value="${o.v}"${(a?.type || 'godisnji') === o.v ? ' selected' : ''}>${escHtml(o.l)}</option>`).join('')}
               </select>
             </div>
+            <div class="emp-field" id="absPaidReasonWrap" style="${(a?.type === 'placeno') ? '' : 'display:none;'}">
+              <label for="absPaidReason">Razlog (plaćeno)</label>
+              <select id="absPaidReason">
+                <option value="">—</option>
+                ${PAID_REASON_OPTS.map(o => `<option value="${o.v}"${a?.paidReason === o.v ? ' selected' : ''}>${escHtml(o.l)}</option>`).join('')}
+              </select>
+            </div>
             <div class="emp-field">
               <label for="absDays">Dana</label>
               <input type="number" id="absDays" min="0" max="365" step="1" placeholder="Auto iz datuma" value="${a?.daysCount != null ? a.daysCount : ''}">
@@ -269,7 +287,7 @@ function closeAbsenceModal() {
 }
 
 function openAbsenceModal(id) {
-  if (!canEdit()) {
+  if (!canEditKadrovska()) {
     showToast('⚠ Samo PM/LeadPM može da dodaje/menja');
     return;
   }
@@ -292,6 +310,14 @@ function openAbsenceModal(id) {
   modal.querySelector('#absCancelBtn').addEventListener('click', closeAbsenceModal);
   form.addEventListener('submit', (ev) => { ev.preventDefault(); submitAbsenceForm(); });
   modal.addEventListener('click', (ev) => { if (ev.target === modal) closeAbsenceModal(); });
+
+  /* Toggle razloga plaćenog odsustva po tipu */
+  const typeEl = modal.querySelector('#absType');
+  const reasonWrap = modal.querySelector('#absPaidReasonWrap');
+  typeEl?.addEventListener('change', () => {
+    if (reasonWrap) reasonWrap.style.display = typeEl.value === 'placeno' ? '' : 'none';
+  });
+
   setTimeout(() => modal.querySelector('#absEmpId')?.focus(), 50);
 }
 
@@ -302,6 +328,7 @@ async function submitAbsenceForm() {
 
   const empId = document.getElementById('absEmpId').value;
   const type = document.getElementById('absType').value;
+  const paidReason = document.getElementById('absPaidReason')?.value || '';
   const dateFrom = document.getElementById('absFrom').value;
   const dateTo = document.getElementById('absTo').value;
   let daysCount = document.getElementById('absDays').value;
@@ -311,10 +338,15 @@ async function submitAbsenceForm() {
   if (!empId) { errEl.textContent = 'Izaberi zaposlenog.'; errEl.classList.add('visible'); return; }
   if (!dateFrom || !dateTo) { errEl.textContent = 'Datumi su obavezni.'; errEl.classList.add('visible'); return; }
   if (dateTo < dateFrom) { errEl.textContent = '"Do" ne može biti pre "Od".'; errEl.classList.add('visible'); return; }
+  if (type === 'placeno' && !paidReason) {
+    errEl.textContent = 'Za plaćeno odsustvo izaberi razlog.';
+    errEl.classList.add('visible');
+    return;
+  }
   if (daysCount === '' || daysCount == null) daysCount = daysInclusive(dateFrom, dateTo);
   else daysCount = parseInt(daysCount, 10);
 
-  const payload = { id, employeeId: empId, type, dateFrom, dateTo, daysCount, note };
+  const payload = { id, employeeId: empId, type, paidReason, dateFrom, dateTo, daysCount, note };
   btn.disabled = true; btn.textContent = 'Čuvanje…';
   try {
     if (getIsOnline() && hasSupabaseConfig()) {
@@ -351,7 +383,7 @@ async function submitAbsenceForm() {
 }
 
 async function confirmDeleteAbsence(id) {
-  if (!canEdit()) return;
+  if (!canEditKadrovska()) return;
   if (!confirm('Obrisati odsustvo?')) return;
   try {
     if (getIsOnline() && hasSupabaseConfig() && !String(id).startsWith('local_')) {

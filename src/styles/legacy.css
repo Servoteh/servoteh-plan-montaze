@@ -1,13 +1,13 @@
-﻿/* AUTO-EXTRACTED iz legacy/index.html (linije 8-2163, sve unutar <style> taga) */
+/* AUTO-EXTRACTED iz legacy/index.html (linije 8-2163, sve unutar <style> taga) */
 /* Ova datoteka ce se progresivno razbijati na modul-specificne fajlove tokom Faza 4 i 5. */
 
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap');
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    INDUSTRIAL THEME TOKENS (Light + Dark)
-   ═══════════════════════════════════════════════ */
+   ----------------------------------------------- */
 :root, [data-theme="dark"] {
-  /* ── Servoteh brand palette (shared across themes) ── */
+  /* -- Servoteh brand palette (shared across themes) -- */
   --servoteh-50:  #fdf4f2;
   --servoteh-100: #fbe6e2;
   --servoteh-200: #f6c8c0;
@@ -21,7 +21,7 @@
   --servoteh-900: #732114;
   --servoteh-950: #3e0e08;
 
-  /* ── Industrial Dark (neutral black base) ── */
+  /* -- Industrial Dark (neutral black base) -- */
   --bg: #0A0A0A;
   --surface: #171717;
   --surface2: #1C1C1C;
@@ -121,7 +121,7 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 13px; min-height: 100vh; -webkit-font-smoothing: antialiased; }
 
-/* ═══ HEADER ═══ */
+/* --- HEADER --- */
 .header {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
@@ -193,7 +193,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); font
 [data-theme="dark"] .theme-toggle .theme-icon-light { display: inline; }
 [data-theme="light"] .theme-toggle .theme-icon-dark { display: inline; }
 
-/* ═══ KPI CARDS (moved inside Status slide-over) ═══ */
+/* --- KPI CARDS (moved inside Status slide-over) --- */
 .kpi-grid {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px;
 }
@@ -216,7 +216,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); font
 .kpi-card.kpi-info .kpi-value { color: var(--status-prog); }
 .kpi-card.kpi-neutral .kpi-value { color: var(--text); }
 
-/* ═══ PROJECT META BAR (compact strip under header) ═══ */
+/* --- PROJECT META BAR (compact strip under header) --- */
 .project-meta-strip {
   display: flex; gap: 14px; flex-wrap: wrap; align-items: center;
   padding: 8px 24px; background: var(--surface2); border-bottom: 1px solid var(--border);
@@ -225,7 +225,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); font
 .project-meta-strip .meta-item { display: flex; align-items: center; gap: 5px; }
 .project-meta-strip .meta-item strong { color: var(--text); font-weight: 600; }
 
-/* ═══ STATUS SLIDE-OVER PANEL ═══ */
+/* --- STATUS SLIDE-OVER PANEL --- */
 .status-overlay {
   display: none; position: fixed; inset: 0; z-index: 2500;
   background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
@@ -265,7 +265,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); font
 
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-/* ═══ STATUS + RISK BADGES ═══ */
+/* --- STATUS + RISK BADGES --- */
 .badge-status {
   display: inline-flex; align-items: center; gap: 5px;
   padding: 3px 9px; border-radius: 999px; font-size: 10px; font-weight: 600;
@@ -291,7 +291,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); font
 .badge-risk.rk-low { background: color-mix(in srgb, var(--risk-low) 15%, var(--surface)); color: var(--risk-low); border-color: color-mix(in srgb, var(--risk-low) 45%, transparent); }
 .badge-risk.rk-none { background: var(--surface2); color: var(--text3); border-color: var(--border); }
 
-/* ═══ READINESS CHIP (click to toggle) ═══ */
+/* --- READINESS CHIP (click to toggle) --- */
 .check-chip {
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 52px; padding: 5px 8px; font-size: 10px; font-weight: 700;
@@ -339,7 +339,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); font
   background: var(--surface3); color: var(--text3); border-color: var(--border2);
 }
 
-/* ═══ PHASE TYPE (Mašinska / Elektro) ═══ */
+/* --- PHASE TYPE (Ma�inska / Elektro) --- */
 .phase-type-chip {
   display: inline-flex; align-items: center; gap: 4px; font-family: var(--mono); font-size: 10px;
   font-weight: 700; letter-spacing: 0.3px; border-radius: 6px; padding: 2px 7px; cursor: pointer;
@@ -360,7 +360,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); font
 .phase-type-chip[disabled] { cursor: default; opacity: 0.75; }
 .phase-type-chip .pt-ic { font-size: 10px; }
 
-/* ═══ GANTT: "Prikaži završene" toggle ═══ */
+/* --- GANTT: "Prika�i zavr�ene" toggle --- */
 .gantt-toggle-bar {
   display: flex; align-items: center; gap: 12px; padding: 8px 14px; margin: 0 0 6px 0;
   background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius);
@@ -384,13 +384,13 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); font
   background-color: #4da3ff;
 }
 
-/* ═══ MACHINE TABS ═══ */
+/* --- MACHINE TABS --- */
 .machine-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border2); background: var(--surface); overflow-x: auto; }
 .machine-tab { padding: 10px 22px; cursor: pointer; font-size: 12px; font-weight: 600; color: var(--text3); border-bottom: 2px solid transparent; white-space: nowrap; transition: all 0.15s; border-right: 1px solid var(--border); letter-spacing: 0.1px; }
 .machine-tab:hover { color: var(--text2); background: var(--surface2); }
 .machine-tab.active { color: var(--accent); border-bottom-color: var(--accent); background: var(--bg); }
 
-/* ═══ VIEW TABS ═══ */
+/* --- VIEW TABS --- */
 .main { padding: 16px 24px; }
 .view-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border2); margin-bottom: 14px; }
 .view-tab { padding: 8px 20px; cursor: pointer; font-size: 11px; color: var(--text3); border-bottom: 2px solid transparent; transition: all 0.15s; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -399,7 +399,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); font
 .view-section { display: none; }
 .view-section.active { display: block; }
 
-/* ═══ FILTERS ═══ */
+/* --- FILTERS --- */
 .filter-bar {
   display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;
   padding: 12px 16px; margin-bottom: 14px;
@@ -425,7 +425,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); font
 .filter-bar .btn-filter-reset:hover { background: var(--surface3); color: var(--text); border-color: var(--border3); }
 .filter-count { font-size: 11px; color: var(--text3); font-family: var(--mono); padding: 0 6px; }
 
-/* ═══ TABLE ═══ */
+/* --- TABLE --- */
 .table-wrap { overflow-x: auto; border-radius: var(--radius-lg); border: 1px solid var(--border); box-shadow: var(--shadow-sm); background: var(--surface); }
 table { width: 100%; border-collapse: collapse; font-size: 12px; }
 thead tr th {
@@ -472,14 +472,14 @@ td { padding: 8px 10px; vertical-align: middle; }
   display: block; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
-/* ═══ RISK ROW ═══ */
+/* --- RISK ROW --- */
 tr.row-risk-high { border-left: 3px solid var(--red); }
 tr.row-risk-med  { border-left: 3px solid var(--orange); }
 tr.row-risk-low  { border-left: 3px solid var(--yellow); }
 tr.row-risk-none { border-left: 3px solid transparent; }
 .risk-icon { font-size: 13px; cursor: help; }
 
-/* ═══ TOOLTIPS ═══ */
+/* --- TOOLTIPS --- */
 .risk-tooltip, .ready-tooltip { position: relative; display: inline-block; cursor: help; }
 .risk-tooltip .risk-tip-text, .ready-tooltip .ready-tip-text {
   visibility: hidden; opacity: 0;
@@ -496,12 +496,12 @@ tr.row-risk-none { border-left: 3px solid transparent; }
 }
 .risk-tooltip:hover .risk-tip-text, .ready-tooltip:hover .ready-tip-text { visibility: visible; opacity: 1; }
 
-/* ═══ DATE ERR / BLOCKER ═══ */
+/* --- DATE ERR / BLOCKER --- */
 .date-error input { background: var(--red-bg) !important; border-color: var(--red) !important; color: var(--red) !important; }
 .dur-error { color: var(--red) !important; font-weight: 700; }
 .blocker-highlight textarea { background: var(--orange-bg) !important; border-color: var(--orange) !important; }
 
-/* ═══ INPUTS ═══ */
+/* --- INPUTS --- */
 select, input[type="text"], input[type="date"] {
   background: var(--surface2); border: 1px solid var(--border2); color: var(--text);
   border-radius: var(--radius); padding: 6px 10px; font-size: 12px; font-family: var(--font);
@@ -522,7 +522,7 @@ select:focus, input[type="text"]:focus, input[type="date"]:focus { border-color:
 .loc-select,
 .loc-pill { background: var(--surface2); border-color: var(--border2); color: var(--text); font-weight: 500; }
 
-/* Status select (table dropdown) — styled as a badge */
+/* Status select (table dropdown) � styled as a badge */
 select.st-0, select.st-1, select.st-2, select.st-3 {
   font-weight: 700; font-size: 11px; padding: 6px 10px; border-radius: 999px;
   border: 1px solid transparent;
@@ -535,7 +535,7 @@ select.st-3 { background: color-mix(in srgb, var(--status-hold) 18%, var(--surfa
 select.ck-da { background: color-mix(in srgb, var(--status-done) 16%, var(--surface)); border-color: color-mix(in srgb, var(--status-done) 50%, transparent); color: var(--status-done); font-weight: 700; font-size: 10px; }
 select.ck-ne { background: var(--surface2); border-color: var(--border); color: var(--text3); font-size: 10px; }
 
-/* ═══ PCT BAR ═══ */
+/* --- PCT BAR --- */
 .pct-bar-wrap { display: flex; align-items: center; gap: 5px; }
 .pct-bar { flex: 1; height: 3px; background: var(--surface4); border-radius: 2px; overflow: hidden; }
 .pct-bar-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
@@ -543,22 +543,22 @@ select.ck-ne { background: var(--surface2); border-color: var(--border); color: 
 .pct-fill-done   { background: var(--green-light); }
 .pct-fill-hold   { background: var(--red); }
 
-/* ═══ BADGES ═══ */
+/* --- BADGES --- */
 .badge-ready { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 9px; font-weight: 700; font-family: var(--mono); letter-spacing: 0.3px; }
 .badge-yes { background: color-mix(in srgb, var(--status-done) 16%, var(--surface)); color: var(--status-done); border: 1px solid color-mix(in srgb, var(--status-done) 45%, transparent); }
 .badge-no  { background: var(--surface3); color: var(--text3); border: 1px solid var(--border2); }
 .badge-done { background: var(--surface3); color: var(--text3); border: 1px solid var(--border); }
 
-/* ═══ TEXTAREA ═══ */
+/* --- TEXTAREA --- */
 textarea.note-area { background: var(--surface3); border: 1px solid var(--border2); color: var(--text); border-radius: var(--radius); padding: 5px 8px; font-size: 10px; font-family: var(--font); width: 100%; outline: none; transition: all 0.15s; resize: vertical; min-height: 34px; line-height: 1.5; }
 textarea.note-area:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-dim); }
 
-/* ═══ LEGEND ═══ */
+/* --- LEGEND --- */
 .legend { display: flex; gap: 14px; flex-wrap: wrap; padding: 12px 0; border-top: 1px solid var(--border); margin-top: 12px; }
 .legend-item { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--text3); }
 .legend-box { width: 10px; height: 10px; border-radius: 3px; }
 
-/* ═══ GANTT ═══ */
+/* --- GANTT --- */
 .gantt-wrap { overflow-x: auto; border-radius: var(--radius-lg); border: 1px solid var(--border2); box-shadow: var(--shadow-sm); }
 .gantt-table { border-collapse: collapse; font-size: 11px; min-width: 100%; }
 .gantt-table th { background: var(--surface2); color: var(--text3); font-weight: 600; font-size: 9px; padding: 5px 6px; text-align: left; border: 1px solid var(--border); white-space: nowrap; }
@@ -580,9 +580,9 @@ textarea.note-area:focus { border-color: var(--accent); box-shadow: 0 0 0 2px va
 .gantt-cell.wknd { background: var(--gantt-wknd); }
 .gantt-cell.today-col { background: var(--gantt-today); }
 .gantt-cell.bar-phase,.gantt-cell.bar-phase-start,.gantt-cell.bar-phase-end { background: var(--accent); }
-/* ── Phase type tiers on Gantt bars (not mixed with status colors) ──
-   - Mašinska → darker overlay (darker tier)
-   - Elektro  → lighter overlay + thin diagonal pattern for clarity */
+/* -- Phase type tiers on Gantt bars (not mixed with status colors) --
+   - Ma�inska ? darker overlay (darker tier)
+   - Elektro  ? lighter overlay + thin diagonal pattern for clarity */
 .gantt-cell.bar-phase.bar-mech, .gantt-cell.bar-phase-start.bar-mech, .gantt-cell.bar-phase-end.bar-mech {
   background-image: linear-gradient(rgba(0,0,0,0.18), rgba(0,0,0,0.18));
 }
@@ -596,7 +596,7 @@ textarea.note-area:focus { border-color: var(--accent); box-shadow: 0 0 0 2px va
 .gantt-row-risk td.gantt-label { border-left: 3px solid var(--risk-med); }
 .gantt-machine-hdr td { background: var(--surface3); color: var(--accent); font-weight: 700; font-size: 11px; padding: 8px 12px; letter-spacing: 0.5px; border-top: 2px solid var(--accent); border-bottom: 1px solid var(--border); }
 
-/* ═══ CALENDAR ═══ */
+/* --- CALENDAR --- */
 .cal-overlay { display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); }
 .cal-overlay.open { display: flex; align-items: center; justify-content: center; }
 .cal-popup { background: var(--surface); border: 1px solid var(--border3); border-radius: var(--radius-lg); width: 290px; box-shadow: var(--shadow-lg); overflow: hidden; animation: popIn 0.15s ease-out; }
@@ -625,11 +625,11 @@ textarea.note-area:focus { border-color: var(--accent); box-shadow: 0 0 0 2px va
 .cal-btn-clear { background: transparent; color: var(--red); border: 1px solid color-mix(in srgb, var(--risk-high) 25%, transparent); }
 .cal-btn-clear:hover { background: color-mix(in srgb, var(--risk-high) 10%, transparent); }
 
-/* ═══ TOAST ═══ */
+/* --- TOAST --- */
 .toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface2); border: 1px solid var(--border3); border-radius: var(--radius); padding: 10px 16px; font-size: 12px; color: var(--text); z-index: 2000; transform: translateY(60px); opacity: 0; transition: all 0.25s; box-shadow: var(--shadow-lg); }
 .toast.show { transform: translateY(0); opacity: 1; }
 
-/* ═══ ROW ACTIONS ═══ */
+/* --- ROW ACTIONS --- */
 .td-actions { width: 70px; text-align: center; white-space: nowrap; }
 .row-btn { background: none; border: 1px solid transparent; color: var(--text3); border-radius: var(--radius); cursor: pointer; font-size: 12px; padding: 3px 5px; transition: all 0.15s; }
 .row-btn:hover { border-color: var(--border3); color: var(--text2); background: var(--surface3); }
@@ -637,28 +637,28 @@ textarea.note-area:focus { border-color: var(--accent); box-shadow: 0 0 0 2px va
 .row-btn.btn-up:hover  { border-color: color-mix(in srgb, var(--accent) 40%, transparent); color: var(--accent); background: var(--accent-dim); }
 .row-btn.btn-dn:hover  { border-color: color-mix(in srgb, var(--accent) 40%, transparent); color: var(--accent); background: var(--accent-dim); }
 
-/* ═══ ADD PHASE ═══ */
+/* --- ADD PHASE --- */
 .add-phase-bar { display: flex; gap: 8px; align-items: center; padding: 12px 0; border-top: 1px solid var(--border); margin-top: 10px; }
 .add-phase-input { flex: 1; background: var(--surface3); border: 1px solid var(--border2); color: var(--text); border-radius: var(--radius); padding: 7px 12px; font-size: 12px; font-family: var(--font); outline: none; transition: all 0.15s; }
 .add-phase-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-dim); }
 .btn-add-phase { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: var(--radius); font-size: 11px; font-weight: 700; cursor: pointer; border: 1px solid color-mix(in srgb, var(--status-done) 55%, transparent); background: color-mix(in srgb, var(--status-done) 16%, var(--surface)); color: var(--status-done); font-family: var(--font); transition: all 0.15s; white-space: nowrap; text-transform: uppercase; letter-spacing: 0.4px; }
 .btn-add-phase:hover { background: color-mix(in srgb, var(--status-done) 24%, var(--surface)); border-color: var(--status-done); }
 
-/* ═══ PHASE NAME ═══ */
+/* --- PHASE NAME --- */
 .phase-name-input { background: transparent; border: 1px solid transparent; color: var(--text); font-family: var(--font); font-size: 12px; font-weight: 500; width: 100%; padding: 3px 5px; border-radius: var(--radius); outline: none; transition: all 0.15s; }
 .phase-name-input:hover { border-color: var(--border2); background: var(--surface3); }
 .phase-name-input:focus { border-color: var(--accent); background: var(--surface3); box-shadow: 0 0 0 2px var(--accent-dim); }
 
 .checks-container { display: flex; gap: 0; }
 .checks-container .td-check { min-width: 44px; }
-/* ═══ FINISHED ROW ═══ */
+/* --- FINISHED ROW --- */
 tr.row-finished { opacity: 0.5; }
 tr.row-finished .phase-name-input { text-decoration: line-through; color: var(--text3); }
 tr.row-finished td { color: var(--text3); }
 .m-card.m-finished { opacity: 0.55; }
 .m-card.m-finished .m-card-name { text-decoration: line-through; color: var(--text3); }
 
-/* ═══ REMINDER ALERTS ═══ */
+/* --- REMINDER ALERTS --- */
 .reminder-zone { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
 .reminder-card {
   padding: 8px 12px; border-radius: var(--radius); font-size: 11px; flex: 1 1 260px;
@@ -672,28 +672,28 @@ tr.row-finished td { color: var(--text3); }
 .reminder-dot.rd-red { background: var(--red); }
 .reminder-dot.rd-yellow { background: var(--yellow); }
 
-/* ═══ TOTAL GANTT MACHINE FILTER ═══ */
+/* --- TOTAL GANTT MACHINE FILTER --- */
 .gantt-machine-filter { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius-lg); }
 .gantt-machine-filter label { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text2); cursor: pointer; padding: 4px 8px; border-radius: var(--radius); transition: background 0.15s; }
 .gantt-machine-filter label:hover { background: var(--surface3); }
 .gantt-machine-filter input[type="checkbox"] { accent-color: var(--accent); width: 14px; height: 14px; }
 
-/* ═══ ENGINEER COLUMN ═══ */
+/* --- ENGINEER COLUMN --- */
 .td-eng { width: 130px; }
 
-/* ═══ META INFO ═══ */
+/* --- META INFO --- */
 .meta-sub { display: flex; gap: 12px; flex-wrap: wrap; font-size: 10px; color: var(--text3); margin-top: 2px; font-family: var(--mono); }
 .meta-sub span { display: flex; align-items: center; gap: 3px; }
 
-/* ═══ ROLE INDICATOR ═══ */
+/* --- ROLE INDICATOR --- */
 .role-indicator { font-size: 9px; padding: 2px 8px; border-radius: 10px; font-weight: 600; font-family: var(--mono); letter-spacing: 0.3px; }
 .role-pm { background: var(--blue-bg); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); }
 .role-viewer { background: var(--surface2); color: var(--text3); border: 1px solid var(--border); }
 
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    MOBILE CARD VIEW
-   ═══════════════════════════════════════════════ */
+   ----------------------------------------------- */
 .mobile-cards { display: none; }
 .m-card {
   background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius-lg);
@@ -733,9 +733,9 @@ tr.row-finished td { color: var(--text3); }
 .m-expand-btn { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 10px; padding: 4px 8px; font-family: var(--font); }
 .m-expand-btn:hover { color: var(--text2); }
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    TABLET: 768px - 1199px
-   ═══════════════════════════════════════════════ */
+   ----------------------------------------------- */
 @media (max-width: 1199px) {
   .main { padding: 12px 16px; }
   .header-top { padding: 10px 16px 8px; }
@@ -756,12 +756,12 @@ tr.row-finished td { color: var(--text3); }
   .gantt-cell, .gantt-day-hdr { width: 20px; min-width: 20px; max-width: 20px; }
 }
 
-/* ═══════════════════════════════════════════════
+/* -----------------------------------------------
    MOBILE: < 768px
-   ═══════════════════════════════════════════════ */
-/* ═══════════════════════════════════════════════
+   ----------------------------------------------- */
+/* -----------------------------------------------
    MOBILE: < 768px
-   ═══════════════════════════════════════════════ */
+   ----------------------------------------------- */
 @media (max-width: 767px) {
   body { font-size: 13px; }
   .main { padding: 8px 10px; }
@@ -877,7 +877,7 @@ tr.row-finished td { color: var(--text3); }
 }
 
 
-/* ═══ PROJECT SELECTOR ═══ */
+/* --- PROJECT SELECTOR --- */
 .project-bar {
   display: flex; align-items: center; gap: 10px; padding: 10px 24px;
   background: var(--surface); border-bottom: 1px solid var(--border); flex-wrap: wrap;
@@ -901,7 +901,7 @@ tr.row-finished td { color: var(--text3); }
 }
 
 
-/* ═══ AUTH (Servoteh industrial) ═══ */
+/* --- AUTH (Servoteh industrial) --- */
 .auth-overlay {
   display:flex; position:fixed; inset:0; z-index:2000;
   background:var(--bg);
@@ -1054,7 +1054,7 @@ tr.row-finished td { color: var(--text3); }
   .auth-title { font-size:18px; }
 }
 
-/* ═══ MODULE HUB (landing after login) ═══ */
+/* --- MODULE HUB (landing after login) --- */
 .module-hub {
   position:fixed; inset:0; z-index:1500;
   background:var(--bg);
@@ -1250,7 +1250,7 @@ body.hub-active > .filter-bar { display:none !important; }
   .hub-user .hub-user-email { max-width:120px; }
 }
 
-/* ═══ KADROVSKA MODULE ═══ */
+/* --- KADROVSKA MODULE --- */
 body:not(.module-kadrovska) #module-kadrovska { display:none !important; }
 body.module-kadrovska > .header,
 body.module-kadrovska > .project-bar,
@@ -1264,7 +1264,7 @@ body.module-kadrovska > .legend,
 body.module-kadrovska > .reminder-zone,
 body.module-kadrovska > .filter-bar { display:none !important; }
 
-/* ═══ PODEŠAVANJA MODULE ═══ */
+/* --- PODE�AVANJA MODULE --- */
 body:not(.module-settings) #module-settings { display:none !important; }
 body.module-settings > .header,
 body.module-settings > .project-bar,
@@ -1514,7 +1514,7 @@ body.module-kadrovska > #module-settings { display:none !important; }
   .kadrovska-table .col-hide-sm { display:none; }
 }
 
-/* ═══ KADROVSKA TABS (phase 1) ═══ */
+/* --- KADROVSKA TABS (phase 1) --- */
 .kadrovska-tabs {
   display:flex; align-items:flex-end; gap:2px;
   padding:0 24px;
@@ -1551,7 +1551,7 @@ body.module-kadrovska > #module-settings { display:none !important; }
   border-color:color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
-/* Tab panels — only active one visible */
+/* Tab panels � only active one visible */
 .kadr-panel { display:none; }
 .kadr-panel.active { display:block; }
 
@@ -1620,7 +1620,7 @@ body.module-kadrovska > #module-settings { display:none !important; }
 .kadr-type-badge.c-praksa      { background:var(--surface3); color:var(--text2); border-color:var(--border2); }
 .kadr-type-badge.c-ostalo      { background:var(--surface3); color:var(--text3); border-color:var(--border2); }
 
-/* Contract row — expiry states */
+/* Contract row � expiry states */
 .kadrovska-table tr.row-expired td { background:color-mix(in srgb, var(--red) 8%, transparent); }
 .kadrovska-table tr.row-expiring td { background:color-mix(in srgb, #F2994A 9%, transparent); }
 .kadr-expiry-hint {
@@ -1684,7 +1684,7 @@ body.module-kadrovska > #module-settings { display:none !important; }
 .kadr-summary-chip.muted .kscv { color:var(--text3); }
 @media (max-width:640px) { .kadr-summary-strip { padding:10px 16px 0; } }
 
-/* ═══ MESEČNI GRID (Excel-like) ═══ */
+/* --- MESECNI GRID (Excel-like) --- */
 .grid-wrap {
   position:relative;
   overflow:auto;
@@ -1805,7 +1805,7 @@ td.col-day.cell-dirty .grid-cell { color:#F2994A; font-weight:600; }
 td.col-day.cell-error   { background:color-mix(in srgb, var(--red) 22%, var(--surface)) !important; }
 td.col-day.cell-error .grid-cell { color:var(--red); font-weight:600; }
 
-/* Absence pill — used inside cell when value is a code */
+/* Absence pill � used inside cell when value is a code */
 .grid-cell.is-absence { font-weight:700; text-transform:uppercase; letter-spacing:0.5px; font-size:10px; }
 .grid-cell.abs-go { background:color-mix(in srgb, #27AE60 18%, transparent); color:#27AE60; }
 .grid-cell.abs-bo { background:color-mix(in srgb, var(--red) 18%, transparent); color:var(--red); }
@@ -1814,11 +1814,11 @@ td.col-day.cell-error .grid-cell { color:var(--red); font-weight:600; }
 .grid-cell.abs-sl { background:color-mix(in srgb, var(--accent) 18%, transparent); color:var(--accent); }
 .grid-cell.abs-pr { background:color-mix(in srgb, #9B51E0 18%, transparent); color:#9B51E0; }
 
-/* Teren podtipovi: domaći (žuto-amber) vs inostrani (plavo) */
+/* Teren podtipovi: domaci (�uto-amber) vs inostrani (plavo) */
 .grid-cell.is-field-domestic { background:color-mix(in srgb, #F2C94C 22%, transparent); color:#B07B00; font-weight:600; }
 .grid-cell.is-field-foreign  { background:color-mix(in srgb, #2F80ED 22%, transparent); color:#1B5BB7; font-weight:600; }
 
-/* Teren ćelija — input + mali D/I toggle dugme */
+/* Teren celija � input + mali D/I toggle dugme */
 .grid-field-wrap { position:relative; display:block; width:100%; height:100%; }
 .grid-cell.grid-cell-field { padding-right:18px; }
 .fsub-btn {
@@ -1837,7 +1837,7 @@ td.col-day.cell-error .grid-cell { color:var(--red); font-weight:600; }
 .fsub-btn.is-hidden   { display:none; }
 .fsub-btn:disabled    { opacity:0.55; cursor:not-allowed; }
 
-/* Rad na 2 mašine — narandžasta/crvenkasta da odskače */
+/* Rad na 2 ma�ine � narand�asta/crvenkasta da odskace */
 .grid-cell.is-twomach { background:color-mix(in srgb, #F2994A 22%, transparent); color:#C26B14; font-weight:700; }
 
 /* Section header rows (SERVOTEH / HAP FLUID) */
@@ -1883,7 +1883,7 @@ td.col-day.cell-error .grid-cell { color:var(--red); font-weight:600; }
 .grid-pill.pill-ffor { background:color-mix(in srgb, #2F80ED 22%, transparent); color:#1B5BB7; border-color:color-mix(in srgb, #2F80ED 35%, transparent); }
 .grid-pill.pill-tm   { background:color-mix(in srgb, #F2994A 22%, transparent); color:#C26B14; border-color:color-mix(in srgb, #F2994A 35%, transparent); }
 
-/* ─── Reports (sub-tabovi unutar Izveštaji) ─── */
+/* --- Reports (sub-tabovi unutar Izve�taji) --- */
 .reports-tabs {
   display:flex; gap:6px; padding:14px 22px 0; flex-wrap:wrap;
   border-bottom:1px solid var(--border2);
@@ -1938,13 +1938,13 @@ td.col-day.cell-error .grid-cell { color:var(--red); font-weight:600; }
 .offline-badge { font-size:9px; padding:2px 8px; border-radius:10px; font-family:var(--mono); background:var(--yellow-bg); color:var(--yellow); border:1px solid var(--yellow); letter-spacing:0.3px; }
 .online-badge { font-size:9px; padding:2px 8px; border-radius:10px; font-family:var(--mono); background:var(--green-bg); color:var(--green-light); border:1px solid color-mix(in srgb, var(--green-light) 45%, transparent); letter-spacing:0.3px; }
 
-/* ═══ PRINT HEADER (samo za štampu) ═══ */
+/* --- PRINT HEADER (samo za �tampu) --- */
 .print-only { display: none; }
 .print-header { padding: 12px 16px; border-bottom: 1px solid #ccc; }
 .print-header h1 { font-size: 20px; font-weight: 700; color: #000; margin-bottom: 4px; }
 .print-header .print-meta { display: flex; flex-wrap: wrap; gap: 14px; font-size: 11px; color: #333; }
 
-/* ═══ PRINT ═══ */
+/* --- PRINT --- */
 @media print {
   @page { size: A4 portrait; margin: 10mm; }
   /* Force browsers to render background colors (fixes Gantt bars lost in PDF export) */
@@ -1953,7 +1953,7 @@ td.col-day.cell-error .grid-cell { color:var(--red); font-weight:600; }
     print-color-adjust: exact !important;
     color-adjust: exact !important;
   }
-  /* Isključi sve animacije/tranzicije/shadow-e — ubrzava paint u Chrome print preview-u */
+  /* Iskljuci sve animacije/tranzicije/shadow-e � ubrzava paint u Chrome print preview-u */
   *, *::before, *::after {
     transition: none !important;
     animation: none !important;
@@ -1970,7 +1970,7 @@ td.col-day.cell-error .grid-cell { color:var(--red); font-weight:600; }
   body { font-size: 10px !important; }
   .print-only { display: block !important; }
   .print-header h1 { color: #000 !important; }
-  /* Skrivanje UI-a nevezanog za sadržaj */
+  /* Skrivanje UI-a nevezanog za sadr�aj */
   .header-top, .project-bar, .wp-tabs, .view-tabs, .filter-bar, .filter-toggle-btn,
   .auth-overlay, .cal-overlay, .toast, .reminder-zone, .legend, .add-phase-bar,
   .td-actions, .m-card-actions, #printOverlay, .user-bar, .online-badge, .offline-badge,
@@ -1999,7 +1999,7 @@ td.col-day.cell-error .grid-cell { color:var(--red); font-weight:600; }
   tbody tr:nth-child(even) td { background: #fafafa !important; }
   tr.row-risk-high, tr.row-risk-med, tr.row-risk-low, tr.row-risk-none { border-left: none !important; }
   tr.row-finished td { color: #333 !important; }
-  /* Polja -> čist tekst */
+  /* Polja -> cist tekst */
   input[type="text"], input[type="number"], input[type="email"], input[type="password"], input[type="range"], textarea, select, button { all: revert; }
   .phase-name-input, .date-input-wrap input, textarea.note-area, td input, td select { background: transparent !important; border: none !important; color: #000 !important; box-shadow: none !important; padding: 0 !important; font-size: 9px !important; }
   td input[type="range"], .date-btn, .row-btn, select.ck-da + *, textarea.note-area { }
@@ -2025,7 +2025,7 @@ td.col-day.cell-error .grid-cell { color:var(--red); font-weight:600; }
   .gantt-cell.bar-phase, .gantt-cell.bar-phase-start, .gantt-cell.bar-phase-end {
     border-color: rgba(0,0,0,0.25) !important;
   }
-  /* Pattern fallback: guarantees Mašinska vs Elektro is distinguishable even in B/W prints.
+  /* Pattern fallback: guarantees Ma�inska vs Elektro is distinguishable even in B/W prints.
      Electrical bars get diagonal stripes, mechanical stays solid. */
   .gantt-cell.bar-elec.bar-phase, .gantt-cell.bar-elec.bar-phase-start, .gantt-cell.bar-elec.bar-phase-end {
     background-image: repeating-linear-gradient(135deg, rgba(255,255,255,0.55) 0 2px, transparent 2px 6px) !important;
@@ -2078,21 +2078,21 @@ body.print-gantt, body.print-total { }
 .loc-add-row input { flex: 1; background: var(--surface3); border: 1px solid var(--border2); color: var(--text); border-radius: var(--radius); padding: 5px 8px; font-size: 11px; outline: none; }
 .loc-add-row button { background: var(--accent-dim); border: 1px solid var(--accent); color: var(--accent); border-radius: var(--radius); padding: 5px 10px; font-size: 11px; cursor: pointer; }
 
-/* ═══ LOCATION COLOR CHIPS ═══ */
+/* --- LOCATION COLOR CHIPS --- */
 .loc-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-family: var(--mono); padding: 2px 6px; border-radius: 10px; border: 1px solid; letter-spacing: 0.2px; }
 .loc-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
 .gantt-label-loc-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 4px; vertical-align: middle; }
 td.td-loc .loc-select { border-left: 3px solid transparent; }
 .loc-swatch { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 6px; vertical-align: middle; }
 
-/* ═══ GANTT DAY SELECTION ═══ */
+/* --- GANTT DAY SELECTION --- */
 .gantt-day-hdr { cursor: pointer; user-select: none; transition: background 0.1s; }
 .gantt-day-hdr:hover { background: rgba(77,163,255,0.08); }
 .gantt-day-hdr.col-selected { background: rgba(255,200,0,0.22) !important; color: #ffd966 !important; font-weight: 700; outline: 1px solid rgba(255,200,0,0.5); }
 .gantt-cell.col-selected { background: rgba(255,200,0,0.08); }
 .gantt-cell.col-selected.bar-phase, .gantt-cell.col-selected.bar-phase-start, .gantt-cell.col-selected.bar-phase-end { box-shadow: inset 0 0 0 1px rgba(255,200,0,0.6); }
 
-/* ═══ GANTT DRAG/RESIZE ═══ */
+/* --- GANTT DRAG/RESIZE --- */
 .gantt-bar-wrap { position: relative; height: 100%; }
 .gantt-cell.bar-phase, .gantt-cell.bar-phase-start, .gantt-cell.bar-phase-end { position: relative; }
 .gantt-cell.bar-phase-start { cursor: grab; }
@@ -2114,7 +2114,7 @@ td.td-loc .loc-select { border-left: 3px solid transparent; }
 }
 .gantt-cell.bar-dragging { opacity: 0.7; outline: 2px solid var(--accent); }
 
-/* ═══ 3D MODEL CARD ═══ */
+/* --- 3D MODEL CARD --- */
 .model-btn {
   display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; font-size: 9px;
   border: 1px solid var(--border3); background: var(--surface3); color: var(--text2);
@@ -2140,10 +2140,10 @@ td.td-loc .loc-select { border-left: 3px solid transparent; }
   .model-panel .model-thumb { aspect-ratio: 16/9; }
 }
 
-/* ═══ EXPORT DIALOG ═══ */
+/* --- EXPORT DIALOG --- */
 .export-box .export-opt { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
 
-/* ═══ TOTAL GANT FILTERS ═══ */
+/* --- TOTAL GANT FILTERS --- */
 .total-gantt-filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; padding: 10px 12px; margin-bottom: 10px; background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius-lg); }
 .total-gantt-filters .filter-group { display: flex; flex-direction: column; gap: 3px; min-width: 120px; }
 .total-gantt-filters label { font-size: 9px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
@@ -2157,15 +2157,15 @@ td.td-loc .loc-select { border-left: 3px solid transparent; }
   .gantt-drag-handle-l, .gantt-drag-handle-r { width: 8px; background: rgba(255,255,255,0.5); }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════
-   PLAN MONTAŽE MODULE — Vite (F5.1.a)
+/* -----------------------------------------------------------------------
+   PLAN MONTA�E MODULE � Vite (F5.1.a)
    Shell, project bar overrides, view tabs, generic modal/form helpers.
-   ═══════════════════════════════════════════════════════════════════════ */
+   ----------------------------------------------------------------------- */
 .plan-main { padding:18px 24px 32px; min-height:calc(100vh - 64px); background:var(--bg); }
 .plan-toolbar { display:flex; flex-direction:column; gap:10px; margin-bottom:18px; }
 .plan-body { display:flex; flex-direction:column; gap:14px; }
 
-/* Project bar — extends legacy .project-bar with Vite-specific layout */
+/* Project bar � extends legacy .project-bar with Vite-specific layout */
 .plan-toolbar .project-bar {
   display:flex; align-items:center; gap:14px; flex-wrap:wrap;
   padding:10px 14px; background:var(--surface); border:1px solid var(--border);
@@ -2177,7 +2177,7 @@ td.td-loc .loc-select { border-left: 3px solid transparent; }
 .project-bar-meta { font-size:11px; color:var(--text3); margin-left:8px; font-family:var(--mono); }
 .project-bar-rok:not(:empty) { color:var(--text2); }
 
-/* WP tabs wrapper — adds + Pozicija button on right */
+/* WP tabs wrapper � adds + Pozicija button on right */
 .wp-tabs-wrap { display:flex; align-items:stretch; gap:8px; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:0 8px; }
 .wp-tabs-wrap .wp-tabs { flex:1; border-bottom:none; background:transparent; padding:0; }
 .wp-tabs-wrap .wp-tab { background:transparent; border:none; cursor:pointer; font-family:var(--font); }
@@ -2195,7 +2195,7 @@ td.td-loc .loc-select { border-left: 3px solid transparent; }
 .btn-ghost.danger { color:var(--red); border-color:color-mix(in srgb, var(--red) 35%, var(--border2)); }
 .btn-ghost.danger:hover:not([disabled]) { background:color-mix(in srgb, var(--red) 10%, var(--surface2)); border-color:var(--red); }
 
-/* Generic modal — reused by metaModals.js */
+/* Generic modal � reused by metaModals.js */
 .modal-overlay {
   position:fixed; inset:0; z-index:2500;
   background:rgba(0,0,0,0.6); backdrop-filter:blur(6px);
@@ -2220,7 +2220,7 @@ td.td-loc .loc-select { border-left: 3px solid transparent; }
 .modal-close:hover { background:var(--surface2); color:var(--text); }
 .modal-body { padding:18px 20px 20px; overflow-y:auto; }
 
-/* Form helpers — used in metaModals + later phases */
+/* Form helpers � used in metaModals + later phases */
 .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px 14px; }
 .form-grid > label { display:flex; flex-direction:column; gap:4px; font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; font-weight:600; }
 .form-grid input[type="text"], .form-grid input[type="date"], .form-grid select {
@@ -2271,7 +2271,7 @@ body.module-plan > .filter-bar { display:none !important; }
   .project-bar-actions .btn { flex:1; justify-content:center; }
 }
 
-/* ─── Plan Montaže (Vite) — plan tabela / filter bar / add bar ─── */
+/* --- Plan Monta�e (Vite) � plan tabela / filter bar / add bar --- */
 .plan-table-wrap { overflow-x:auto; border:1px solid var(--border); border-radius:10px; background:var(--surface); margin-top:10px; }
 .plan-table { width:100%; border-collapse:collapse; font-size:12px; min-width:1400px; }
 .plan-table thead th { background:var(--surface2); color:var(--text2); text-align:left; padding:8px 10px; border-bottom:1px solid var(--border); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:0.4px; white-space:nowrap; position:sticky; top:0; z-index:2; }
@@ -2309,7 +2309,7 @@ body.module-plan > .filter-bar { display:none !important; }
 .plan-table .row-btn:hover { background:var(--surface3); color:var(--text); }
 .plan-table .row-btn.btn-del:hover { border-color:var(--red); color:var(--red); }
 
-/* Filter bar — Vite varijanta (bez .filter-group) */
+/* Filter bar � Vite varijanta (bez .filter-group) */
 .plan-body .filter-bar { display:flex; flex-wrap:wrap; gap:8px 12px; align-items:flex-end; padding:10px 12px; border:1px solid var(--border); background:var(--surface); border-radius:10px; margin-bottom:8px; }
 .plan-body .fb-field { display:flex; flex-direction:column; gap:3px; min-width:130px; }
 .plan-body .fb-field > span { font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:0.7px; font-weight:600; }
@@ -2318,12 +2318,12 @@ body.module-plan > .filter-bar { display:none !important; }
 .plan-body .fb-actions { display:flex; gap:8px; align-items:center; margin-left:auto; }
 .plan-body .fb-count { font-family:var(--mono); color:var(--text3); font-size:11px; }
 
-/* Add phase bar — Vite varijanta */
+/* Add phase bar � Vite varijanta */
 .plan-body .add-phase-bar { display:flex; gap:8px; padding:8px 0; }
 .plan-body .add-phase-bar input { flex:1; background:var(--surface2); border:1px solid var(--border2); color:var(--text); border-radius:8px; padding:9px 12px; font:inherit; outline:none; }
 .plan-body .add-phase-bar input:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-dim); }
 
-/* Reminder zone — Vite — već postoji legacy stil za .reminder-card; samo grid wrapper */
+/* Reminder zone � Vite � vec postoji legacy stil za .reminder-card; samo grid wrapper */
 .plan-body .reminder-zone { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px; }
 .plan-body .reminder-zone:empty { display:none; }
 
@@ -2334,10 +2334,10 @@ body.module-plan > .filter-bar { display:none !important; }
 .plan-body .gantt-hint { font-size:10.5px; color:var(--text3); margin-left:auto; }
 .plan-body .gantt-empty { padding:24px; text-align:center; color:var(--text3); font-size:12px; }
 
-/* Drag tooltip — global, body-level */
+/* Drag tooltip � global, body-level */
 #ganttDragTip.gantt-drag-tip { position:fixed; z-index:9999; pointer-events:none; background:var(--surface); border:1px solid var(--accent); color:var(--text); border-radius:6px; padding:6px 10px; font-size:11.5px; font-family:var(--mono); box-shadow:0 4px 12px rgba(0,0,0,0.3); display:none; }
 
-/* Total Gantt — filter bar (koristi .filter-bar/.fb-field stilove iz plan-body) i WP filter */
+/* Total Gantt � filter bar (koristi .filter-bar/.fb-field stilove iz plan-body) i WP filter */
 .plan-body .tg-filter-bar { margin-bottom:8px; }
 .plan-body .tg-wp-filter { display:flex; flex-wrap:wrap; gap:6px 10px; padding:8px 12px; border:1px solid var(--border); border-radius:10px; background:var(--surface); margin-bottom:8px; align-items:center; }
 .plan-body .tg-wp-label { font-size:9px; color:var(--text3); font-weight:600; text-transform:uppercase; letter-spacing:0.7px; margin-right:4px; }
@@ -2350,7 +2350,7 @@ body.module-plan > .filter-bar { display:none !important; }
 .plan-body .tg-wp-hdr .tg-wp-rn { font-size:9px; opacity:0.7; }
 .plan-body .tg-phase-label { background:var(--surface2); border-right:2px solid var(--border2); padding-left:24px; }
 
-/* ── F5.6 — Export modal + header dugme ─────────────────────────────── */
+/* -- F5.6 � Export modal + header dugme ------------------------------- */
 .btn-export-header {
   display: inline-flex;
   align-items: center;
@@ -2423,7 +2423,7 @@ body.module-plan > .filter-bar { display:none !important; }
   color: var(--text3);
 }
 
-/* ── F5.5 — Reminder zone head + send button + modal list ───────────── */
+/* -- F5.5 � Reminder zone head + send button + modal list ------------- */
 .plan-body .reminder-zone .reminder-zone-head {
   display:flex; justify-content:space-between; align-items:center; gap:10px;
   padding:6px 10px; margin-bottom:8px; border:1px solid var(--border);
@@ -2445,7 +2445,7 @@ body.module-plan > .filter-bar { display:none !important; }
 .modal-panel .reminder-row .rr-meta { margin-top:3px; font-size:10.5px; color:var(--text2); }
 .modal-panel .reminder-row .rr-reasons { margin-top:3px; font-size:10.5px; color:var(--text3); font-style:italic; }
 
-/* ── F5.5 — 3D model dialog ─────────────────────────────────────────── */
+/* -- F5.5 � 3D model dialog ------------------------------------------- */
 .modal-panel .model-thumb { width:100%; aspect-ratio:4/3; background:var(--surface2); border:1px solid var(--border2); border-radius:var(--radius); display:flex; align-items:center; justify-content:center; overflow:hidden; margin-bottom:10px; }
 .modal-panel .model-thumb img { max-width:100%; max-height:100%; object-fit:contain; }
 .modal-panel .model-empty { width:100%; aspect-ratio:4/3; max-height:160px; background:var(--surface2); border:1px dashed var(--border2); border-radius:var(--radius); display:flex; align-items:center; justify-content:center; color:var(--text3); font-size:12px; margin-bottom:10px; }
@@ -2453,12 +2453,12 @@ body.module-plan > .filter-bar { display:none !important; }
   .modal-panel .model-thumb, .modal-panel .model-empty { aspect-ratio:16/9; }
 }
 
-/* 3D model row button — has-model = sa modelom (highlight) */
+/* 3D model row button � has-model = sa modelom (highlight) */
 .row-btn.btn-3d { background:var(--surface2); border:1px solid var(--border2); color:var(--text2); }
 .row-btn.btn-3d:hover { border-color:var(--accent); color:var(--accent); }
 .row-btn.btn-3d.has-model { background:rgba(110, 160, 255, 0.18); border-color:#4b79c8; color:#aac8ff; box-shadow:0 0 0 1px rgba(110, 160, 255, 0.25) inset; }
 
-/* ── F5.5 — Status panel (fixed bottom-right) ───────────────────────── */
+/* -- F5.5 � Status panel (fixed bottom-right) ------------------------- */
 .plan-status-panel {
   position: fixed;
   right: 14px;
@@ -2495,7 +2495,7 @@ body.module-plan > .filter-bar { display:none !important; }
   .plan-status-panel { right:8px; bottom:8px; padding:5px 9px; font-size:10.5px; }
 }
 
-/* Mobilne kartice — hide na desktopu, prikazi na mobile, sakrij desktop tabelu */
+/* Mobilne kartice � hide na desktopu, prikazi na mobile, sakrij desktop tabelu */
 .plan-body .mobile-cards { display:none; }
 .plan-body .m-empty { padding:18px; text-align:center; color:var(--text3); font-size:12px; }
 @media (max-width: 767px) {
@@ -2508,7 +2508,7 @@ body.module-plan > .filter-bar { display:none !important; }
   .plan-body .add-phase-bar input, .plan-body .add-phase-bar .btn { width:100%; }
 }
 
-/* ── Lokacije delova ─────────────────────────────────────────────────── */
+/* -- Lokacije delova --------------------------------------------------- */
 body.module-lokacije #module-lokacije { display:flex !important; flex:1; flex-direction:column; }
 .loc-tabs.loc-tabs { margin-bottom:0; }
 .loc-panel {
@@ -2540,7 +2540,7 @@ body.module-lokacije #module-lokacije { display:flex !important; flex:1; flex-di
 .loc-firstrun-steps { margin:0; padding-left:20px; font-size:12px; color:var(--text2); line-height:1.6; }
 .loc-firstrun-steps code { font-family:var(--mono); font-size:11px; padding:1px 4px; background:var(--surface); border:1px solid var(--border2); border-radius:3px; }
 
-/* Quick move modal — trenutni placement-i za izabranu stavku. */
+/* Quick move modal � trenutni placement-i za izabranu stavku. */
 .loc-current-state { padding:8px 10px; background:var(--surface2); border:1px solid var(--border2); border-radius:6px; }
 .loc-current-title { font-size:11px; color:var(--text3); margin-bottom:6px; text-transform:uppercase; letter-spacing:.4px; }
 .loc-chip-row { display:flex; flex-wrap:wrap; gap:6px; }
@@ -2548,7 +2548,7 @@ body.module-lokacije #module-lokacije { display:flex !important; flex:1; flex-di
 .loc-current-state .loc-chip strong { color:var(--text); font-weight:700; }
 .loc-qty-cell { text-align:right; font-family:var(--mono); white-space:nowrap; }
 
-/* ── Full-screen barkod skener (mobile-first) ───────────────── */
+/* -- Full-screen barkod skener (mobile-first) ----------------- */
 .loc-scan-overlay { position:fixed; inset:0; z-index:9999; background:#000; color:#fff; display:flex; flex-direction:column; overflow:hidden; }
 .loc-scan-stage { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:#000; }
 .loc-scan-video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
@@ -2640,13 +2640,13 @@ body.module-lokacije #module-lokacije { display:flex !important; flex:1; flex-di
 .loc-row-click { cursor:pointer; }
 .loc-row-click:hover { background:color-mix(in srgb, var(--accent) 8%, transparent) !important; }
 
-/* ── Browse: view switch (Tabela/Stablo) ──────────────────────────── */
+/* -- Browse: view switch (Tabela/Stablo) ---------------------------- */
 .loc-view-switch { display:inline-flex; gap:0; border:1px solid var(--border2); border-radius:6px; overflow:hidden; }
 .loc-view-switch .btn { border-radius:0; border:0; border-right:1px solid var(--border2); margin:0; }
 .loc-view-switch .btn:last-child { border-right:0; }
 .loc-view-switch .btn.is-active { background:var(--accent); color:#fff; }
 
-/* ── Stablo lokacija ──────────────────────────────────────────────── */
+/* -- Stablo lokacija ------------------------------------------------ */
 .loc-tree, .loc-tree ul { list-style:none; margin:0; padding-left:18px; }
 .loc-tree-root { padding-left:0; margin:4px 0; }
 .loc-tree > li, .loc-tree li { margin:2px 0; }
@@ -2663,14 +2663,14 @@ body.module-lokacije #module-lokacije { display:flex !important; flex:1; flex-di
 .loc-inline-check { display:inline-flex; align-items:center; gap:6px; font-size:11px; color:var(--text2); margin-left:auto; cursor:pointer; }
 .loc-inline-check input { margin:0; }
 
-/* ── Pretraga / filter (browse + items) ───────────────────────────── */
+/* -- Pretraga / filter (browse + items) ----------------------------- */
 .loc-search { display:inline-flex; align-items:center; gap:8px; flex:1 1 220px; min-width:200px; }
 .loc-items-search { flex:1 1 260px; }
 .loc-search-input { flex:1 1 auto; min-width:180px; padding:6px 10px; font-size:12px; border:1px solid var(--border2); border-radius:6px; background:var(--surface); color:var(--text); }
 .loc-search-input:focus { outline:2px solid color-mix(in srgb, var(--accent) 50%, transparent); outline-offset:0; border-color:var(--accent); }
 .loc-filter-hint { font-size:11px; color:var(--text3); white-space:nowrap; }
 
-/* ── Istorija — filteri grid ─────────────────────────────────── */
+/* -- Istorija � filteri grid ----------------------------------- */
 .loc-history-filters {
   display:grid;
   grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
@@ -2698,7 +2698,7 @@ body.module-lokacije #module-lokacije { display:flex !important; flex:1; flex-di
 .loc-filter-actions { display:flex; align-items:flex-end; gap:6px; }
 .loc-history-table .loc-mov-when { white-space:nowrap; font-variant-numeric:tabular-nums; font-size:11px; color:var(--text2); }
 
-/* ── Paginator (items tab) ────────────────────────────────────────── */
+/* -- Paginator (items tab) ------------------------------------------ */
 .loc-pager { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:8px; padding:8px 10px; border:1px solid var(--border2); border-radius:6px; background:var(--surface2); flex-wrap:wrap; }
 .loc-pager-info { font-size:12px; color:var(--text2); }
 .loc-pager-controls { display:inline-flex; gap:8px; align-items:center; flex-wrap:wrap; }
@@ -2712,12 +2712,321 @@ body.module-lokacije #module-lokacije { display:flex !important; flex:1; flex-di
 .loc-table thead th { background:var(--surface2); color:var(--text3); font-size:10px; text-transform:uppercase; letter-spacing:0.3px; }
 .loc-table tbody tr:hover { background:color-mix(in srgb, var(--accent) 6%, transparent); }
 
+/* --- KADROVSKA ZARADE � sub-tabs + uslovi modal pro�irenje (K3.2) --- */
+.kadr-subtab-strip {
+  display:flex; gap:6px; padding:10px 20px 4px;
+  border-bottom:1px solid var(--border2);
+}
+.kadr-subtab {
+  padding:8px 14px;
+  background:transparent;
+  border:1px solid transparent;
+  border-bottom:none;
+  border-radius:8px 8px 0 0;
+  color:var(--text2); font-size:12px; font-weight:600;
+  cursor:pointer;
+  transition:background 0.15s, color 0.15s;
+}
+.kadr-subtab:hover { background:color-mix(in srgb, var(--accent) 8%, transparent); color:var(--text); }
+.kadr-subtab.active {
+  background:var(--surface);
+  border-color:var(--border2);
+  color:var(--accent);
+}
+
+/* Wider modal za Salary terms */
+.emp-modal.emp-modal-wide { max-width:780px; }
+.emp-section {
+  border:1px solid var(--border2);
+  border-radius:10px;
+  padding:14px 16px 16px;
+  margin:0 0 16px;
+  background:color-mix(in srgb, var(--surface2) 60%, transparent);
+}
+.emp-section legend {
+  font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.6px;
+  color:var(--accent);
+  padding:0 6px;
+}
+.emp-form-help {
+  font-size:11px; color:var(--text3); line-height:1.5;
+  margin:0 0 12px;
+}
+.emp-form-help code {
+  background:var(--surface2); padding:1px 5px; border-radius:3px; font-size:11px;
+  color:var(--text2);
+}
+
+/* Badge-ovi za tipove zarade */
+.kadr-type-badge.t-sal-ugovor   { background:color-mix(in srgb, #2D9CDB 14%, var(--surface)); color:#2D9CDB; border-color:color-mix(in srgb, #2D9CDB 40%, transparent); }
+.kadr-type-badge.t-sal-dogovor  { background:color-mix(in srgb, #9B51E0 14%, var(--surface)); color:#9B51E0; border-color:color-mix(in srgb, #9B51E0 40%, transparent); }
+.kadr-type-badge.t-sal-satnica  { background:color-mix(in srgb, #F2994A 14%, var(--surface)); color:#F2994A; border-color:color-mix(in srgb, #F2994A 40%, transparent); }
+
+/* --- KADROVSKA ZARADE � Mesecni obracun (K3.2) --- */
+.payroll-toolbar { flex-wrap:wrap; gap:8px; }
+.payroll-toolbar #payrPrevMonth,
+.payroll-toolbar #payrNextMonth { padding:6px 10px; font-size:14px; line-height:1; }
+
+.payroll-hint {
+  padding:10px 20px;
+  font-size:11px; color:var(--text3); line-height:1.55;
+  background:color-mix(in srgb, var(--accent) 5%, transparent);
+  border-bottom:1px solid var(--border2);
+}
+.payroll-hint strong { color:var(--text2); }
+
+.payroll-main { padding:0 !important; }
+.payroll-grid-wrap {
+  overflow:auto;
+  max-height:calc(100vh - 340px);
+  border-top:1px solid var(--border2);
+}
+.payroll-grid {
+  width:100%; min-width:1700px;
+  font-size:12px;
+}
+.payroll-grid thead th {
+  position:sticky; top:0; z-index:5;
+  background:var(--surface2);
+  border-bottom:2px solid var(--border2);
+  font-size:10px; text-transform:uppercase; letter-spacing:0.3px;
+  color:var(--text3);
+  padding:10px 8px;
+  white-space:nowrap;
+}
+.payroll-grid tbody td {
+  padding:6px 8px;
+  border-bottom:1px solid var(--border2);
+  vertical-align:middle;
+}
+.payroll-grid tbody tr:hover { background:color-mix(in srgb, var(--accent) 4%, transparent); }
+.payroll-grid tbody tr.dirty { background:color-mix(in srgb, #F2994A 10%, transparent); }
+.payroll-grid tbody tr.dirty:hover { background:color-mix(in srgb, #F2994A 16%, transparent); }
+.payroll-grid tbody tr.s-paid  { opacity:0.75; }
+.payroll-grid tbody tr.s-paid td { background:color-mix(in srgb, #27AE60 5%, transparent); }
+
+.payroll-grid .sticky-col {
+  position:sticky; left:0; z-index:3;
+  background:var(--surface);
+  min-width:220px; max-width:260px;
+  box-shadow:2px 0 0 var(--border2);
+}
+.payroll-grid thead .sticky-col { background:var(--surface2); z-index:6; }
+.payroll-grid tbody tr:hover .sticky-col { background:color-mix(in srgb, var(--accent) 6%, var(--surface)); }
+.payroll-grid tbody tr.dirty .sticky-col { background:color-mix(in srgb, #F2994A 12%, var(--surface)); }
+
+.payroll-grid td.num,
+.payroll-grid th[title*="UKUPNO"],
+.payroll-grid td.num strong { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+
+.payr-inp {
+  padding:5px 7px;
+  background:var(--surface2);
+  border:1px solid var(--border2);
+  border-radius:5px;
+  color:var(--text); font-family:var(--font); font-size:12px;
+  outline:none;
+  transition:border-color 0.15s, box-shadow 0.15s;
+  width:100px;
+}
+.payr-inp:focus {
+  border-color:var(--accent);
+  box-shadow:0 0 0 2px var(--accent-dim);
+  background:var(--surface);
+}
+.payr-inp:disabled { opacity:0.5; cursor:not-allowed; }
+.payr-inp.w-xs { width:58px; }
+.payr-inp.w-sm { width:82px; }
+.payr-inp.w-md { width:110px; }
+
+.payr-cell-dual {
+  display:inline-flex; align-items:center; gap:4px;
+  white-space:nowrap;
+}
+.payr-mul { color:var(--text3); font-weight:700; font-size:11px; }
+
+.payr-status {
+  display:inline-block;
+  padding:3px 8px;
+  font-size:10px; font-weight:600;
+  border-radius:10px;
+  white-space:nowrap;
+  border:1px solid var(--border2);
+  background:var(--surface2);
+  color:var(--text2);
+}
+.payr-status.s-draft        { background:color-mix(in srgb, var(--text3) 12%, var(--surface)); color:var(--text2); }
+.payr-status.s-advance_paid { background:color-mix(in srgb, #2D9CDB 14%, var(--surface)); color:#2D9CDB; border-color:color-mix(in srgb, #2D9CDB 40%, transparent); }
+.payr-status.s-finalized    { background:color-mix(in srgb, #F2994A 14%, var(--surface)); color:#F2994A; border-color:color-mix(in srgb, #F2994A 40%, transparent); }
+.payr-status.s-paid         { background:color-mix(in srgb, #27AE60 16%, var(--surface)); color:#27AE60; border-color:color-mix(in srgb, #27AE60 40%, transparent); }
+
+.btn-row-act.primary {
+  background:color-mix(in srgb, var(--accent) 14%, transparent);
+  color:var(--accent);
+  border-color:color-mix(in srgb, var(--accent) 40%, transparent);
+}
+.btn-row-act.primary:hover { background:color-mix(in srgb, var(--accent) 22%, transparent); }
+
+@media (max-width:900px) {
+  .payroll-grid-wrap { max-height:none; }
+  .kadr-subtab { padding:6px 10px; font-size:11px; }
+}
 
 /* -----------------------------------------------------------------------
-   PLAN MONTAZE -- D&D redosled faza, dugme "Opis", PDF export overrides
+   PM MODAL � generic full-screen modal (koristi emp-bulk i drugi moduli).
+   ----------------------------------------------------------------------- */
+.pm-modal-backdrop {
+  position:fixed; inset:0;
+  background:rgba(0,0,0,0.55);
+  z-index:1000;
+  backdrop-filter: blur(2px);
+}
+.pm-modal {
+  position:fixed;
+  left:50%; top:50%;
+  transform:translate(-50%,-50%);
+  background:var(--surface);
+  color:var(--text);
+  border:1px solid var(--border2);
+  border-radius:10px;
+  box-shadow:0 20px 60px rgba(0,0,0,0.45);
+  z-index:1001;
+  display:flex;
+  flex-direction:column;
+  max-height:92vh;
+  width:min(94vw, 720px);
+  overflow:hidden;
+}
+.pm-modal-xl { width:min(96vw, 1280px); }
+.pm-modal-header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 18px;
+  border-bottom:1px solid var(--border2);
+  background:var(--surface2);
+}
+.pm-modal-header h2 { margin:0; font-size:17px; font-weight:600; }
+.pm-modal-close {
+  background:transparent; border:0; color:var(--text2);
+  font-size:18px; cursor:pointer; padding:4px 10px; border-radius:6px;
+}
+.pm-modal-close:hover { background:var(--surface3); color:var(--text); }
+.pm-modal-body {
+  flex:1 1 auto; overflow:auto;
+  padding:14px 18px;
+  background:var(--bg);
+}
+.pm-modal-footer {
+  display:flex; align-items:center; justify-content:space-between;
+  gap:12px;
+  padding:10px 18px;
+  border-top:1px solid var(--border2);
+  background:var(--surface2);
+}
+.pm-modal-actions { display:flex; gap:8px; }
+
+.pm-modal-tabs {
+  display:flex; align-items:center; gap:4px;
+  padding:6px 14px;
+  border-bottom:1px solid var(--border2);
+  background:var(--surface2);
+}
+.pm-modal-tab {
+  background:transparent; border:1px solid transparent;
+  padding:6px 12px; font-size:13px; font-weight:500;
+  color:var(--text2); border-radius:6px 6px 0 0; cursor:pointer;
+}
+.pm-modal-tab:hover { background:var(--surface3); color:var(--text); }
+.pm-modal-tab.active {
+  background:var(--surface); color:var(--text);
+  border-color:var(--border2); border-bottom-color:var(--surface);
+  margin-bottom:-1px;
+}
+.pm-modal-tabs-spacer { flex:1 1 auto; }
+.btn.btn-sm { padding:4px 10px; font-size:12px; }
+
+/* -----------------------------------------------------------------------
+   EMPLOYEES BULK � brzi unos grid + Excel import preview.
+   ----------------------------------------------------------------------- */
+.emp-bulk-info {
+  display:flex; align-items:center; gap:10px;
+  padding:8px 10px; margin-bottom:8px;
+  background:var(--surface2); border:1px solid var(--border2); border-radius:6px;
+  font-size:12px; color:var(--text2);
+}
+.emp-bulk-info strong { color:var(--text); }
+
+.emp-bulk-grid-wrap {
+  overflow:auto;
+  max-height:calc(92vh - 260px);
+  border:1px solid var(--border2); border-radius:6px;
+  background:var(--surface);
+}
+.emp-bulk-grid {
+  width:100%; border-collapse:separate; border-spacing:0;
+  font-size:12px;
+}
+.emp-bulk-grid thead th {
+  position:sticky; top:0;
+  background:var(--surface2); color:var(--text);
+  padding:6px 8px; text-align:left; font-weight:600;
+  border-bottom:1px solid var(--border2);
+  white-space:nowrap;
+}
+.emp-bulk-grid td {
+  padding:3px 4px; border-bottom:1px solid var(--border);
+  vertical-align:middle;
+}
+.emp-bulk-grid tbody tr:hover { background:color-mix(in srgb, var(--accent) 5%, transparent); }
+.emp-bulk-grid tbody tr.err { background:color-mix(in srgb, #ef4444 8%, transparent); }
+.emp-bulk-grid input[type=text],
+.emp-bulk-grid input[type=email],
+.emp-bulk-grid input[type=tel],
+.emp-bulk-grid input[type=date],
+.emp-bulk-grid select {
+  width:100%; padding:4px 6px; font-size:12px;
+  border:1px solid var(--border2); border-radius:4px;
+  background:var(--bg); color:var(--text);
+}
+.emp-bulk-grid input:focus, .emp-bulk-grid select:focus {
+  outline:2px solid color-mix(in srgb, var(--accent) 50%, transparent); outline-offset:0;
+  border-color:var(--accent);
+}
+.emp-bulk-grid.preview td { padding:5px 8px; }
+.bulk-idx { color:var(--text3); text-align:right; width:36px; font-variant-numeric:tabular-nums; }
+.bulk-err { width:90px; text-align:center; }
+
+.emp-bulk-status { display:inline-block; padding:2px 6px; border-radius:10px; font-size:11px; font-weight:600; }
+.emp-bulk-status.ok { background:color-mix(in srgb, #22c55e 22%, transparent); color:#16a34a; }
+.emp-bulk-status.err { background:color-mix(in srgb, #ef4444 22%, transparent); color:#dc2626; cursor:help; }
+.emp-bulk-status.muted { background:var(--surface3); color:var(--text3); }
+
+.emp-bulk-actions { display:flex; gap:8px; padding:8px 0 0 0; }
+.emp-bulk-summary { display:flex; gap:14px; font-size:12px; }
+.emp-bulk-summary .ok { color:#16a34a; font-weight:600; }
+.emp-bulk-summary .err { color:#dc2626; font-weight:600; }
+
+.emp-bulk-import-drop {
+  border:2px dashed var(--border2); border-radius:10px;
+  padding:40px 20px; margin:20px auto;
+  text-align:center; cursor:pointer;
+  background:var(--surface2); color:var(--text2);
+  max-width:600px;
+  transition:all 0.15s;
+}
+.emp-bulk-import-drop:hover,
+.emp-bulk-import-drop.over {
+  border-color:var(--accent);
+  background:color-mix(in srgb, var(--accent) 6%, transparent);
+  color:var(--text);
+}
+.emp-bulk-import-icon { font-size:40px; margin-bottom:12px; }
+.emp-bulk-import-drop .muted { color:var(--text3); margin-top:8px; font-size:12px; }
+
+/* -----------------------------------------------------------------------
+   PLAN MONTA�E � D&D redosled faza, dugme "Opis", PDF export overrides
    ----------------------------------------------------------------------- */
 
-/* -- Drag handle u # koloni -- */
+/* � Drag handle u # koloni � */
 .plan-table .td-num { white-space: nowrap; padding-left: 4px; padding-right: 4px; }
 .plan-table .td-num .td-num-n {
   display: inline-block;
@@ -2750,7 +3059,7 @@ body.module-lokacije #module-lokacije { display:flex !important; flex:1; flex-di
 }
 .row-drag-handle:active { cursor: grabbing; }
 
-/* -- Dragging / drop indicator -- */
+/* � Dragging / drop indicator � */
 .plan-table tbody tr.phase-row-dragging td {
   opacity: 0.45;
   background: var(--accent-dim) !important;
@@ -2762,7 +3071,7 @@ body.module-lokacije #module-lokacije { display:flex !important; flex:1; flex-di
   box-shadow: inset 0 -3px 0 0 var(--accent);
 }
 
-/* -- "Opis" dugme ispod naziva faze (desktop) -- */
+/* � "Opis" dugme ispod naziva faze (desktop) � */
 .phase-desc-btn {
   background: var(--surface2);
   border: 1px solid var(--border2);
@@ -2794,13 +3103,13 @@ body.module-lokacije #module-lokacije { display:flex !important; flex:1; flex-di
 .phase-desc-btn .pdb-ic { font-size: 11px; }
 .phase-desc-btn .pdb-lbl { text-transform: lowercase; letter-spacing: 0.2px; }
 
-/* Mobilni "Opis" dugme -- bazni .row-btn vec postoji; samo has-desc naglasavamo */
+/* Mobilni "Opis" dugme � bazni .row-btn vec postoji; samo has-desc nagla�avamo */
 .row-btn.btn-desc.has-desc {
   border-color: var(--status-done);
   color: var(--status-done);
 }
 
-/* -- Textarea u description dijalogu -- */
+/* � Textarea u description dijalogu � */
 .phase-description-textarea {
   width: 100%;
   background: var(--surface2);
@@ -2821,13 +3130,13 @@ body.module-lokacije #module-lokacije { display:flex !important; flex:1; flex-di
 }
 
 /* -----------------------------------------------------------------------
-   PDF EXPORT OVERRIDES -- aktivno preko `.pdf-export` klase na <body>
+   PDF EXPORT OVERRIDES � aktivno preko `.pdf-export` klase na <body>
    koju dodaje exportModal u html2canvas `onclone` callback-u.
 
-   html2canvas 1.4.1 ne podrzava moderne CSS funkcije (color-mix, oklch...)
+   html2canvas 1.4.1 ne podr�ava moderne CSS funkcije (color-mix, oklch�)
    pa bi Gantt u dark mode-u izgledao skoro potpuno crn. Ovde "zakucavamo"
    eksplicitne, print-safe boje van `@media print`.
-   ----------------------------------------------------------------------- */
+   =================================================================== */
 body.pdf-export { background: #ffffff !important; color: #000 !important; }
 body.pdf-export .header,
 body.pdf-export .status-panel,
@@ -2896,7 +3205,7 @@ body.pdf-export .gantt-label-status.gs-1 { color: #1a56a8 !important; }
 body.pdf-export .gantt-label-status.gs-2 { color: #1b7d3a !important; }
 body.pdf-export .gantt-label-status.gs-3 { color: #a52020 !important; }
 
-/* Bars: zadrzavamo inline background (boja lokacije) koji je
+/* Bars: zadr�avamo inline background (boja lokacije) koji je
    postavljen preko `style="background-color:..."`. Dodajemo vidljiv border
    i vizuelni pattern za mech/elec razlikovanje u B/W. */
 body.pdf-export .gantt-cell.bar-phase,
@@ -2922,7 +3231,7 @@ body.pdf-export .phase-desc-btn {
   display: none !important;
 }
 
-/* Total Gantt -- isti overrides, vec su nasledeni preko klasa gantt-*.
+/* Total Gantt � isti overrides, vec su nasledeni preko klasa gantt-*.
    Dodatno: WP / machine group header-i moraju biti citki. */
 body.pdf-export .gantt-machine-hdr td,
 body.pdf-export .gantt-wp-group-hdr td,

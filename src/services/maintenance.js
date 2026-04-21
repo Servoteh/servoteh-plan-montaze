@@ -25,6 +25,60 @@ export async function fetchMaintMachineStatuses(opts = {}) {
 }
 
 /**
+ * Poslednja urađena kontrola po mašini — Map<machine_code, ISO datum>.
+ * Čita iz `maint_checks` i agregira klijentski (do nekoliko hiljada redova
+ * prolazi kroz jedan fetch; ako preraste, treba SQL view sa GROUP BY).
+ *
+ * @param {{ limit?: number }} [opts]
+ * @returns {Promise<Map<string, string>>}
+ */
+export async function fetchMaintMachineLastChecks(opts = {}) {
+  const lim = opts.limit ?? 5000;
+  const rows = await sbReq(
+    `maint_checks?select=machine_code,performed_at&order=performed_at.desc&limit=${lim}`,
+  );
+  const m = new Map();
+  if (Array.isArray(rows)) {
+    for (const r of rows) {
+      const k = r?.machine_code;
+      const t = r?.performed_at;
+      if (!k || !t) continue;
+      /* Rows su već sortirane desc — prvi hit je najskoriji. */
+      if (!m.has(k)) m.set(k, t);
+    }
+  }
+  return m;
+}
+
+/**
+ * Poslednji incident po mašini (bilo koji status) — za „Istorija" merged
+ * timeline ne treba, ali za listu može biti korisno kao „last event".
+ * Trenutno se ne koristi — ostavljeno za sledeći krug.
+ *
+ * @param {{ limit?: number }} [opts]
+ * @returns {Promise<Map<string, { reported_at: string, title: string, status: string }>>}
+ */
+export async function fetchMaintMachineLastIncidents(opts = {}) {
+  const lim = opts.limit ?? 5000;
+  const rows = await sbReq(
+    `maint_incidents?select=machine_code,reported_at,title,status&order=reported_at.desc&limit=${lim}`,
+  );
+  const m = new Map();
+  if (Array.isArray(rows)) {
+    for (const r of rows) {
+      const k = r?.machine_code;
+      if (!k) continue;
+      if (!m.has(k)) m.set(k, {
+        reported_at: r.reported_at,
+        title: r.title || '',
+        status: r.status || '',
+      });
+    }
+  }
+  return m;
+}
+
+/**
  * Nazivi mašina iz BigTehn cache-a (read-only).
  * Po defaultu skriva „ne-mašine” (`no_procedure=true`: Kontrola, Kooperacija,
  * Montaža, Transport…). Postavi `includeNonMachining:true` kad ti treba
@@ -132,6 +186,21 @@ export async function deleteMaintTask(taskId) {
     'DELETE',
   );
   return r !== null;
+}
+
+/**
+ * Istorija urađenih kontrola (maint_checks) za jednu mašinu — koristi se u
+ * „Istorija" tabu za merged timeline (incidenti + kontrole).
+ *
+ * @param {string} machineCode
+ * @param {{ limit?: number }} [opts]
+ * @returns {Promise<Array<object>|null>}
+ */
+export async function fetchMaintChecksForMachine(machineCode, opts = {}) {
+  const lim = opts.limit ?? 100;
+  return await sbReq(
+    `maint_checks?select=id,task_id,machine_code,performed_at,performed_by,result,notes&machine_code=eq.${enc(machineCode)}&order=performed_at.desc&limit=${lim}`,
+  );
 }
 
 /**
@@ -374,6 +443,9 @@ export async function deleteMaintMachineOverride(machineCode) {
 
 /* ── Katalog mašina (maint_machines) ─────────────────────────────────────── */
 
+/* `responsible_user_id` NIJE u ovoj listi namerno — dodat je u posebnoj
+   migraciji (add_maint_machine_responsible.sql) i mogu postojati instalacije
+   gde još nije pokrenut. Čitamo ga best-effort preko fetchMaintMachineResponsibles(). */
 const MAINT_MACHINE_COLS =
   'machine_code,name,type,manufacturer,model,serial_number,year_of_manufacture,year_commissioned,location,department_id,power_kw,weight_kg,notes,tracked,archived_at,source,created_at,updated_at,updated_by';
 
@@ -402,7 +474,71 @@ export async function fetchMaintMachine(machineCode) {
   const rows = await sbReq(
     `maint_machines?select=${MAINT_MACHINE_COLS}&machine_code=eq.${enc(machineCode)}&limit=1`,
   );
-  return Array.isArray(rows) && rows[0] ? rows[0] : null;
+  const row = Array.isArray(rows) && rows[0] ? rows[0] : null;
+  if (row) {
+    /* Best-effort dopuna sa responsible_user_id — ako migracija nije prošla,
+       samo izostavljamo polje. */
+    const extra = await sbReq(
+      `maint_machines?select=responsible_user_id&machine_code=eq.${enc(machineCode)}&limit=1`,
+    ).catch(() => null);
+    if (Array.isArray(extra) && extra[0] && 'responsible_user_id' in extra[0]) {
+      row.responsible_user_id = extra[0].responsible_user_id || null;
+    }
+  }
+  return row;
+}
+
+/**
+ * Proveri da li je migracija add_maint_machine_responsible.sql pokrenuta —
+ * tj. da li kolona `maint_machines.responsible_user_id` postoji u bazi.
+ * Rezultat je keširan za session (da izbegnemo ponovne HEAD request-e).
+ *
+ * @returns {Promise<boolean>}
+ */
+let _respFeatureCache = null;
+export async function isMaintResponsibleFeatureAvailable() {
+  if (_respFeatureCache !== null) return _respFeatureCache;
+  const probe = await sbReq('maint_machines?select=responsible_user_id&limit=1').catch(() => null);
+  _respFeatureCache = Array.isArray(probe);
+  return _respFeatureCache;
+}
+
+/**
+ * Vraća responsible_user_id za jednu mašinu (best-effort, null ako kolona ne
+ * postoji ili mašina nema dodeljenog odgovornog).
+ *
+ * @param {string} machineCode
+ * @returns {Promise<string|null>}
+ */
+export async function fetchMaintMachineResponsibleFor(machineCode) {
+  if (!machineCode) return null;
+  const rows = await sbReq(
+    `maint_machines?select=responsible_user_id&machine_code=eq.${enc(machineCode)}&limit=1`,
+  ).catch(() => null);
+  if (!Array.isArray(rows) || !rows[0]) return null;
+  return rows[0].responsible_user_id || null;
+}
+
+/**
+ * Vraća Map<machine_code, responsible_user_id> — best-effort. Ako migracija
+ * add_maint_machine_responsible.sql nije pokrenuta, kolona ne postoji, fetch
+ * vrati null i mi vratimo prazan Map (UI skriva „Moje" filter).
+ *
+ * @returns {Promise<Map<string, string>>}
+ */
+export async function fetchMaintMachineResponsibles() {
+  const rows = await sbReq(
+    'maint_machines?select=machine_code,responsible_user_id&archived_at=is.null&limit=5000',
+  ).catch(() => null);
+  const m = new Map();
+  if (Array.isArray(rows)) {
+    for (const r of rows) {
+      if (r?.machine_code && r?.responsible_user_id) {
+        m.set(r.machine_code, r.responsible_user_id);
+      }
+    }
+  }
+  return m;
 }
 
 /**
@@ -431,6 +567,11 @@ export async function insertMaintMachine(payload) {
     source: payload.source || 'manual',
     updated_by: uid || null,
   };
+  /* responsible_user_id šaljemo samo ako je eksplicitno zadat (migracija je
+     opciona — bez nje PostgREST vraća 400 ako kolona ne postoji). */
+  if (payload.responsible_user_id !== undefined) {
+    body.responsible_user_id = payload.responsible_user_id || null;
+  }
   /* upsert:false → čist INSERT (ako postoji machine_code, vraća grešku — ne
      prepisujemo potencijalno arhivirani red). */
   const rows = await sbReq('maint_machines', 'POST', body, { upsert: false });

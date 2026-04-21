@@ -19,14 +19,28 @@ import {
 import { loadAbsencesFromDb } from './absences.js';
 import { loadWorkHoursFromDb } from './workHours.js';
 import { loadContractsFromDb } from './contracts.js';
+import {
+  loadEntitlementsFromDb,
+  loadBalancesFromDb,
+} from './vacation.js';
+import {
+  loadChildrenForEmployee,
+} from './employeeChildren.js';
+import {
+  loadCurrentSalariesFromDb,
+  loadTermsForEmployee,
+} from './salary.js';
 
-import { getIsOnline } from '../state/auth.js';
+import { getIsOnline, isHrOrAdmin, isAdmin } from '../state/auth.js';
 import { hasSupabaseConfig } from '../lib/constants.js';
 import {
   kadrovskaState,
   kadrAbsencesState,
   kadrWorkHoursState,
   kadrContractsState,
+  kadrVacationState,
+  kadrChildrenState,
+  kadrSalaryState,
   loadEmployeesCache,
   saveEmployeesCache,
   loadAbsencesCache,
@@ -100,6 +114,80 @@ export async function ensureContractsLoaded(force = false) {
       kadrContractsState._schema = false;
     }
   }
+}
+
+/**
+ * Godišnji odmor — entitlements + saldo (po godini).
+ * Parametar `year` je obavezan za saldo; entitlements se uvek učitavaju svi.
+ * Re-run kada se promeni godina u UI-u.
+ */
+export async function ensureVacationLoaded(year, force = false) {
+  const sameYear = kadrVacationState.loadedYear === Number(year);
+  if (kadrVacationState.loaded && sameYear && !force) return;
+  if (!getIsOnline() || !hasSupabaseConfig()) {
+    kadrVacationState.loaded = true;
+    kadrVacationState.loadedYear = Number(year) || null;
+    return;
+  }
+  const [ent, bal] = await Promise.all([
+    loadEntitlementsFromDb(),
+    loadBalancesFromDb(year),
+  ]);
+  kadrVacationState.entitlements = ent || [];
+  kadrVacationState.balances = bal || [];
+  kadrVacationState.loadedYear = Number(year) || null;
+  kadrVacationState.loaded = true;
+  kadrVacationState._schema = !!(ent !== null && bal !== null);
+}
+
+/**
+ * Deca jednog zaposlenog — lazy per-employee.
+ * Ako pozivalac nije HR/admin → `null` (RLS bi ionako zabranio).
+ */
+export async function ensureChildrenLoaded(employeeId, force = false) {
+  if (!employeeId) return [];
+  if (!isHrOrAdmin()) return null;
+  if (kadrChildrenState.byEmp.has(employeeId) && !force) {
+    return kadrChildrenState.byEmp.get(employeeId);
+  }
+  if (!getIsOnline() || !hasSupabaseConfig()) {
+    kadrChildrenState.byEmp.set(employeeId, []);
+    return [];
+  }
+  const list = await loadChildrenForEmployee(employeeId);
+  kadrChildrenState.byEmp.set(employeeId, list || []);
+  return list || [];
+}
+
+/**
+ * Aktuelne zarade svih zaposlenih (iz view-a). Samo admin.
+ * Istorija po zaposlenom je lazy preko `ensureTermsForEmployee`.
+ */
+export async function ensureCurrentSalariesLoaded(force = false) {
+  if (!isAdmin()) return;
+  if (kadrSalaryState.loaded && !force) return;
+  if (!getIsOnline() || !hasSupabaseConfig()) {
+    kadrSalaryState.loaded = true;
+    return;
+  }
+  const rows = await loadCurrentSalariesFromDb();
+  kadrSalaryState.current = rows || [];
+  kadrSalaryState.loaded = true;
+  kadrSalaryState._schema = rows !== null;
+}
+
+export async function ensureTermsForEmployee(employeeId, force = false) {
+  if (!isAdmin() || !employeeId) return null;
+  if (kadrSalaryState.termsByEmp.has(employeeId) && !force) {
+    return kadrSalaryState.termsByEmp.get(employeeId);
+  }
+  if (!getIsOnline() || !hasSupabaseConfig()) {
+    kadrSalaryState.termsByEmp.set(employeeId, []);
+    return [];
+  }
+  const list = await loadTermsForEmployee(employeeId);
+  kadrSalaryState.termsByEmp.set(employeeId, list || []);
+  return list || [];
 }
 
 /** Helper za jedan call koji učita SVE (npr. pri prvom otvaranju modula). */

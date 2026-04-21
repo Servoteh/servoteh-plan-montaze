@@ -23,6 +23,9 @@ import {
   deleteMaintMachineHard,
   fetchMaintMachineDeletionLog,
   fetchMaintMachineFilesCounts,
+  fetchAllMaintProfiles,
+  isMaintResponsibleFeatureAvailable,
+  fetchMaintMachineResponsibleFor,
 } from '../../services/maintenance.js';
 import { buildMaintenanceMachinePath } from '../../lib/appPaths.js';
 import { renderMaintFilesTab } from './maintFilesTab.js';
@@ -771,6 +774,13 @@ export function openMaintMachineModal(opts) {
             <label class="form-label">Lokacija</label>
             <input class="form-input" id="mntMachLoc" maxlength="200" value="${escAttr(ex.location || '')}" placeholder="npr. Hala 2, linija B, pozicija 4">
           </div>
+          <div style="grid-column:1 / -1">
+            <label class="form-label">Odgovorni (tehničar/operator)</label>
+            <select class="form-input" id="mntMachResp" disabled>
+              <option value="">— Učitavam profile…</option>
+            </select>
+            <p class="form-hint" style="margin-top:4px;font-size:11px">Informativno — omogućava filter „Moje" u operativnoj listi.</p>
+          </div>
           <div>
             <label class="form-label">Snaga (kW)</label>
             <input class="form-input" id="mntMachPower" type="number" min="0" step="0.1" value="${escAttr(ex.power_kw != null ? ex.power_kw : '')}">
@@ -807,6 +817,42 @@ export function openMaintMachineModal(opts) {
     errEl.style.display = msg ? 'block' : 'none';
   };
   setErr('');
+
+  /* Async: proveri da li je migracija add_maint_machine_responsible.sql
+     pokrenuta i popuni dropdown. Ako kolona ne postoji, sakrij ceo red. */
+  const respSel = /** @type {HTMLSelectElement} */ (wrap.querySelector('#mntMachResp'));
+  const respRow = respSel?.closest('div[style*="grid-column:1 / -1"]') || null;
+  /** Zastavica koju čitamo u submit hendleru — šaljemo responsible_user_id
+      samo ako feature postoji (inače POST/PATCH pada sa 400). */
+  let respFeatureActive = false;
+  (async () => {
+    if (!respSel) return;
+    respFeatureActive = await isMaintResponsibleFeatureAvailable();
+    if (!respFeatureActive) {
+      if (respRow) respRow.style.display = 'none';
+      return;
+    }
+    const profs = await fetchAllMaintProfiles();
+    const valid = Array.isArray(profs) ? profs.filter(p => p.user_id && p.full_name) : [];
+    valid.sort((a, b) => String(a.full_name).localeCompare(String(b.full_name), 'sr', { sensitivity: 'base' }));
+    const currentId = isEdit && ex.machine_code
+      ? (await fetchMaintMachineResponsibleFor(ex.machine_code)) || ''
+      : '';
+    const opts = [
+      `<option value="">— Nije postavljeno —</option>`,
+      ...valid.map(p => {
+        const sel = p.user_id === currentId ? ' selected' : '';
+        return `<option value="${escAttr(p.user_id)}"${sel}>${escHtml(p.full_name)}${p.role ? ` (${escHtml(p.role)})` : ''}</option>`;
+      }),
+    ];
+    if (currentId && !valid.some(p => p.user_id === currentId)) {
+      opts.splice(1, 0, `<option value="${escAttr(currentId)}" selected>(korisnik nepoznat)</option>`);
+    }
+    respSel.innerHTML = opts.join('');
+    respSel.disabled = false;
+  })().catch(() => {
+    if (respRow) respRow.style.display = 'none';
+  });
 
   wrap.querySelector('#mntMachRenameBtn')?.addEventListener('click', async () => {
     setErr('');
@@ -866,6 +912,11 @@ export function openMaintMachineModal(opts) {
       notes: wrap.querySelector('#mntMachNotes').value.trim() || null,
       tracked: wrap.querySelector('#mntMachTracked').checked,
     };
+    /* Feature flag: šalji responsible_user_id samo ako je migracija prošla
+       (inače PostgREST vraća 400 i ceo patch/insert pada). */
+    if (respFeatureActive) {
+      payload.responsible_user_id = respSel && respSel.value ? respSel.value : null;
+    }
     const btn = wrap.querySelector('#mntMachDlgSave');
     btn.disabled = true;
     if (isEdit) {

@@ -136,10 +136,37 @@ export const SAVE_DEBOUNCE_MS = 700;
 export const KADR_ABS_TYPE_LABELS = Object.freeze({
   godisnji: 'Godišnji odmor',
   bolovanje: 'Bolovanje',
+  /* Kanonska vrednost je 'sluzbeno' (poklapa se sa DB CHECK constraint). */
+  sluzbeno: 'Službeni put',
+  /* Legacy kod koji je pisao 'sluzbeni' — fallback labela, isti prikaz. */
   sluzbeni: 'Službeni put',
+  slobodan: 'Slobodan dan',
   neplaceno: 'Neplaćeno odsustvo',
   placeno: 'Plaćeno odsustvo',
+  slava: 'Krsna slava',
   ostalo: 'Ostalo',
+});
+
+/** Razlog za plaćeno odsustvo (tip 'placeno'). */
+export const KADR_PAID_REASON_LABELS = Object.freeze({
+  rodjenje: 'Rođenje deteta',
+  svadba: 'Svadba',
+  smrt: 'Smrtni slučaj',
+  selidba: 'Selidba',
+  ostalo: 'Ostalo',
+});
+
+/** Stepen stručne spreme — srpska klasifikacija. */
+export const KADR_EDU_LEVEL_LABELS = Object.freeze({
+  I: 'I stepen',
+  II: 'II stepen',
+  III: 'III stepen',
+  IV: 'IV stepen (SSS)',
+  V: 'V stepen (VKV)',
+  VI: 'VI stepen (VŠ)',
+  VII: 'VII stepen (VSS)',
+  VIII: 'VIII stepen (Magistar)',
+  IX: 'IX stepen (Doktor nauka)',
 });
 
 export const KADR_CON_TYPE_LABELS = Object.freeze({

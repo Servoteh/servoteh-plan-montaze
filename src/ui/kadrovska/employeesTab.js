@@ -1,41 +1,81 @@
 /**
- * Kadrovska — TAB Zaposleni.
+ * Kadrovska — TAB Zaposleni (Faza K2 — prošireni profili).
  *
- * Bit-paritetan port iz legacy/index.html (renderKadrovska + openEmployeeModal +
- * submitEmployeeForm + confirmDeleteEmployee). Razlike u ponašanju nema —
- * samo razdvojeno na ES module + addEventListener umesto inline onclick.
+ * Prikaz liste zadržava minimum kolona (ime, pozicija, odeljenje, telefon, email,
+ * status) a ceo prošireni profil (JMBG, adresa, banka, pol, datum rođenja, slava,
+ * obrazovanje, lekarski pregled, deca) živi u detaljnom modalu sa sekcijama.
+ *
+ * Osetljiva polja (JMBG, adresa, banka, privatni telefon, kontakt osoba, deca)
+ * vide i menjaju samo HR/admin. Za ostale korisnike modal prikazuje „•••“ u tim
+ * sekcijama i disable-uje ih.
  *
  * Public API:
- *   renderEmployeesTab() → HTML stringa za telo panela (mount-uje root)
- *   wireEmployeesTab(panelEl, { onChange }) → veže event listener-e
- *   refreshEmployeesTab() → ponovni render trenutno mount-ovanog panela
- *
- * Modal-i: kreiraju se on-demand (nije globalan u DOM-u) — clean teardown.
+ *   renderEmployeesTab()
+ *   wireEmployeesTab(panelEl)
+ *   refreshEmployeesTab()
  */
 
 import { escHtml, showToast } from '../../lib/dom.js';
 import { formatDate } from '../../lib/date.js';
-import { canEdit, getIsOnline } from '../../state/auth.js';
-import { hasSupabaseConfig } from '../../lib/constants.js';
+import { canEditKadrovska, getIsOnline, isHrOrAdmin } from '../../state/auth.js';
+import {
+  hasSupabaseConfig,
+  KADR_EDU_LEVEL_LABELS,
+} from '../../lib/constants.js';
 import {
   kadrovskaState,
+  kadrChildrenState,
   saveEmployeesCache,
 } from '../../state/kadrovska.js';
 import {
   saveEmployeeToDb,
+  updateEmployeeInDb,
   deleteEmployeeFromDb,
   mapDbEmployee,
 } from '../../services/employees.js';
 import {
+  saveChildToDb,
+  updateChildInDb,
+  deleteChildFromDb,
+  mapDbChild,
+} from '../../services/employeeChildren.js';
+import {
   ensureEmployeesLoaded,
+  ensureChildrenLoaded,
   uniqueDepartments,
 } from '../../services/kadrovska.js';
 import { renderSummaryChips } from './shared.js';
+import { openEmployeesBulkModal } from './employeesBulkModal.js';
 
 let panelRef = null;
 let onChangeCb = null;
 
-/* ── HTML šabloni ── */
+/* ─── HELPERS ────────────────────────────────────────────────────────── */
+
+/** Izračunaj datum rođenja i pol iz JMBG-a (13 cifara). Vrati {birthDate, gender} ili null. */
+function parseJmbg(jmbg) {
+  if (!jmbg || !/^\d{13}$/.test(jmbg)) return null;
+  const dd = parseInt(jmbg.slice(0, 2), 10);
+  const mm = parseInt(jmbg.slice(2, 4), 10);
+  const yyy = parseInt(jmbg.slice(4, 7), 10);
+  const rrr = parseInt(jmbg.slice(9, 12), 10);
+  if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return null;
+  /* Godišnji okvir: yyy je poslednje 3 cifre; 000-899 → 2000-2899 (modern), 900-999 → 1900-1999. */
+  const year = yyy >= 900 ? 1000 + yyy : 2000 + yyy;
+  const iso = `${year}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`;
+  const gender = rrr >= 500 ? 'Z' : 'M';
+  return { birthDate: iso, gender };
+}
+
+/** Maskiraj JMBG/broj računa za prikaz ne-HR korisnicima: prikaži prvih 2 + ••• + poslednjih 3. */
+function maskSensitive(value) {
+  if (!value) return '';
+  const s = String(value);
+  if (s.length <= 5) return '•'.repeat(s.length);
+  return s.slice(0, 2) + '•••••' + s.slice(-3);
+}
+
+/* ─── LIST RENDER ────────────────────────────────────────────────────── */
 
 export function renderEmployeesTab() {
   return `
@@ -52,6 +92,7 @@ export function renderEmployeesTab() {
       </select>
       <div class="kadrovska-toolbar-spacer"></div>
       <span class="kadrovska-count" id="kadrovskaCount">0 zaposlenih</span>
+      <button class="btn btn-ghost" id="kadrovskaBulkBtn" title="Brzi unos više zaposlenih ili uvoz iz Excel/CSV">⚡ Brzi unos</button>
       <button class="btn btn-primary" id="kadrovskaAddBtn">+ Novi zaposleni</button>
     </div>
     <main class="kadrovska-main">
@@ -60,10 +101,10 @@ export function renderEmployeesTab() {
           <tr>
             <th>Ime i prezime</th>
             <th>Pozicija</th>
-            <th class="col-hide-sm">Odeljenje</th>
+            <th class="col-hide-sm">Odeljenje / tim</th>
             <th class="col-hide-sm">Telefon</th>
             <th class="col-hide-sm">Email</th>
-            <th class="col-hide-sm">Zaposlen od</th>
+            <th class="col-hide-sm">Lekarski ističe</th>
             <th>Status</th>
             <th class="col-actions">Akcije</th>
           </tr>
@@ -77,24 +118,31 @@ export function renderEmployeesTab() {
     </main>`;
 }
 
-/* ── Wire događaji + prvo renderovanje ── */
-
 export async function wireEmployeesTab(panelEl, { onChange } = {}) {
   panelRef = panelEl;
   onChangeCb = onChange || null;
 
-  /* Filteri / search → re-render */
   panelEl.querySelector('#kadrovskaSearch').addEventListener('input', refreshEmployeesTab);
   panelEl.querySelector('#kadrovskaDeptFilter').addEventListener('change', refreshEmployeesTab);
   panelEl.querySelector('#kadrovskaStatusFilter').addEventListener('change', refreshEmployeesTab);
   panelEl.querySelector('#kadrovskaAddBtn').addEventListener('click', () => openEmployeeModal(null));
+  panelEl.querySelector('#kadrovskaBulkBtn')?.addEventListener('click', () => {
+    if (!canEditKadrovska()) {
+      showToast('⚠ Samo PM/HR/Admin mogu da dodaju zaposlene');
+      return;
+    }
+    openEmployeesBulkModal({
+      onSaved: async () => {
+        await ensureEmployeesLoaded(true);
+        refreshEmployeesTab();
+      },
+    });
+  });
 
-  /* Učitaj iz Supabase + prikaži */
   await ensureEmployeesLoaded(true);
   refreshEmployeesTab();
 }
 
-/** Filtriraj listu po trenutnom search-u + dept + status. */
 function applyFilters(list) {
   if (!panelRef) return list;
   const q = (panelRef.querySelector('#kadrovskaSearch')?.value || '').trim().toLowerCase();
@@ -105,7 +153,7 @@ function applyFilters(list) {
     if (status === 'active' && !e.isActive) return false;
     if (status === 'inactive' && e.isActive) return false;
     if (q) {
-      const hay = [e.fullName, e.position, e.department, e.email, e.phone, e.note].join(' ').toLowerCase();
+      const hay = [e.fullName, e.firstName, e.lastName, e.position, e.department, e.team, e.email, e.phoneWork, e.note].join(' ').toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;
@@ -120,14 +168,21 @@ export function refreshEmployeesTab() {
   const addBtn = panelRef.querySelector('#kadrovskaAddBtn');
 
   if (addBtn) {
-    const edit = canEdit();
+    const edit = canEditKadrovska();
     addBtn.disabled = !edit;
     addBtn.style.opacity = edit ? '1' : '0.55';
     addBtn.style.cursor = edit ? 'pointer' : 'not-allowed';
-    addBtn.title = edit ? '' : 'Samo PM/LeadPM može da dodaje';
+    addBtn.title = edit ? '' : 'Samo PM/LeadPM/HR/Admin može da dodaje';
+  }
+  const bulkBtn = panelRef.querySelector('#kadrovskaBulkBtn');
+  if (bulkBtn) {
+    const edit = canEditKadrovska();
+    bulkBtn.disabled = !edit;
+    bulkBtn.style.opacity = edit ? '1' : '0.55';
+    bulkBtn.style.cursor = edit ? 'pointer' : 'not-allowed';
+    bulkBtn.title = edit ? 'Brzi unos više zaposlenih ili uvoz iz Excel/CSV' : 'Samo PM/LeadPM/HR/Admin može da dodaje';
   }
 
-  /* Populate department filter (preserve prev value) */
   const deptSel = panelRef.querySelector('#kadrovskaDeptFilter');
   if (deptSel) {
     const curr = deptSel.value;
@@ -139,18 +194,36 @@ export function refreshEmployeesTab() {
 
   const filtered = applyFilters(kadrovskaState.employees);
 
-  /* Top-tab badge sync */
   const tabBadge = document.getElementById('kadrTabCountEmployees');
   if (tabBadge) tabBadge.textContent = String(kadrovskaState.employees.length);
 
-  /* Summary chips */
   const totAll = kadrovskaState.employees.length;
   const totActive = kadrovskaState.employees.filter(e => e.isActive).length;
   const totInactive = totAll - totActive;
+  /* Podsetnici: lekarski ističe ≤ 30 dana, rođendani u narednih 30 dana */
+  const today = new Date();
+  const in30 = new Date(today.getTime() + 30 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+  const todayIso = today.toISOString().slice(0, 10);
+  let medExpSoon = 0, bdaySoon = 0;
+  kadrovskaState.employees.forEach(e => {
+    if (e.isActive && e.medicalExamExpires && e.medicalExamExpires <= in30) medExpSoon++;
+    if (e.isActive && e.birthDate) {
+      const md = e.birthDate.slice(5); // MM-DD
+      const tNow = todayIso.slice(5);
+      const tIn30 = in30.slice(5);
+      /* Wrap-around (decembar→januar): uporedi kao stringove u jednoj godini */
+      const inRange = tNow <= tIn30
+        ? (md >= tNow && md <= tIn30)
+        : (md >= tNow || md <= tIn30);
+      if (inRange) bdaySoon++;
+    }
+  });
   renderSummaryChips('empSummary', [
     { label: 'Ukupno', value: totAll, tone: 'accent' },
     { label: 'Aktivni', value: totActive, tone: 'ok' },
     { label: 'Neaktivni', value: totInactive, tone: 'muted' },
+    { label: 'Lekarski ističe <30d', value: medExpSoon, tone: medExpSoon > 0 ? 'warn' : 'muted' },
+    { label: 'Rođendani <30d', value: bdaySoon, tone: bdaySoon > 0 ? 'accent' : 'muted' },
   ]);
 
   if (countEl) {
@@ -172,23 +245,34 @@ export function refreshEmployeesTab() {
   }
   if (emptyBox) emptyBox.style.display = 'none';
 
-  const edit = canEdit();
+  const edit = canEditKadrovska();
   tbody.innerHTML = filtered.map(e => {
-    const sub = [e.email, e.phone].filter(x => x).join(' · ');
-    const hireStr = e.hireDate ? formatDate(e.hireDate) : '—';
+    const sub = [e.email, e.phoneWork || e.phone].filter(x => x).join(' · ');
+    const deptTeam = [e.department, e.team].filter(Boolean).join(' / ');
     const statusCls = e.isActive ? 'active' : 'inactive';
     const statusTxt = e.isActive ? 'Aktivan' : 'Neaktivan';
     const rowId = escHtml(e.id || '');
+
+    /* Medical badge — „Ističe za X d“ ili „Istekao“ */
+    let medBadge = '—';
+    if (e.medicalExamExpires) {
+      const d1 = new Date(e.medicalExamExpires);
+      const diff = Math.ceil((d1 - today) / (24 * 3600 * 1000));
+      if (diff < 0) medBadge = `<span class="kadr-type-badge t-bolovanje">Istekao</span>`;
+      else if (diff <= 30) medBadge = `<span class="kadr-type-badge t-placeno">za ${diff}d</span>`;
+      else medBadge = `<span class="emp-sub">${formatDate(e.medicalExamExpires)}</span>`;
+    }
+
     return `<tr data-id="${rowId}">
       <td>
-        <div class="emp-name">${escHtml(e.fullName || '—')}</div>
+        <div class="emp-name">${escHtml(e.fullName || [e.firstName, e.lastName].filter(Boolean).join(' ') || '—')}</div>
         ${sub ? `<div class="emp-sub col-hide-sm">${escHtml(sub)}</div>` : ''}
       </td>
       <td>${escHtml(e.position || '—')}</td>
-      <td class="col-hide-sm">${escHtml(e.department || '—')}</td>
-      <td class="col-hide-sm">${escHtml(e.phone || '—')}</td>
+      <td class="col-hide-sm">${escHtml(deptTeam || '—')}</td>
+      <td class="col-hide-sm">${escHtml(e.phoneWork || e.phone || '—')}</td>
       <td class="col-hide-sm">${escHtml(e.email || '—')}</td>
-      <td class="col-hide-sm">${hireStr}</td>
+      <td class="col-hide-sm">${medBadge}</td>
       <td><span class="emp-status-badge ${statusCls}">${statusTxt}</span></td>
       <td class="col-actions">
         <button class="btn-row-act" data-action="edit" data-id="${rowId}" ${edit ? '' : 'disabled'} title="${edit ? 'Izmeni' : 'Samo pregled'}">Izmeni</button>
@@ -197,7 +281,6 @@ export function refreshEmployeesTab() {
     </tr>`;
   }).join('');
 
-  /* Wire row akcije (event delegation bi bio elegantniji, ali ova je čistija) */
   tbody.querySelectorAll('button[data-action="edit"]').forEach(btn => {
     btn.addEventListener('click', () => openEmployeeModal(btn.dataset.id));
   });
@@ -208,29 +291,56 @@ export function refreshEmployeesTab() {
   onChangeCb?.();
 }
 
-/* ═══════════════════════════════════════════════════════════
-   EMPLOYEE MODAL
-   ═══════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════════════
+   EMPLOYEE MODAL — Prošireni profil sa sekcijama
+   ═══════════════════════════════════════════════════════════════════════ */
+
+function sectionHtml(title, innerHtml, opts = {}) {
+  const locked = opts.locked === true;
+  const hint = locked
+    ? ' <span class="kadr-section-lock" title="Samo HR/admin">🔒</span>'
+    : '';
+  return `
+    <fieldset class="emp-section${locked ? ' emp-section-locked' : ''}">
+      <legend>${escHtml(title)}${hint}</legend>
+      <div class="emp-form-grid">
+        ${innerHtml}
+      </div>
+    </fieldset>`;
+}
 
 function buildEmployeeModalHtml(emp) {
   const isEdit = !!emp;
+  const hrOk = isHrOrAdmin();
+  const eduOpts = Object.entries(KADR_EDU_LEVEL_LABELS)
+    .map(([v, l]) => `<option value="${v}"${emp?.educationLevel === v ? ' selected' : ''}>${escHtml(l)}</option>`)
+    .join('');
+
+  /* Osetljive sekcije — ako nije HR, prikaži read-only (ili maskirano). */
+  const sensitiveDisabled = hrOk ? '' : 'disabled';
+
   return `
     <div class="emp-modal-overlay" id="empModal" role="dialog" aria-labelledby="empModalTitle" aria-modal="true">
-      <div class="emp-modal">
+      <div class="emp-modal emp-modal-wide">
         <div class="emp-modal-title" id="empModalTitle">${isEdit ? 'Izmeni zaposlenog' : 'Novi zaposleni'}</div>
-        <div class="emp-modal-subtitle">Popuni osnovne podatke. Samo Ime i prezime je obavezno.</div>
+        <div class="emp-modal-subtitle">Popuni podatke po sekcijama. Samo Ime i Prezime su obavezni.</div>
         <div class="emp-modal-err" id="empModalErr"></div>
 
         <form id="empForm">
           <input type="hidden" id="empId" value="${escHtml(emp?.id || '')}">
-          <div class="emp-form-grid">
-            <div class="emp-field col-full">
-              <label for="empFullName">Ime i prezime *</label>
-              <input type="text" id="empFullName" required maxlength="120" placeholder="npr. Dejan Ćirković" value="${escHtml(emp?.fullName || '')}">
+
+          ${sectionHtml('Osnovno', `
+            <div class="emp-field">
+              <label for="empFirstName">Ime *</label>
+              <input type="text" id="empFirstName" required maxlength="60" value="${escHtml(emp?.firstName || '')}">
             </div>
             <div class="emp-field">
-              <label for="empPosition">Pozicija</label>
-              <input type="text" id="empPosition" list="empPositionList" maxlength="80" placeholder="npr. Vođa montaže" value="${escHtml(emp?.position || '')}">
+              <label for="empLastName">Prezime *</label>
+              <input type="text" id="empLastName" required maxlength="60" value="${escHtml(emp?.lastName || '')}">
+            </div>
+            <div class="emp-field">
+              <label for="empPosition">Radno mesto (pozicija)</label>
+              <input type="text" id="empPosition" list="empPositionList" maxlength="80" value="${escHtml(emp?.position || '')}">
               <datalist id="empPositionList">
                 <option value="Odg. inženjer"></option>
                 <option value="Vođa montaže"></option>
@@ -243,7 +353,7 @@ function buildEmployeeModalHtml(emp) {
             </div>
             <div class="emp-field">
               <label for="empDepartment">Odeljenje</label>
-              <input type="text" id="empDepartment" list="empDepartmentList" maxlength="80" placeholder="npr. Montaža" value="${escHtml(emp?.department || '')}">
+              <input type="text" id="empDepartment" list="empDepartmentList" maxlength="80" value="${escHtml(emp?.department || '')}">
               <datalist id="empDepartmentList">
                 <option value="Montaža"></option>
                 <option value="Elektro"></option>
@@ -253,26 +363,149 @@ function buildEmployeeModalHtml(emp) {
               </datalist>
             </div>
             <div class="emp-field">
-              <label for="empPhone">Telefon</label>
-              <input type="tel" id="empPhone" maxlength="40" placeholder="npr. 064 123 4567" value="${escHtml(emp?.phone || '')}">
-            </div>
-            <div class="emp-field">
-              <label for="empEmail">Email</label>
-              <input type="email" id="empEmail" maxlength="120" placeholder="ime@servoteh.rs" value="${escHtml(emp?.email || '')}">
+              <label for="empTeam">Tim</label>
+              <input type="text" id="empTeam" maxlength="80" value="${escHtml(emp?.team || '')}">
             </div>
             <div class="emp-field">
               <label for="empHireDate">Zaposlen od</label>
               <input type="date" id="empHireDate" value="${escHtml(emp?.hireDate || '')}">
             </div>
+            <div class="emp-field">
+              <label for="empEmail">Email</label>
+              <input type="email" id="empEmail" maxlength="120" value="${escHtml(emp?.email || '')}">
+            </div>
+            <div class="emp-field">
+              <label for="empPhoneWork">Telefon (službeni)</label>
+              <input type="tel" id="empPhoneWork" maxlength="40" value="${escHtml(emp?.phoneWork || emp?.phone || '')}">
+            </div>
             <div class="emp-field emp-field-check">
               <input type="checkbox" id="empIsActive" ${emp ? (emp.isActive !== false ? 'checked' : '') : 'checked'}>
               <label for="empIsActive">Aktivan zaposleni</label>
             </div>
-            <div class="emp-field col-full">
-              <label for="empNote">Napomena</label>
-              <textarea id="empNote" maxlength="500" placeholder="Opcioni komentar…">${escHtml(emp?.note || '')}</textarea>
+          `)}
+
+          ${sectionHtml('Lični podaci' + (hrOk ? '' : ' (samo HR/admin)'), `
+            <div class="emp-field">
+              <label for="empPersonalId">JMBG (13 cifara)</label>
+              <input type="text" id="empPersonalId" inputmode="numeric" pattern="\\d{13}" maxlength="13"
+                     value="${escHtml(hrOk ? (emp?.personalId || '') : maskSensitive(emp?.personalId || ''))}"
+                     ${sensitiveDisabled}>
             </div>
-          </div>
+            <div class="emp-field">
+              <label for="empBirthDate">Datum rođenja</label>
+              <input type="date" id="empBirthDate" value="${escHtml(emp?.birthDate || '')}">
+            </div>
+            <div class="emp-field">
+              <label for="empGender">Pol</label>
+              <select id="empGender">
+                <option value="">—</option>
+                <option value="M"${emp?.gender === 'M' ? ' selected' : ''}>Muški</option>
+                <option value="Z"${emp?.gender === 'Z' ? ' selected' : ''}>Ženski</option>
+              </select>
+            </div>
+            <div class="emp-field">
+              <label for="empPhonePrivate">Telefon (privatni)</label>
+              <input type="tel" id="empPhonePrivate" maxlength="40"
+                     value="${escHtml(hrOk ? (emp?.phonePrivate || '') : maskSensitive(emp?.phonePrivate || ''))}"
+                     ${sensitiveDisabled}>
+            </div>
+            <div class="emp-field">
+              <label for="empEmergencyName">Kontakt osoba — ime</label>
+              <input type="text" id="empEmergencyName" maxlength="120"
+                     value="${escHtml(hrOk ? (emp?.emergencyContactName || '') : '')}"
+                     ${sensitiveDisabled}>
+            </div>
+            <div class="emp-field">
+              <label for="empEmergencyPhone">Kontakt osoba — telefon</label>
+              <input type="tel" id="empEmergencyPhone" maxlength="40"
+                     value="${escHtml(hrOk ? (emp?.emergencyContactPhone || '') : maskSensitive(emp?.emergencyContactPhone || ''))}"
+                     ${sensitiveDisabled}>
+            </div>
+            <div class="emp-field">
+              <label for="empSlava">Krsna slava</label>
+              <input type="text" id="empSlava" maxlength="80" placeholder="npr. Sveti Nikola" value="${escHtml(emp?.slava || '')}">
+            </div>
+            <div class="emp-field">
+              <label for="empSlavaDay">Dan slave (MM-DD)</label>
+              <input type="text" id="empSlavaDay" maxlength="5" placeholder="12-19"
+                     value="${escHtml(emp?.slavaDay ? emp.slavaDay.slice(0, 2) + '-' + emp.slavaDay.slice(2, 4) : '')}">
+            </div>
+          `, { locked: !hrOk })}
+
+          ${sectionHtml('Adresa i banka' + (hrOk ? '' : ' (samo HR/admin)'), `
+            <div class="emp-field col-full">
+              <label for="empAddress">Adresa</label>
+              <input type="text" id="empAddress" maxlength="200"
+                     value="${escHtml(hrOk ? (emp?.address || '') : '•••')}"
+                     ${sensitiveDisabled}>
+            </div>
+            <div class="emp-field">
+              <label for="empCity">Grad</label>
+              <input type="text" id="empCity" maxlength="80"
+                     value="${escHtml(hrOk ? (emp?.city || '') : '•••')}"
+                     ${sensitiveDisabled}>
+            </div>
+            <div class="emp-field">
+              <label for="empPostalCode">Poštanski broj</label>
+              <input type="text" id="empPostalCode" maxlength="10"
+                     value="${escHtml(hrOk ? (emp?.postalCode || '') : '')}"
+                     ${sensitiveDisabled}>
+            </div>
+            <div class="emp-field">
+              <label for="empBankName">Banka</label>
+              <input type="text" id="empBankName" maxlength="120"
+                     value="${escHtml(hrOk ? (emp?.bankName || '') : '•••')}"
+                     ${sensitiveDisabled}>
+            </div>
+            <div class="emp-field">
+              <label for="empBankAccount">Broj računa</label>
+              <input type="text" id="empBankAccount" maxlength="40"
+                     placeholder="xxx-xxxxxxxxxxxxx-xx"
+                     value="${escHtml(hrOk ? (emp?.bankAccount || '') : maskSensitive(emp?.bankAccount || ''))}"
+                     ${sensitiveDisabled}>
+            </div>
+          `, { locked: !hrOk })}
+
+          ${sectionHtml('Obrazovanje i zdravlje', `
+            <div class="emp-field">
+              <label for="empEduLevel">Stručna sprema — stepen</label>
+              <select id="empEduLevel">
+                <option value="">—</option>
+                ${eduOpts}
+              </select>
+            </div>
+            <div class="emp-field">
+              <label for="empEduTitle">Naziv kvalifikacije</label>
+              <input type="text" id="empEduTitle" maxlength="120" placeholder="npr. Dipl. maš. inž." value="${escHtml(emp?.educationTitle || '')}">
+            </div>
+            <div class="emp-field">
+              <label for="empMedicalDate">Lekarski pregled — datum</label>
+              <input type="date" id="empMedicalDate" value="${escHtml(emp?.medicalExamDate || '')}">
+            </div>
+            <div class="emp-field">
+              <label for="empMedicalExpires">Lekarski pregled — ističe</label>
+              <input type="date" id="empMedicalExpires" value="${escHtml(emp?.medicalExamExpires || '')}">
+            </div>
+          `)}
+
+          ${isEdit && hrOk ? sectionHtml('Deca zaposlenog', `
+            <div class="emp-field col-full">
+              <div id="empChildrenList" class="emp-children-list"><em>Učitavam…</em></div>
+              <div class="emp-children-add">
+                <input type="text" id="empChildNewName" placeholder="Ime deteta" maxlength="60">
+                <input type="date" id="empChildNewBirth">
+                <button type="button" class="btn btn-ghost" id="empChildAddBtn">+ Dodaj dete</button>
+              </div>
+            </div>
+          `, { locked: false }) : ''}
+
+          ${sectionHtml('Napomena', `
+            <div class="emp-field col-full">
+              <label for="empNote">Slobodna napomena</label>
+              <textarea id="empNote" maxlength="1000" placeholder="Opcioni komentar…">${escHtml(emp?.note || '')}</textarea>
+            </div>
+          `)}
+
           <div class="emp-modal-actions">
             <button type="button" class="btn" id="empCancelBtn">Otkaži</button>
             <button type="submit" class="btn btn-primary" id="empSubmitBtn">Sačuvaj</button>
@@ -286,12 +519,12 @@ function closeEmployeeModal() {
   document.getElementById('empModal')?.remove();
 }
 
-function openEmployeeModal(id) {
-  if (!canEdit()) {
-    showToast('⚠ Samo PM/LeadPM može da dodaje/menja');
+async function openEmployeeModal(id) {
+  if (!canEditKadrovska()) {
+    showToast('⚠ Nemate prava za izmenu');
     return;
   }
-  closeEmployeeModal(); // garantuje samo jedan modal u DOM-u
+  closeEmployeeModal();
 
   let emp = null;
   if (id) {
@@ -316,12 +549,88 @@ function openEmployeeModal(id) {
     submitEmployeeForm();
   });
 
-  /* Klik van modal-a → close (legacy isto ima taj UX) */
   modal.addEventListener('click', (ev) => {
     if (ev.target === modal) closeEmployeeModal();
   });
 
-  setTimeout(() => modal.querySelector('#empFullName')?.focus(), 50);
+  /* JMBG → auto-fill datum rođenja i pol */
+  const jmbgEl = modal.querySelector('#empPersonalId');
+  jmbgEl?.addEventListener('input', () => {
+    const v = jmbgEl.value.replace(/\D/g, '').slice(0, 13);
+    jmbgEl.value = v;
+    const parsed = parseJmbg(v);
+    if (parsed) {
+      const bd = modal.querySelector('#empBirthDate');
+      const gd = modal.querySelector('#empGender');
+      if (bd && !bd.value) bd.value = parsed.birthDate;
+      if (gd && !gd.value) gd.value = parsed.gender;
+    }
+  });
+
+  /* Deca — lazy load */
+  if (id && isHrOrAdmin()) {
+    const list = await ensureChildrenLoaded(id);
+    renderChildrenList(modal, id, list || []);
+    modal.querySelector('#empChildAddBtn')?.addEventListener('click', () => addChildFromForm(modal, id));
+  }
+
+  setTimeout(() => modal.querySelector('#empFirstName')?.focus(), 50);
+}
+
+function renderChildrenList(modal, employeeId, children) {
+  const host = modal.querySelector('#empChildrenList');
+  if (!host) return;
+  if (!children.length) {
+    host.innerHTML = '<em class="emp-sub">Nema dece u evidenciji.</em>';
+    return;
+  }
+  host.innerHTML = `
+    <table class="emp-children-table">
+      <thead><tr><th>Ime</th><th>Datum rođenja</th><th class="col-actions">Akcije</th></tr></thead>
+      <tbody>
+        ${children.map(c => `
+          <tr data-child-id="${escHtml(c.id)}">
+            <td>${escHtml(c.firstName || '—')}</td>
+            <td>${c.birthDate ? formatDate(c.birthDate) : '—'}</td>
+            <td class="col-actions">
+              <button type="button" class="btn-row-act danger" data-act="del-child" data-child-id="${escHtml(c.id)}">Obriši</button>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>`;
+  host.querySelectorAll('button[data-act="del-child"]').forEach(b => {
+    b.addEventListener('click', async () => {
+      if (!confirm('Obrisati ovo dete iz evidencije?')) return;
+      const ok = await deleteChildFromDb(b.dataset.childId);
+      if (!ok) { showToast('⚠ Nije uspelo brisanje'); return; }
+      const list = (kadrChildrenState.byEmp.get(employeeId) || []).filter(c => c.id !== b.dataset.childId);
+      kadrChildrenState.byEmp.set(employeeId, list);
+      renderChildrenList(modal, employeeId, list);
+      showToast('🗑 Dete obrisano');
+    });
+  });
+}
+
+async function addChildFromForm(modal, employeeId) {
+  const nameEl = modal.querySelector('#empChildNewName');
+  const birthEl = modal.querySelector('#empChildNewBirth');
+  const name = (nameEl.value || '').trim();
+  const birth = birthEl.value || '';
+  if (!name) { showToast('⚠ Unesi ime deteta'); return; }
+  const res = await saveChildToDb({ employeeId, firstName: name, birthDate: birth });
+  if (!res || !res.length) {
+    showToast('⚠ Dodavanje nije uspelo. Da li je migracija add_kadr_employee_extended.sql primenjena?');
+    return;
+  }
+  const saved = mapDbChild(res[0]);
+  const list = (kadrChildrenState.byEmp.get(employeeId) || []).concat(saved);
+  list.sort((a, b) => String(a.birthDate || '').localeCompare(String(b.birthDate || '')));
+  kadrChildrenState.byEmp.set(employeeId, list);
+  nameEl.value = '';
+  birthEl.value = '';
+  renderChildrenList(modal, employeeId, list);
+  showToast('✅ Dete dodato');
 }
 
 async function submitEmployeeForm() {
@@ -330,28 +639,68 @@ async function submitEmployeeForm() {
   errEl.textContent = '';
   errEl.classList.remove('visible');
 
-  const fullName = document.getElementById('empFullName').value.trim();
-  if (!fullName) {
-    errEl.textContent = 'Ime i prezime je obavezno.';
+  const firstName = document.getElementById('empFirstName').value.trim();
+  const lastName = document.getElementById('empLastName').value.trim();
+  if (!firstName || !lastName) {
+    errEl.textContent = 'Ime i Prezime su obavezni.';
     errEl.classList.add('visible');
     return;
   }
   const id = document.getElementById('empId').value || null;
-  const payload = {
+  const hrOk = isHrOrAdmin();
+
+  /* Slava_day u DB je MMDD (bez crtice). */
+  const slavaRaw = (document.getElementById('empSlavaDay').value || '').trim();
+  const slavaDay = slavaRaw && /^\d{2}-?\d{2}$/.test(slavaRaw)
+    ? slavaRaw.replace('-', '')
+    : null;
+
+  const basePayload = {
     id,
-    fullName,
+    firstName,
+    lastName,
+    fullName: `${firstName} ${lastName}`.trim(),
     position: document.getElementById('empPosition').value.trim(),
     department: document.getElementById('empDepartment').value.trim(),
-    phone: document.getElementById('empPhone').value.trim(),
+    team: document.getElementById('empTeam').value.trim() || null,
+    phoneWork: document.getElementById('empPhoneWork').value.trim(),
     email: document.getElementById('empEmail').value.trim().toLowerCase(),
     hireDate: document.getElementById('empHireDate').value || null,
     isActive: document.getElementById('empIsActive').checked,
+    birthDate: document.getElementById('empBirthDate').value || null,
+    gender: document.getElementById('empGender').value || null,
+    slava: document.getElementById('empSlava').value.trim() || null,
+    slavaDay,
+    educationLevel: document.getElementById('empEduLevel').value || null,
+    educationTitle: document.getElementById('empEduTitle').value.trim() || null,
+    medicalExamDate: document.getElementById('empMedicalDate').value || null,
+    medicalExamExpires: document.getElementById('empMedicalExpires').value || null,
     note: document.getElementById('empNote').value.trim(),
   };
 
+  /* Osetljiva polja idu samo ako je HR/admin — time izbegavamo trigger reject. */
+  if (hrOk) {
+    basePayload.personalId = document.getElementById('empPersonalId').value.trim() || null;
+    basePayload.phonePrivate = document.getElementById('empPhonePrivate').value.trim() || null;
+    basePayload.emergencyContactName = document.getElementById('empEmergencyName').value.trim() || null;
+    basePayload.emergencyContactPhone = document.getElementById('empEmergencyPhone').value.trim() || null;
+    basePayload.address = document.getElementById('empAddress').value.trim() || null;
+    basePayload.city = document.getElementById('empCity').value.trim() || null;
+    basePayload.postalCode = document.getElementById('empPostalCode').value.trim() || null;
+    basePayload.bankName = document.getElementById('empBankName').value.trim() || null;
+    basePayload.bankAccount = document.getElementById('empBankAccount').value.trim() || null;
+
+    /* JMBG format check */
+    if (basePayload.personalId && !/^\d{13}$/.test(basePayload.personalId)) {
+      errEl.textContent = 'JMBG mora imati tačno 13 cifara.';
+      errEl.classList.add('visible');
+      return;
+    }
+  }
+
   /* Duplicate email check (case-insensitive, exclude self). */
-  if (payload.email) {
-    const dup = kadrovskaState.employees.find(e => e.id !== id && e.email && e.email.toLowerCase() === payload.email);
+  if (basePayload.email) {
+    const dup = kadrovskaState.employees.find(e => e.id !== id && e.email && e.email.toLowerCase() === basePayload.email);
     if (dup) {
       errEl.textContent = 'Email već koristi zaposleni: ' + (dup.fullName || dup.email);
       errEl.classList.add('visible');
@@ -362,26 +711,31 @@ async function submitEmployeeForm() {
   btn.disabled = true;
   btn.textContent = 'Čuvanje…';
   try {
+    let saved = null;
     if (getIsOnline() && hasSupabaseConfig()) {
-      const res = await saveEmployeeToDb(payload);
+      let res;
+      if (id && !String(id).startsWith('local_')) {
+        res = await updateEmployeeInDb(basePayload);
+      } else {
+        res = await saveEmployeeToDb(basePayload);
+      }
       if (!res || !res.length) {
-        errEl.textContent = 'Supabase nije uspeo da sačuva. Proveri da li je migracija primenjena (sql/migrations/add_kadrovska_module.sql).';
+        errEl.textContent = 'Supabase nije uspeo da sačuva. Proveri da li je migracija add_kadr_employee_extended.sql primenjena.';
         errEl.classList.add('visible');
         return;
       }
-      const saved = mapDbEmployee(res[0]);
-      const idx = kadrovskaState.employees.findIndex(e => e.id === saved.id);
-      if (idx >= 0) kadrovskaState.employees[idx] = saved;
-      else kadrovskaState.employees.push(saved);
+      saved = mapDbEmployee(res[0]);
     } else {
-      /* Offline: dodeli local UUID novim zapisima. */
-      if (!payload.id) {
-        payload.id = 'local_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+      /* Offline: ručna UUID + ubaci/zameni u state. */
+      if (!basePayload.id) {
+        basePayload.id = 'local_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
       }
-      const idx = kadrovskaState.employees.findIndex(e => e.id === payload.id);
-      if (idx >= 0) kadrovskaState.employees[idx] = payload;
-      else kadrovskaState.employees.push(payload);
+      saved = { ...basePayload };
     }
+
+    const idx = kadrovskaState.employees.findIndex(e => e.id === saved.id);
+    if (idx >= 0) kadrovskaState.employees[idx] = saved;
+    else kadrovskaState.employees.push(saved);
     kadrovskaState.employees.sort((a, b) => String(a.fullName || '').localeCompare(String(b.fullName || ''), 'sr'));
     saveEmployeesCache(kadrovskaState.employees);
     closeEmployeeModal();
@@ -398,8 +752,8 @@ async function submitEmployeeForm() {
 }
 
 async function confirmDeleteEmployee(id) {
-  if (!canEdit()) {
-    showToast('⚠ Samo PM/LeadPM može da briše');
+  if (!canEditKadrovska()) {
+    showToast('⚠ Nemate prava za brisanje');
     return;
   }
   const emp = kadrovskaState.employees.find(e => e.id === id);
@@ -422,3 +776,7 @@ async function confirmDeleteEmployee(id) {
     showToast('⚠ Greška pri brisanju');
   }
 }
+
+/* Updating deprecated imports: saveEmployeeToDb je bio INSERT-only; update ide preko PATCH.
+   Ovde koristimo updateEmployeeInDb za postojeće redove da bi izbegli ponavljanje full_name
+   konflikta (JMBG unique). */

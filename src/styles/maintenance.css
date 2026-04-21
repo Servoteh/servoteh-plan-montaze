@@ -404,3 +404,597 @@
 .mnt-admin-cta .btn {
   white-space: nowrap;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Operativna lista mašina (/maintenance/machines) — task-first UX.
+   Sticky header sa pretragom, chipovima i summary-jem; responsive prikaz
+   (tabela ≥720 px, kartice ispod).
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.mnt-ops-header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--bg);
+  padding: 12px 0 10px;
+  margin: -4px 0 12px;
+  border-bottom: 1px solid var(--border2);
+}
+
+.mnt-ops-toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.mnt-search-wrap {
+  flex: 1;
+  min-width: 180px;
+  max-width: 420px;
+}
+
+.mnt-search-input {
+  width: 100%;
+  height: 38px;
+}
+
+.mnt-loc-select {
+  width: 200px;
+  height: 38px;
+}
+
+.mnt-header-cta {
+  height: 38px;
+  font-weight: 600;
+  background: var(--red);
+  color: #fff;
+  border-color: var(--red);
+  padding: 0 16px;
+}
+
+.mnt-header-cta:hover {
+  background: var(--red-bg);
+  color: var(--red);
+}
+
+.mnt-header-admin-btn {
+  height: 38px;
+  background: var(--surface3);
+  padding: 0 14px;
+}
+
+.mnt-chip-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 10px 0 10px;
+}
+
+.mnt-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border3);
+  background: var(--surface2);
+  color: var(--text2);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.12s, border-color 0.12s, color 0.12s;
+  line-height: 1.4;
+}
+
+.mnt-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.mnt-chip--active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.mnt-chip--warn { color: var(--orange); border-color: color-mix(in srgb, var(--orange) 60%, transparent); }
+.mnt-chip--down { color: var(--red); border-color: color-mix(in srgb, var(--red) 60%, transparent); }
+.mnt-chip--today { color: var(--blue-bar); border-color: color-mix(in srgb, var(--blue-bar) 60%, transparent); }
+
+.mnt-chip--active.mnt-chip--warn { background: var(--orange-bg); }
+.mnt-chip--active.mnt-chip--down { background: var(--red-bg); }
+.mnt-chip--active.mnt-chip--today { background: var(--blue-bg); }
+
+/* Mali operativni summary — 4 broja levo, profil desno. */
+.mnt-summary-bar {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 4px 2px 0;
+}
+
+.mnt-sum-item {
+  display: inline-flex;
+  gap: 6px;
+  align-items: baseline;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.mnt-sum-label {
+  color: var(--text2);
+  text-transform: lowercase;
+}
+
+.mnt-sum-val {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-size: 15px;
+}
+
+.mnt-sum-item--down .mnt-sum-val { color: var(--red); }
+.mnt-sum-item--late .mnt-sum-val { color: var(--orange); }
+.mnt-sum-item--today .mnt-sum-val { color: var(--blue-bar); }
+
+/* Priority badge (Zastoj / Kasni / Danas / Za X d). Kompaktan, s ikonicom
+   u boji. */
+.mnt-priority {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  line-height: 1.4;
+  vertical-align: middle;
+  margin-left: 4px;
+}
+
+.mnt-priority--down { color: var(--red); background: var(--red-bg); }
+.mnt-priority--late { color: var(--orange); background: var(--orange-bg); }
+.mnt-priority--today { color: var(--blue-bar); background: var(--blue-bg); }
+.mnt-priority--soon { color: var(--text2); background: var(--surface3); }
+
+/* Operativna tabela. */
+.mnt-ops-tablewrap {
+  display: block;
+}
+
+.mnt-ops-table td {
+  vertical-align: middle;
+  padding: 10px 12px;
+}
+
+.mnt-ops-table .mnt-c-code { white-space: nowrap; }
+.mnt-ops-table .mnt-c-name .mnt-name-main {
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.25;
+}
+
+.mnt-ops-table .mnt-c-name .mnt-name-sub {
+  color: var(--text2);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.mnt-ops-table .mnt-c-act {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.mnt-quick-actions {
+  display: inline-flex;
+  gap: 4px;
+  flex-wrap: nowrap;
+}
+
+.mnt-qa {
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border3);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  line-height: 1.4;
+  transition: background-color 0.12s, border-color 0.12s, color 0.12s;
+}
+
+.mnt-qa:hover {
+  background: var(--surface3);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.mnt-qa--primary {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.mnt-qa--danger {
+  background: var(--red-bg);
+  border-color: color-mix(in srgb, var(--red) 60%, transparent);
+  color: var(--red);
+}
+
+.mnt-qa--danger:hover {
+  background: var(--red);
+  color: #fff;
+}
+
+/* Kartice za mobilni prikaz. */
+.mnt-cards-wrap {
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.mnt-machine-card {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  cursor: pointer;
+}
+
+.mnt-machine-card:hover {
+  border-color: var(--accent);
+}
+
+.mnt-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.mnt-card-name {
+  font-weight: 600;
+  font-size: 15px;
+  line-height: 1.25;
+}
+
+.mnt-card-meta {
+  color: var(--text2);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.mnt-card-status {
+  text-align: right;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.mnt-card-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 12px;
+  font-size: 13px;
+  color: var(--text);
+  margin: 6px 0 8px;
+}
+
+.mnt-card-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.mnt-card-actions .mnt-qa {
+  flex: 1;
+  min-width: 80px;
+  text-align: center;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+/* Responsive switch: na uskim ekranima sakrij tabelu, prikaži kartice. */
+@media (max-width: 719px) {
+  .mnt-ops-tablewrap { display: none; }
+  .mnt-cards-wrap    { display: flex; }
+  .mnt-ops-toolbar   { gap: 8px; }
+  .mnt-search-wrap   { flex: 1 1 100%; max-width: none; }
+  .mnt-loc-select    { flex: 1; width: auto; min-width: 0; }
+  .mnt-header-cta    { flex: 0 0 auto; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Detalj mašine — Pregled
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.mnt-overview {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mnt-ovr-card {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface2);
+}
+
+.mnt-ovr-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.mnt-ovr-when {
+  font-size: 12px;
+}
+
+.mnt-ovr-reason {
+  margin-top: 6px;
+  white-space: pre-wrap;
+}
+
+.mnt-ov-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.mnt-ov-col {
+  min-width: 0;
+}
+
+.mnt-ov-resp {
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+
+.mnt-ov-meta {
+  margin: 0 0 6px;
+  font-size: 13px;
+}
+
+.mnt-ov-tasks {
+  font-size: 13px;
+}
+
+.mnt-ov-subtitle {
+  font-size: 13px;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+}
+
+.mnt-ov-list {
+  padding-left: 0;
+  list-style: none;
+  margin: 0;
+}
+
+.mnt-ov-list li {
+  padding: 4px 0;
+  font-size: 14px;
+}
+
+.mnt-ov-notes {
+  padding: 10px 12px;
+  border-left: 3px solid var(--border);
+  background: var(--surface2);
+  white-space: pre-wrap;
+  border-radius: 0 6px 6px 0;
+}
+
+@media (max-width: 719px) {
+  .mnt-ov-grid { grid-template-columns: 1fr; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Detalj mašine — Zadaci (preventiva grupisana po intervalu)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.mnt-task-group {
+  margin-bottom: 16px;
+}
+
+.mnt-task-group-h {
+  font-size: 13px;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 4px 0 6px;
+}
+
+.mnt-task-list {
+  padding: 0;
+  list-style: none;
+  margin: 0;
+}
+
+.mnt-task-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border2);
+}
+
+.mnt-task-item:last-child { border-bottom: 0; }
+
+.mnt-task-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.mnt-task-ok {
+  min-width: 72px;
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  background: var(--green-bg);
+  color: var(--green-light);
+  border: 1px solid color-mix(in srgb, var(--green-light) 50%, transparent);
+}
+
+.mnt-task-ok:hover {
+  background: var(--green-light);
+  color: #fff;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Detalj mašine — Istorija (merged timeline incidenti + kontrole)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.mnt-hist-list {
+  padding: 0;
+  list-style: none;
+  margin: 0;
+}
+
+.mnt-hist-item {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border2);
+  font-size: 14px;
+}
+
+.mnt-hist-item:last-child { border-bottom: 0; }
+
+.mnt-hist-when {
+  color: var(--text2);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  padding-top: 2px;
+}
+
+.mnt-hist-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.mnt-hist-kind {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.mnt-hist-kind--inc { background: var(--red-bg); color: var(--red); }
+.mnt-hist-kind--chk { background: var(--blue-bg); color: var(--blue-bar); }
+
+.mnt-hist-note {
+  flex-basis: 100%;
+  font-size: 12px;
+  padding-left: 4px;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 719px) {
+  .mnt-hist-item { grid-template-columns: 1fr; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Modal „Prijavi kvar" — foto upload block
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.mnt-inc-photo-wrap {
+  border: 1px dashed var(--border3);
+  border-radius: 6px;
+  padding: 10px;
+  background: var(--surface2);
+}
+
+.mnt-inc-photo-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-dim);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.mnt-inc-photo-btn:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.mnt-inc-photo-hint {
+  margin-top: 4px;
+}
+
+.mnt-inc-photo-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.mnt-inc-photo-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 120px;
+  padding: 4px;
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.mnt-inc-photo-item img {
+  width: 100%;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 4px;
+  display: block;
+}
+
+.mnt-inc-photo-meta {
+  font-size: 11px;
+  margin-top: 3px;
+  line-height: 1.3;
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.mnt-inc-photo-x {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--red);
+  color: #fff;
+  border: 0;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.mnt-inc-photo-x:hover {
+  background: #000;
+}
