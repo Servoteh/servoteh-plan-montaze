@@ -90,6 +90,12 @@ export async function scanNativeOnce() {
     const result = await BarcodeScanner.scan({
       /* Code128 je BigTehn format; Code39 rezerva; QR kao opšte slučaje. */
       formats: ['CODE_128', 'CODE_39', 'QR_CODE', 'EAN_13', 'EAN_8'],
+      /**
+       * iOS/Android ML Kit: automatski zumira kad detektuje mali 1D barkod
+       * u kadru — neophodno za RN nalog u uglu A4 (sitno u odnosu na ceo list).
+       * @see ScanOptions.autoZoom (plugin ≥7.4.0)
+       */
+      autoZoom: true,
     });
 
     const first = result?.barcodes?.[0];
