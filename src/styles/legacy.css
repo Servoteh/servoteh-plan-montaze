@@ -2551,6 +2551,11 @@ body.module-lokacije #module-lokacije { display:flex !important; flex:1; flex-di
 /* -- Full-screen barkod skener (mobile-first) ----------------- */
 .loc-scan-overlay { position:fixed; inset:0; z-index:9999; background:#000; color:#fff; display:flex; flex-direction:column; overflow:hidden; }
 .loc-scan-stage { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:#000; }
+/* KRITI?NO: HTML `[hidden]` UA default `display:none` ima specifi?nost 0 i
+ * gubi od `.loc-scan-stage { display:flex }` / `.loc-scan-form-wrap` pravila
+ * iznad. Rezultat: `stageScan.hidden=true` iz JS-a ?zaboravi" da sakrije
+ * skener, pa zeleni banner kamere i hint curi preko forme. */
+.loc-scan-stage[hidden], .loc-scan-form-wrap[hidden] { display: none !important; }
 .loc-scan-video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
 .loc-scan-reticle {
   position:absolute; top:50%; left:50%;
