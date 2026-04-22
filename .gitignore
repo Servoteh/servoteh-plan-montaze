@@ -26,6 +26,14 @@ pnpm-debug.log*
 *.log
 *.tmp
 
+# Local Supabase MCP / ad-hoc SQL chunks (not sql/migrations)
+/_mcp_*.json
+/_mcp_*.sql
+/_arg*.json
+/_q*.txt
+/m_*.json
+/scripts/_mcp_*.sql
+
 # Android / Capacitor build artifacts
 android/.gradle/
 android/build/
