@@ -89,7 +89,10 @@ export function onAuthChange(fn) {
 /* ── Role helperi (bit-paritet sa legacy/index.html) ── */
 
 export function canEdit() {
-  return ['admin', 'leadpm', 'pm'].includes(state.role);
+  /* Menadžment ima edit pristup Plan Montaže modulu (planiranje + montaže) —
+     sinhronizovano sa DB has_edit_role() koji u pilot fazi vraća TRUE za
+     sve authenticated. */
+  return ['admin', 'leadpm', 'pm', 'menadzment'].includes(state.role);
 }
 export function isLeadPM() {
   return state.role === 'leadpm';
@@ -167,10 +170,13 @@ export function canAccessSalary() {
  */
 export function canAccessPlanProizvodnje() {
   /* Svi koji su ulogovani vide modul (read-only za viewer/leadpm/hr). */
-  return ['admin', 'leadpm', 'pm', 'hr', 'viewer'].includes(state.role);
+  return ['admin', 'leadpm', 'pm', 'menadzment', 'hr', 'viewer'].includes(state.role);
 }
 export function canEditPlanProizvodnje() {
-  return ['admin', 'pm'].includes(state.role);
+  /* Menadžment sme da menja operacije / crteže — mora biti sinhronizovano
+     sa DB funkcijom public.can_edit_plan_proizvodnje() (vidi migraciju
+     add_plan_proizvodnje_menadzment_edit.sql). */
+  return ['admin', 'pm', 'menadzment'].includes(state.role);
 }
 
 /**

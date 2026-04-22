@@ -176,7 +176,7 @@ function createModalShell({ id, title, subtitle = '' }) {
  */
 export function openLocationModal({ existing = null, onSuccess } = {}) {
   if (!canEdit()) {
-    showToast('⚠ Samo admin / LeadPM / PM može da menja lokacije');
+    showToast('⚠ Samo admin / LeadPM / PM / Menadžment može da menja lokacije');
     return;
   }
 
@@ -823,7 +823,7 @@ export function openItemHistoryModal({ itemRefTable, itemRefId, orderNo = undefi
  */
 export async function toggleLocationActive(row, { onSuccess } = {}) {
   if (!canEdit()) {
-    showToast('⚠ Samo admin / LeadPM / PM može da (de)aktivira lokacije');
+    showToast('⚠ Samo admin / LeadPM / PM / Menadžment može da (de)aktivira lokacije');
     return;
   }
   const next = !row.is_active;
