@@ -523,23 +523,116 @@ export async function searchBigtehnWorkOrders(q, limit = 50) {
 /**
  * BigTehn lookup helper — pretraga predmeta (`bigtehn_items_cache`).
  *
- * @param {string} q  deo broja predmeta ili naziva
+ * Po default-u vraća samo aktuelne, nezatvorene predmete
+ * (`status='U TOKU' AND datum_zakljucenja IS NULL`) — usklađeno sa
+ * dropdown-om „Predmet" u modulu Lokacije. Pretraga ide po broju predmeta,
+ * nazivu, ugovoru i narudžbenici. JOIN sa `bigtehn_customers_cache` ide
+ * preko PostgREST embedded select-a (`customer:bigtehn_customers_cache!inner`),
+ * pa se ime komitenta vidi odmah u dropdown-u i listi.
+ *
+ * @param {string} q  deo broja predmeta ili naziva (može biti '' za prvih `limit` aktuelnih)
  * @param {number} [limit=50]
+ * @param {{ onlyActive?: boolean }} [opts]
+ *   - `onlyActive` (default `true`) — filter `status='U TOKU' AND datum_zakljucenja IS NULL`
+ * @returns {Promise<object[]>}
+ *   Svaki red: `{ id, broj_predmeta, naziv_predmeta, opis, status, broj_ugovora,
+ *   broj_narudzbenice, rok_zavrsetka, modified_at, customer_name }`.
+ */
+export async function searchBigtehnItems(q, limit = 50, { onlyActive = true } = {}) {
+  const s = typeof q === 'string' ? q.trim() : '';
+  const lim = Math.max(1, Math.min(Number(limit) || 50, 200));
+  const sel =
+    'id,broj_predmeta,naziv_predmeta,opis,status,department_code,broj_ugovora,broj_narudzbenice,' +
+    'rok_zavrsetka,modified_at,datum_zakljucenja,customer_id,' +
+    'customer:bigtehn_customers_cache(id,name,short_name)';
+  const parts = [`select=${sel}`, `order=modified_at.desc.nullslast`, `limit=${lim}`];
+  if (s) {
+    const enc = encodeURIComponent(`*${s}*`);
+    parts.push(
+      `or=(broj_predmeta.ilike.${enc},naziv_predmeta.ilike.${enc},broj_ugovora.ilike.${enc},broj_narudzbenice.ilike.${enc})`,
+    );
+  }
+  if (onlyActive) {
+    parts.push(`status=eq.U TOKU`);
+    parts.push(`datum_zakljucenja=is.null`);
+  }
+  const path = `bigtehn_items_cache?${parts.join('&')}`;
+  const rows = await sbReq(path);
+  if (!Array.isArray(rows)) return [];
+  return rows.map(r => ({
+    ...r,
+    customer_name: r.customer?.short_name || r.customer?.name || '',
+  }));
+}
+
+/**
+ * Lista DISTINCT TP-ova (radnih naloga) za jedan Predmet, direktno iz
+ * `bigtehn_work_orders_cache` — bez placement-a, namenjen pickerima
+ * (npr. modal za štampu nalepnica). Po default-u prikazuje samo otvorene
+ * RN-ove (`status_rn = false`) kako bi spisak bio kratak i upotrebljiv.
+ *
+ * @param {number|string} itemId  bigtehn_items_cache.id
+ * @param {{ onlyOpen?: boolean, search?: string, limit?: number }} [opts]
  * @returns {Promise<object[]>}
  */
-export async function searchBigtehnItems(q, limit = 50) {
-  const s = typeof q === 'string' ? q.trim() : '';
-  if (!s) return [];
-  const lim = Math.max(1, Math.min(Number(limit) || 50, 200));
-  const enc = encodeURIComponent(`*${s}*`);
+export async function searchBigtehnWorkOrdersForItem(itemId, opts = {}) {
+  const idNum = Number(itemId);
+  if (!Number.isFinite(idNum) || idNum <= 0) return [];
+  const lim = Math.max(1, Math.min(Number(opts.limit) || 200, 1000));
   const sel =
-    'id,broj_predmeta,naziv_predmeta,opis,status,department_code,broj_ugovora,broj_narudzbenice,rok_zavrsetka,modified_at';
-  const path =
-    `bigtehn_items_cache?select=${sel}` +
-    `&or=(broj_predmeta.ilike.${enc},naziv_predmeta.ilike.${enc},broj_ugovora.ilike.${enc},broj_narudzbenice.ilike.${enc})` +
-    `&order=modified_at.desc&limit=${lim}`;
-  const rows = await sbReq(path);
+    'id,ident_broj,broj_crteza,naziv_dela,materijal,dimenzija_materijala,jedinica_mere,komada,tezina_obr,status_rn,revizija,rok_izrade';
+  const parts = [
+    `select=${sel}`,
+    `item_id=eq.${idNum}`,
+    `order=ident_broj.asc`,
+    `limit=${lim}`,
+  ];
+  if (opts.onlyOpen !== false) parts.push('status_rn=is.false');
+  if (opts.search && String(opts.search).trim()) {
+    const enc = encodeURIComponent(`*${String(opts.search).trim()}*`);
+    parts.push(
+      `or=(ident_broj.ilike.${enc},broj_crteza.ilike.${enc},naziv_dela.ilike.${enc})`,
+    );
+  }
+  const rows = await sbReq(`bigtehn_work_orders_cache?${parts.join('&')}`);
   return Array.isArray(rows) ? rows : [];
+}
+
+/**
+ * Učitaj sve TP-ove (radne naloge) za jedan Predmet sa pridruženim
+ * placement-ima. Wrapper oko RPC `loc_tps_for_predmet`.
+ *
+ * Migracija: `sql/migrations/add_loc_tps_for_predmet_rpc.sql`.
+ *
+ * Vraća jedan red po (TP × placement). Ako TP nema placement → 1 red sa
+ * praznim location_*. Ako TP ima više placement-a (na više polica) → više
+ * redova. Po default-u skriva TP-ove čiji su SVI placement-i na lokaciji
+ * tipa `ASSEMBLY`/`SCRAPPED` (ugrađeno/otpisano) jer ti više nisu u radu.
+ *
+ * @param {number|string} itemId  bigtehn_items_cache.id
+ * @param {{
+ *   onlyOpen?: boolean,
+ *   includeAssembled?: boolean,
+ *   limit?: number,
+ *   offset?: number,
+ * }} [opts]
+ * @returns {Promise<{ total: number, rows: object[] }|null>}
+ */
+export async function fetchTpsForPredmet(itemId, opts = {}) {
+  const idNum = Number(itemId);
+  if (!Number.isFinite(idNum) || idNum <= 0) return { total: 0, rows: [] };
+  const body = {
+    p_item_id: idNum,
+    p_only_open: opts.onlyOpen !== false,
+    p_include_assembled: !!opts.includeAssembled,
+    p_limit: Math.max(1, Math.min(Number(opts.limit) || 100, 500)),
+    p_offset: Math.max(0, Number(opts.offset) || 0),
+  };
+  const res = await sbReq('rpc/loc_tps_for_predmet', 'POST', body, { upsert: false });
+  if (!res || typeof res !== 'object') return null;
+  const total = typeof res.total === 'number' ? res.total : Number(res.total) || 0;
+  const rows = Array.isArray(res.rows) ? res.rows : [];
+  return { total, rows };
 }
 
 /**

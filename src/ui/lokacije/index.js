@@ -55,7 +55,8 @@ import {
   printTechProcessLabelWindow,
   barcodeForPlacementRow,
 } from './labelsPrint.js';
-import { openWorkOrderLookupModal, openItemLookupModal } from './lookupModals.js';
+import { openWorkOrderLookupModal } from './lookupModals.js';
+import { openPredmetScreen } from './predmetScreen.js';
 import { openTechProcedureModal } from '../planProizvodnje/techProcedureModal.js';
 
 /* Jeftina provera može li kamera — bez uvoza barcode modula (koji vuče ZXing).
@@ -152,10 +153,10 @@ function locToolbarHtml({ extra = '' } = {}) {
     `<button type="button" class="btn" id="locBtnQuickMove">Brzo premeštanje</button>`,
   );
   parts.push(
-    `<button type="button" class="btn" id="locBtnLookupRn" title="Pretraga BigTehn radnih naloga (po crtežu, ident_broju, nazivu)">🔎 Crtež / RN</button>`,
+    `<button type="button" class="btn" id="locBtnLookupItem" title="Izaberi predmet (BigTehn) i pregledaj sve njegove tehnološke postupke i lokacije">🔎 Predmet</button>`,
   );
   parts.push(
-    `<button type="button" class="btn" id="locBtnLookupItem" title="Pretraga BigTehn predmeta">🔎 Predmet</button>`,
+    `<button type="button" class="btn" id="locBtnLookupRn" title="Pretraga BigTehn radnih naloga po broju crteža, ident_broju ili nazivu dela">🔎 Crtež</button>`,
   );
   if (canEdit()) {
     parts.push(`<button type="button" class="btn" id="locBtnNewLoc">Nova lokacija</button>`);
@@ -192,7 +193,7 @@ function attachLocToolbar() {
     openWorkOrderLookupModal();
   });
   host.querySelector('#locBtnLookupItem')?.addEventListener('click', () => {
-    openItemLookupModal();
+    openPredmetScreen();
   });
   const showInactiveCb = host.querySelector('#locBrowseShowInactive');
   if (showInactiveCb) {
@@ -440,14 +441,26 @@ function attachReportTabHandlers() {
         alert('Za ovaj red nema prepoznatljivog barkoda (RNZ / kratki format).');
         return;
       }
+      const ident = p.order_no && p.item_ref_id
+        ? `${p.order_no}/${p.item_ref_id}`
+        : p.order_no || '';
+      const today = new Date();
+      const pad = n => String(n).padStart(2, '0');
+      const datum = `${pad(today.getDate())}-${pad(today.getMonth() + 1)}-${String(today.getFullYear()).slice(-2)}`;
+      const qty = tr.getAttribute('data-rep-qty') || '';
+      const komRn = tr.getAttribute('data-rep-komrn') || '';
+      const kolicinaStr = qty && komRn ? `${qty}/${komRn}` : qty || komRn || '';
       void printTechProcessLabelWindow({
-        title: 'Tehnološki postupak',
-        lines: [
-          p.order_no && p.item_ref_id
-            ? { text: `RN ${p.order_no} · TP ${p.item_ref_id}` }
-            : { text: `RN ${p.order_no || ''}` },
-          { text: `Crtež: ${p.drawing_no || '—'}`, small: true },
-        ],
+        fields: {
+          brojPredmeta: ident,
+          komitent: tr.getAttribute('data-rep-customer') || '',
+          nazivPredmeta: tr.getAttribute('data-rep-pname') || '',
+          nazivDela: tr.getAttribute('data-rep-naziv') || '',
+          brojCrteza: p.drawing_no,
+          kolicina: kolicinaStr,
+          materijal: tr.getAttribute('data-rep-materijal') || '',
+          datum,
+        },
         barcodeValue: bc,
       });
     });
@@ -1014,7 +1027,15 @@ async function renderPanel(host, tabId) {
         <div class="loc-table-wrap">
           <table class="loc-table">
             <thead><tr><th>Tabela</th><th>Crtež</th><th>Nalog</th><th>Lokacija</th><th class="loc-qty-cell">Količina</th><th>Status</th></tr></thead>
-            <tbody>${rows || '<tr><td colspan="6" class="loc-muted">Nema stavki.</td></tr>'}</tbody>
+            <tbody>${rows || `<tr><td colspan="6" class="loc-muted" style="padding:18px 12px">
+              <div><strong>Nema evidentiranih stavki na lokacijama.</strong></div>
+              <div style="margin-top:6px">Tabela <code>loc_item_placements</code> je prazna ili filter nema pogodaka. Da bi se ovde pojavili podaci:</div>
+              <ul style="margin:6px 0 0 22px">
+                <li>Klikni <strong>🔎 Predmet</strong> da pregledaš sve TP-ove jednog predmeta i vidiš da li već imaju lokaciju.</li>
+                <li>Klikni <strong>Brzo premeštanje</strong> da evidentiraš prvu lokaciju (zaduženje) za neku stavku.</li>
+                <li>Skenirani RNZ barkod automatski pravi <em>placement</em>.</li>
+              </ul>
+            </td></tr>`}</tbody>
           </table>
         </div>
         ${pagerHtml}
@@ -1100,7 +1121,13 @@ async function renderPanel(host, tabId) {
               ? `<button type="button" class="btn btn-xs" data-rep-open-tp data-wo-id="${escHtml(woId)}" title="Otvori tehnološki postupak (operacije + prijave)">📋 RN/TP</button>`
               : '';
             return `<tr class="loc-row-click" title="Klik za istoriju"
-              data-rep-item-table="${tbl}" data-rep-item-id="${iid}" data-rep-order="${ord}" data-rep-drawing="${escHtml(rawDr)}">
+              data-rep-item-table="${tbl}" data-rep-item-id="${iid}" data-rep-order="${ord}" data-rep-drawing="${escHtml(rawDr)}"
+              data-rep-customer="${escHtml(String(r.customer_name || ''))}"
+              data-rep-naziv="${escHtml(String(r.naziv_dela || ''))}"
+              data-rep-materijal="${escHtml(String(r.materijal || ''))}"
+              data-rep-pname="${escHtml(String(r.project_name || ''))}"
+              data-rep-qty="${escHtml(String(r.qty_on_location ?? ''))}"
+              data-rep-komrn="${escHtml(String(r.komada_rn ?? ''))}">
               <td>${escHtml(proj || '—')}</td>
               <td>${escHtml(String(r.customer_name || '—'))}</td>
               <td>${rawOrd ? `<strong>${ord}</strong>` : '<span class="loc-muted">—</span>'}</td>
@@ -1176,7 +1203,10 @@ async function renderPanel(host, tabId) {
               ${thSort('rok_izrade', 'Rok')}
               <th>Akcije</th>
             </tr></thead>
-            <tbody>${bodyRows || '<tr><td colspan="12" class="loc-muted">Nema redova za zadate filtere.</td></tr>'}</tbody>
+            <tbody>${bodyRows || `<tr><td colspan="12" class="loc-muted" style="padding:18px 12px">
+              <div><strong>Nema redova za zadate filtere.</strong></div>
+              <div style="margin-top:6px">Pregled spaja <code>loc_item_placements</code> sa BigTehn cache-om i filtrira po predmetu/RN/crtežu/lokaciji. Ako baza placement-a još nije puna, koristi <strong>🔎 Predmet</strong> da vidiš sve TP-ove jednog predmeta — i tamo ćeš videti koji još nemaju lokaciju.</div>
+            </td></tr>`}</tbody>
           </table>
         </div>
         ${pagerHtml}
