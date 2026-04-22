@@ -9,9 +9,9 @@
  *   F.4  ☐  Upload skica (Storage), acceptance test
  *
  * Pristup:
- *   - Svi authenticated mogu da otvore i čitaju
- *   - admin + pm mogu da pišu (drag-drop, status, napomena, slike, REASSIGN)
- *   - leadpm/hr/viewer su read-only — sva edit dugmad disabled
+ *   - Svi sa canAccessPlanProizvodnje() vide modul
+ *   - admin + pm + menadzment pišu (drag-drop, status, napomena, slike, REASSIGN)
+ *   - leadpm / hr / viewer read-only — edit dugmad disabled
  */
 
 import { escHtml } from '../../lib/dom.js';

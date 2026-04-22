@@ -8,8 +8,8 @@
  *   - bulk reorder (drag-drop)
  *
  * Koristi sbReq() iz services/supabase.js — koji automatski hvata trenutni
- * JWT iz state/auth.js. Ako korisnik nema rolu admin/pm, RLS na
- * production_overlays će ga odbiti na write i sbReq() vraća null.
+ * JWT iz state/auth.js. Ako korisnik nema pravo iz can_edit_plan_proizvodnje()
+ * (admin / pm / menadzment), RLS na production_overlays će odbiti write.
  */
 
 import { sbReq, getSupabaseUrl, getSupabaseAnonKey } from './supabase.js';

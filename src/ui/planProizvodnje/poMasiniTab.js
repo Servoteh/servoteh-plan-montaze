@@ -10,7 +10,7 @@
  *   - REASSIGN na drugu mašinu (dropdown u koloni "Mašina")
  *   - osvežavanje dugmetom (real-time je later, MVP koristi refresh)
  *
- * Read-only za role koje nisu admin/pm — sva edit dugmad disabled.
+ * Read-only kada !canEditPlanProizvodnje() (npr. leadpm, hr, viewer).
  *
  * Public API:
  *   renderPoMasiniTab(host, { canEdit, onMachineChange, lastMachine })

@@ -8,7 +8,7 @@ Modularna Vite + vanilla JS aplikacija za:
 
 Backend: Supabase (Auth + Postgres + RLS).
 
-**Lokacije delova:** [docs/Lokacije_modul.md](docs/Lokacije_modul.md) · **Kadrovska:** [docs/Kadrovska_modul.md](docs/Kadrovska_modul.md)
+**Lokacije delova:** [docs/Lokacije_modul.md](docs/Lokacije_modul.md) · **Kadrovska:** [docs/Kadrovska_modul.md](docs/Kadrovska_modul.md) · **Planiranje proizvodnje:** [docs/Planiranje_proizvodnje_modul.md](docs/Planiranje_proizvodnje_modul.md)
 
 ---
 
