@@ -5,17 +5,37 @@
  * status pill, drag-drop, REASSIGN dropdown.
  * ========================================================================= */
 
+/* ----------------------------------------------------------------------------
+ * Tabpanel kontejner — full-width „od ćoška do ćoška".
+ * Override-uje legacy `kadrovska-tabpanel` koji bi inače dao usku centar-kolonu.
+ * Cilj: maksimalno iskoristiti horizontalni prostor jer tabele imaju 8–15
+ * kolona (Po mašini), 8 kolona (Zauzetost) ili matrice 5+ dana (Pregled).
+ * -------------------------------------------------------------------------- */
+.pp-tabpanel {
+  width: 100%;
+  max-width: none;       /* legacy kadrovska-tabpanel može imati ograničenje */
+  margin: 0;
+  padding: 12px 16px 24px;
+  box-sizing: border-box;
+}
+@media (max-width: 900px) {
+  .pp-tabpanel { padding: 10px 12px 24px; }
+}
+@media (max-width: 640px) {
+  .pp-tabpanel { padding: 8px 8px 20px; }
+}
+
 /* Toolbar iznad tabele (selektor mašine + refresh + counter) */
 .pp-toolbar {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
-  padding: 14px 18px;
+  padding: 10px 14px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 .pp-toolbar-label {
   font-size: 12px;
@@ -63,13 +83,18 @@
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--surface);
+  /* Ograniči visinu da sticky header ostane funkcionalan i da se izbegne
+     duga vertikalna page-scroll lista — skrol je unutar tabele. Ostavlja
+     prostor za toolbar (~60px) + module header/tabs (~110px) + breathing. */
+  max-height: calc(100vh - 220px);
 }
 .pp-table {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  font-size: 13px;
+  font-size: 12.5px;
   color: var(--text);
+  table-layout: auto;
 }
 .pp-table thead th {
   position: sticky;
@@ -78,16 +103,16 @@
   background: var(--surface2);
   color: var(--text2);
   text-transform: uppercase;
-  letter-spacing: 0.4px;
-  font-size: 11px;
+  letter-spacing: 0.3px;
+  font-size: 10.5px;
   font-weight: 600;
-  padding: 10px 8px;
+  padding: 8px 6px;
   border-bottom: 1px solid var(--border);
   text-align: left;
   white-space: nowrap;
 }
 .pp-table tbody td {
-  padding: 8px;
+  padding: 6px;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
@@ -102,17 +127,23 @@
   border-left: 3px solid #f5a623;
 }
 
-.pp-cell-num    { text-align: right; white-space: nowrap; }
+.pp-cell-num    { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .pp-cell-center { text-align: center; }
 .pp-cell-strong { font-weight: 700; }
 .pp-cell-muted  { color: var(--text2); }
 .pp-cell-clip {
-  max-width: 280px;
+  max-width: 240px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .pp-cell-clip:hover { overflow: visible; white-space: normal; }
+@media (min-width: 1600px) {
+  .pp-cell-clip { max-width: 360px; }
+}
+@media (max-width: 1280px) {
+  .pp-cell-clip { max-width: 180px; }
+}
 
 /* Drag-handle u prvoj koloni */
 .pp-drag-handle {
@@ -287,8 +318,8 @@
 .pp-machine-cell {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  min-width: 130px;
+  gap: 1px;
+  min-width: 110px;
 }
 .pp-machine-original {
   font-size: 11px;
@@ -389,19 +420,21 @@
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
-  font-size: 13px;
+  font-size: 12.5px;
+  table-layout: auto;
 }
-.zm-table thead { background: var(--surface2); }
+.zm-table thead { background: var(--surface2); position: sticky; top: 0; z-index: 2; }
 .zm-th {
-  padding: 10px 14px;
+  padding: 8px 10px;
   font-weight: 600;
-  font-size: 11.5px;
+  font-size: 10.5px;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.3px;
   color: var(--text2);
   border-bottom: 1px solid var(--border2);
   white-space: nowrap;
   user-select: none;
+  background: var(--surface2);
 }
 .zm-th-left   { text-align: left; }
 .zm-th-right  { text-align: right; }
@@ -425,7 +458,7 @@
 .zm-row-total:hover { background: var(--surface2); }
 
 .zm-td {
-  padding: 12px 14px;
+  padding: 8px 10px;
   vertical-align: middle;
   color: var(--text);
 }
@@ -435,14 +468,14 @@
 .zm-cell-machine {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  min-width: 140px;
+  gap: 1px;
+  min-width: 130px;
 }
-.zm-machine-code { font-weight: 600; color: var(--text); font-size: 13px; }
-.zm-machine-name { font-size: 11.5px; color: var(--text2); }
+.zm-machine-code { font-weight: 600; color: var(--text); font-size: 12.5px; }
+.zm-machine-name { font-size: 11px; color: var(--text2); }
 
-.zm-num { font-variant-numeric: tabular-nums; font-size: 13px; }
-.zm-num-strong { font-weight: 700; font-size: 14px; }
+.zm-num { font-variant-numeric: tabular-nums; font-size: 12.5px; }
+.zm-num-strong { font-weight: 700; font-size: 13.5px; }
 .zm-muted { color: var(--text3, var(--text2)); opacity: 0.55; }
 
 .zm-pill {
@@ -476,31 +509,41 @@
  * ========================================================================= */
 
 .pm-table-scroll {
-  overflow-x: auto;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--surface);
+  /* Nalazi se unutar `.pp-table-wrap` koji već ima border, radius, bg, overflow.
+     Drži ga kao providan kontejner da ne bismo imali dvostruki scroll/ramku. */
+  overflow: visible;
+  border: 0;
+  background: transparent;
 }
 .pm-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12.5px;
+  font-size: 12px;
 }
-.pm-table thead { background: var(--surface2); }
+.pm-table thead { background: var(--surface2); position: sticky; top: 0; z-index: 2; }
 .pm-th {
-  padding: 10px 8px;
+  padding: 8px 6px;
   font-weight: 600;
-  font-size: 11px;
+  font-size: 10.5px;
   text-transform: uppercase;
   letter-spacing: 0.3px;
   color: var(--text2);
   border-bottom: 1px solid var(--border2);
   white-space: nowrap;
   text-align: center;
+  background: var(--surface2);
 }
-.pm-th-machine { text-align: left; padding-left: 14px; min-width: 150px; }
+.pm-th-machine {
+  text-align: left;
+  padding-left: 12px;
+  min-width: 140px;
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background: var(--surface2);
+}
 .pm-th-total   { text-align: center; }
-.pm-th-bucket  { min-width: 64px; }
+.pm-th-bucket  { min-width: 56px; }
 .pm-th.is-today {
   background: color-mix(in srgb, var(--blue-bar, #4f9bff) 18%, transparent);
   color: var(--text);
@@ -521,23 +564,29 @@
 .pm-row-total:hover { background: var(--surface2); }
 
 .pm-td-machine {
-  padding: 10px 14px;
+  padding: 8px 12px;
   text-align: left;
   cursor: pointer;
+  position: sticky;
+  left: 0;
+  background: var(--surface);
+  z-index: 1;
 }
+.pm-row:hover .pm-td-machine,
+.pm-row-total .pm-td-machine { background: var(--surface2); }
 .pm-td-machine:hover { background: var(--surface3); }
 .pm-td-total {
-  padding: 10px 8px;
+  padding: 8px 6px;
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
 
 .pm-cell {
-  padding: 10px 8px;
+  padding: 8px 6px;
   text-align: center;
   font-variant-numeric: tabular-nums;
   border-left: 1px solid var(--border);
-  min-width: 64px;
+  min-width: 56px;
   position: relative;
 }
 .pm-cell.is-clickable { cursor: pointer; }

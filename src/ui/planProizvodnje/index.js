@@ -106,7 +106,7 @@ export function renderPlanProizvodnjeModule(mountEl, { onBackToHub, onLogout }) 
       `).join('')}
     </nav>
 
-    <main class="kadrovska-tabpanel" id="ppTabBody" style="padding:24px;max-width:1280px;margin:0 auto"></main>
+    <main class="kadrovska-tabpanel pp-tabpanel" id="ppTabBody"></main>
   `;
 
   mountEl.appendChild(container);
