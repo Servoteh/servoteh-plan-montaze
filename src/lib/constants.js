@@ -22,6 +22,7 @@ export const STORAGE_KEYS = Object.freeze({
   KADR_CON: 'plan_montaze_kadr_contracts_v1',
   /* Lokacije delova */
   LOC_TAB: 'plan_montaze_loc_active_tab_v1',
+  LOC_PREDMET: 'plan_montaze_loc_predmet_state_v1',
   /* Podešavanja */
   USERS_CACHE: 'plan_montaze_users_v1',
   /* Theme */

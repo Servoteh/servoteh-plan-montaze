@@ -7,8 +7,10 @@ import { STORAGE_KEYS } from '../lib/constants.js';
 
 /* Whitelist legitimnih tab ID-jeva — sprečava da korumpirana LS vrednost dovede
  * do praznog panela (renderPanel ima if-grane po tabId-u). */
-const VALID_TABS = new Set(['dashboard', 'browse', 'items', 'report', 'history', 'sync']);
+const VALID_TABS = new Set(['dashboard', 'predmet', 'browse', 'items', 'report', 'history', 'sync']);
 const DEFAULT_TAB = 'dashboard';
+
+const VALID_LOCATION_FILTERS = new Set(['all', 'with', 'without']);
 
 /* Veličine stranice za items paginator — striktan whitelist da se LS ne koristi kao XSS vektor. */
 const VALID_PAGE_SIZES = new Set([25, 50, 100, 250]);
@@ -43,6 +45,20 @@ const state = {
   reportSortDesc: true,
   reportPage: 0,
   reportPageSize: DEFAULT_PAGE_SIZE,
+
+  /* "Predmet" tab — izabrani predmet i filteri. Izabrani Predmet i njegovi
+   * filteri se perzistiraju u localStorage da korisnik posle reload-a vidi
+   * isti kontekst (tipično cele smene radi u istom Predmetu). */
+  predmetSelected: null,    // null | { id, broj_predmeta, naziv_predmeta, customer_name }
+  predmetFilters: {
+    tpNo: '',                // ILIKE filter na drugi deo ident_broj-a (broj TP)
+    drawingNo: '',           // ILIKE filter na broj_crteza
+    locationFilter: 'all',   // 'all' | 'with' | 'without'
+    includeAssembled: false, // false = sakrij UGRADJENO/OTPISANO
+    onlyOpen: true,          // true = samo status_rn = false
+  },
+  predmetPage: 0,
+  predmetPageSize: 100,
 };
 
 function normalizeTab(v) {
@@ -233,4 +249,94 @@ export function setReportPage(n) {
 export function setReportPageSize(n) {
   state.reportPageSize = normalizePageSize(n);
   state.reportPage = 0;
+}
+
+/* ── Predmet tab ─────────────────────────────────────────────────────────── */
+
+const VALID_PREDMET_PAGE_SIZES = new Set([50, 100, 200, 500]);
+const DEFAULT_PREDMET_PAGE_SIZE = 100;
+
+function normalizePredmetPageSize(v) {
+  const n = Number(v);
+  return VALID_PREDMET_PAGE_SIZES.has(n) ? n : DEFAULT_PREDMET_PAGE_SIZE;
+}
+
+function normalizePredmetSelected(v) {
+  if (!v || typeof v !== 'object') return null;
+  const id = Number(v.id);
+  if (!Number.isFinite(id) || id <= 0) return null;
+  return {
+    id,
+    broj_predmeta: typeof v.broj_predmeta === 'string' ? v.broj_predmeta.slice(0, 40) : '',
+    naziv_predmeta: typeof v.naziv_predmeta === 'string' ? v.naziv_predmeta.slice(0, 200) : '',
+    customer_name: typeof v.customer_name === 'string' ? v.customer_name.slice(0, 120) : '',
+  };
+}
+
+function normalizePredmetFilters(v) {
+  const f = v && typeof v === 'object' ? v : {};
+  const lf = typeof f.locationFilter === 'string' ? f.locationFilter.toLowerCase() : 'all';
+  return {
+    tpNo: normalizeFilter(f.tpNo).slice(0, 12),
+    drawingNo: normalizeFilter(f.drawingNo).slice(0, 40),
+    locationFilter: VALID_LOCATION_FILTERS.has(lf) ? lf : 'all',
+    includeAssembled: !!f.includeAssembled,
+    onlyOpen: f.onlyOpen !== false,
+  };
+}
+
+function persistPredmetState() {
+  /* Trenutno je dovoljan plitki snapshot — page se ne perzistira (resetuje
+   * se na 0 pri svakoj promeni filtera/predmeta), ostalo da. */
+  lsSetJSON(STORAGE_KEYS.LOC_PREDMET, {
+    selected: state.predmetSelected,
+    filters: state.predmetFilters,
+    pageSize: state.predmetPageSize,
+  });
+}
+
+export function loadPredmetStateFromStorage() {
+  const raw = lsGetJSON(STORAGE_KEYS.LOC_PREDMET, null);
+  if (!raw || typeof raw !== 'object') return;
+  state.predmetSelected = normalizePredmetSelected(raw.selected);
+  state.predmetFilters = normalizePredmetFilters(raw.filters);
+  state.predmetPageSize = normalizePredmetPageSize(raw.pageSize);
+  state.predmetPage = 0;
+}
+
+export function setPredmetSelected(item) {
+  state.predmetSelected = normalizePredmetSelected(item);
+  state.predmetPage = 0;
+  persistPredmetState();
+}
+
+export function clearPredmetSelected() {
+  state.predmetSelected = null;
+  state.predmetPage = 0;
+  persistPredmetState();
+}
+
+export function setPredmetFilters(patch) {
+  state.predmetFilters = normalizePredmetFilters({
+    ...state.predmetFilters,
+    ...(patch || {}),
+  });
+  state.predmetPage = 0;
+  persistPredmetState();
+}
+
+export function resetPredmetFilters() {
+  state.predmetFilters = normalizePredmetFilters({});
+  state.predmetPage = 0;
+  persistPredmetState();
+}
+
+export function setPredmetPage(n) {
+  state.predmetPage = Math.max(0, Number(n) || 0);
+}
+
+export function setPredmetPageSize(n) {
+  state.predmetPageSize = normalizePredmetPageSize(n);
+  state.predmetPage = 0;
+  persistPredmetState();
 }

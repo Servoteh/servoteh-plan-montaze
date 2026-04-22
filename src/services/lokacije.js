@@ -627,19 +627,28 @@ export async function searchBigtehnWorkOrdersForItem(itemId, opts = {}) {
 
 /**
  * Učitaj sve TP-ove (radne naloge) za jedan Predmet sa pridruženim
- * placement-ima. Wrapper oko RPC `loc_tps_for_predmet`.
+ * placement-ima. Wrapper oko RPC `loc_tps_for_predmet` (v2).
  *
- * Migracija: `sql/migrations/add_loc_tps_for_predmet_rpc.sql`.
+ * Migracija: `sql/migrations/add_loc_tps_for_predmet_rpc_v2.sql`.
  *
  * Vraća jedan red po (TP × placement). Ako TP nema placement → 1 red sa
  * praznim location_*. Ako TP ima više placement-a (na više polica) → više
  * redova. Po default-u skriva TP-ove čiji su SVI placement-i na lokaciji
  * tipa `ASSEMBLY`/`SCRAPPED` (ugrađeno/otpisano) jer ti više nisu u radu.
  *
+ * Server-side filteri (v2):
+ *   - `tpNo`           → ILIKE na drugi deo `ident_broj`-a (npr. "1088")
+ *   - `drawingNo`      → ILIKE na `wo_broj_crteza`
+ *   - `locationFilter` → 'with' = samo TP sa placement-om, 'without' = bez,
+ *                        'all'/undefined = svi
+ *
  * @param {number|string} itemId  bigtehn_items_cache.id
  * @param {{
  *   onlyOpen?: boolean,
  *   includeAssembled?: boolean,
+ *   tpNo?: string,
+ *   drawingNo?: string,
+ *   locationFilter?: 'all'|'with'|'without',
  *   limit?: number,
  *   offset?: number,
  * }} [opts]
@@ -648,11 +657,19 @@ export async function searchBigtehnWorkOrdersForItem(itemId, opts = {}) {
 export async function fetchTpsForPredmet(itemId, opts = {}) {
   const idNum = Number(itemId);
   if (!Number.isFinite(idNum) || idNum <= 0) return { total: 0, rows: [] };
+  const tp = typeof opts.tpNo === 'string' ? opts.tpNo.trim() : '';
+  const dr = typeof opts.drawingNo === 'string' ? opts.drawingNo.trim() : '';
+  const lf = typeof opts.locationFilter === 'string'
+    ? opts.locationFilter.toLowerCase()
+    : 'all';
   const body = {
     p_item_id: idNum,
     p_only_open: opts.onlyOpen !== false,
     p_include_assembled: !!opts.includeAssembled,
-    p_limit: Math.max(1, Math.min(Number(opts.limit) || 100, 500)),
+    p_tp_no: tp ? tp : null,
+    p_drawing_no: dr ? dr : null,
+    p_location_filter: ['with', 'without', 'all'].includes(lf) ? lf : 'all',
+    p_limit: Math.max(1, Math.min(Number(opts.limit) || 100, 1000)),
     p_offset: Math.max(0, Number(opts.offset) || 0),
   };
   const res = await sbReq('rpc/loc_tps_for_predmet', 'POST', body, { upsert: false });
