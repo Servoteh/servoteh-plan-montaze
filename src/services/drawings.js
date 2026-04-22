@@ -119,12 +119,30 @@ export async function listDrawingsForRnCode(rnCode) {
   const code = String(rnCode || '').trim();
   if (!code) return [];
 
-  /* 1) Distinct broj_crteza za sve redove sa istim ident_broj-om. */
-  const woParams = new URLSearchParams();
-  woParams.set('select', 'broj_crteza');
-  woParams.set('ident_broj', `eq.${code}`);
-  woParams.set('limit', '500');
-  const woRows = await sbReq(`bigtehn_work_orders_cache?${woParams.toString()}`);
+  /* Normalizacija: WP rn_code u Plan Montaži često sadrži prefiks „RN "
+     (npr. „RN 9000/1"), dok je u BigTehn-u `ident_broj` bez prefiksa
+     („9000/1"). Pokušaj sa oba oblika — prvo sa skinutim prefiksom, pa sa
+     originalnim, pa fallback varijante (npr. razmak/separatori). */
+  const candidates = [];
+  const stripped = code.replace(/^RN\s+/i, '').trim();
+  if (stripped && stripped !== code) candidates.push(stripped);
+  candidates.push(code);
+  /* Dedup, sačuvaj redosled. */
+  const seenC = new Set();
+  const tryCodes = candidates.filter(c => (c && !seenC.has(c) && (seenC.add(c), true)));
+
+  let woRows = null;
+  for (const c of tryCodes) {
+    const woParams = new URLSearchParams();
+    woParams.set('select', 'broj_crteza');
+    woParams.set('ident_broj', `eq.${c}`);
+    woParams.set('limit', '500');
+    const rows = await sbReq(`bigtehn_work_orders_cache?${woParams.toString()}`);
+    if (Array.isArray(rows) && rows.length) {
+      woRows = rows;
+      break;
+    }
+  }
   if (!Array.isArray(woRows) || !woRows.length) return [];
   const drawingNos = [
     ...new Set(
