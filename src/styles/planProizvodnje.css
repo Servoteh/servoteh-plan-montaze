@@ -621,7 +621,10 @@
 }
 .pp-drawings-num { font-weight: 600; }
 
-/* F.5a: BigTehn PDF crtež dugme u koloni "Crtež" — klik otvara PDF u tab-u */
+/* F.5a: BigTehn PDF crtež dugme u koloni „Crtež" — i dalje koristi se
+ * u TP modalu kao dugme pored broja crteža (zadržano radi backward
+ * kompatibilnosti). U glavnoj „Po mašini" tabeli zamenjeno je sa
+ * `.pp-drawing-cell` 2-rednim layout-om (broj iznad, „📄 PDF" ispod). */
 .pp-bigtehn-drawing-btn {
   display: inline-flex;
   align-items: center;
@@ -647,6 +650,67 @@
 .pp-bigtehn-drawing-btn:focus-visible {
   outline: 2px solid #fbbf24;
   outline-offset: 1px;
+}
+
+/* „Po mašini" — kolona Crtež: broj iznad, „📄 PDF" dugme ispod.
+ * Klik na PDF dugme otvara crtež u novom tab-u (auto-revision fallback
+ * u services/drawings.js → ako original nema match, otvara najnoviju
+ * reviziju, npr. „1133219" → „1133219_B"). */
+.pp-cell-drawing { vertical-align: middle; }
+.pp-drawing-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  line-height: 1.2;
+}
+.pp-drawing-no {
+  font-weight: 600;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--text);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.pp-drawing-pdf-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 7px;
+  background: color-mix(in srgb, #fbbf24 14%, transparent);
+  border: 1px solid color-mix(in srgb, #fbbf24 45%, transparent);
+  color: #fbbf24;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.3;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+.pp-drawing-pdf-icon:hover {
+  background: color-mix(in srgb, #fbbf24 28%, transparent);
+  border-color: #fbbf24;
+  color: #fde68a;
+  transform: translateY(-0.5px);
+}
+.pp-drawing-pdf-icon:focus-visible {
+  outline: 2px solid #fbbf24;
+  outline-offset: 1px;
+}
+
+/* Kolona „Kupac": širi min-width da kratak naziv ne wrap-uje u 3 reda. */
+.pp-col-customer {
+  min-width: 140px;
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Hover otkriva pun naziv ako je predugačak. */
+.pp-col-customer:hover {
+  overflow: visible;
+  white-space: normal;
 }
 
 /* F.5b: 📋 dugme pored RN broja — otvara tehnološki postupak modal */

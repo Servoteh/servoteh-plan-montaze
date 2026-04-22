@@ -339,6 +339,8 @@ function renderOperations(operations, allLogs) {
         <thead>
           <tr>
             <th style="width:32px"></th>
+            <th title="Broj operacije">Op</th>
+            <th>Opis</th>
             <th>Mašina</th>
             <th class="tpm-num">Komada</th>
             <th class="tpm-num">Plan</th>
@@ -410,15 +412,8 @@ function renderOpRow(op, logs) {
   const lastFinished = op.last_finished_at ? formatDate(op.last_finished_at) : '—';
   const isNonMach = op.is_non_machining ? ' is-non-machining' : '';
 
-  /* Op # i Opis su sakriveni iz glavne tabele (preglednost na užim
-     ekranima). Korisnik vidi te podatke u tooltip-u prvog dugmeta
-     (▸ expand) i u expandable detalju (renderLogsRow → naslov
-     „Prijave za operaciju X").
-     Op# je ujedno tooltip na expand dugmetu; opis kratak u tooltipu
-     ekspand dugmeta da se ne izgubi kontekst. */
-  const opLabel = `Op ${op.operacija}${op.opis_rada ? ' — ' + op.opis_rada : ''}`;
   return `
-    <tr class="tpm-op-row${isNonMach}" data-op="${op.operacija}" title="${escHtml(opLabel)}">
+    <tr class="tpm-op-row${isNonMach}" data-op="${op.operacija}">
       <td class="tpm-cell-center">
         ${logs.length
           ? `<button type="button"
@@ -426,9 +421,11 @@ function renderOpRow(op, logs) {
                      data-action="toggle-logs"
                      data-op="${op.operacija}"
                      aria-expanded="false"
-                     title="${escHtml(opLabel)} — ${logs.length} prijav${logs.length === 1 ? 'a' : (logs.length < 5 ? 'e' : 'a')}">▸</button>`
-          : `<span class="tpm-op-num" title="${escHtml(opLabel)}">${escHtml(String(op.operacija))}</span>`}
+                     title="${logs.length} prijav${logs.length === 1 ? 'a' : (logs.length < 5 ? 'e' : 'a')}">▸</button>`
+          : ''}
       </td>
+      <td class="tpm-cell-strong tpm-num">${escHtml(String(op.operacija))}</td>
+      <td title="${escHtml(op.opis_rada || '')}">${escHtml(op.opis_rada || '—')}</td>
       <td>${machineLabel}</td>
       <td class="tpm-num">
         <span class="tpm-cell-strong">${escHtml(String(op.komada_done ?? 0))}</span>
@@ -446,7 +443,7 @@ function renderOpRow(op, logs) {
 function renderLogsRow(opNum, logs) {
   return `
     <tr class="tpm-logs-row" data-logs-for="${opNum}">
-      <td colspan="7">
+      <td colspan="9">
         <div class="tpm-logs-wrap">
           <div class="tpm-logs-title">Prijave za operaciju ${escHtml(String(opNum))} (${logs.length})</div>
           <table class="tpm-logs-table">

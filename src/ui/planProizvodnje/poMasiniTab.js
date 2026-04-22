@@ -216,6 +216,14 @@ function renderTable() {
     return;
   }
 
+  /* NAPOMENA o vidljivim kolonama (po dogovoru sa korisnikom):
+   *  - „Op" i „Opis" su SAKRIVENI iz glavne tabele (više mesta za ostale).
+   *    Te informacije su i dalje dostupne u 📋 Tehnološki postupak modalu
+   *    (tamo se ne dira ništa).
+   *  - „Kupac" ima `min-width: 140px` (CSS) da se ne wrap-uje u 3 reda.
+   *  - „Crtež" prikazuje broj u prvom redu i klikabilnu 📄 ikonu ispod
+   *    (u drugom redu) — vidi `pp-drawing-cell` blok u rowHtml.
+   */
   wrap.innerHTML = `
     <table class="pp-table" data-readonly="${state.canEdit ? 'false' : 'true'}">
       <thead>
@@ -225,9 +233,7 @@ function renderTable() {
           <th>RN</th>
           <th>Crtež</th>
           <th>Deo</th>
-          <th>Kupac</th>
-          <th class="pp-cell-num" style="width:48px">Op</th>
-          <th>Opis</th>
+          <th class="pp-col-customer">Kupac</th>
           <th>Rok</th>
           <th class="pp-cell-num" title="Urađeno / Ukupno komada">Done / Plan</th>
           <th class="pp-cell-num" title="Tehnološko / Stvarno vreme">T / R</th>
@@ -259,7 +265,6 @@ function rowHtml(r) {
     && r.assigned_machine_code !== r.original_machine_code;
   const customerLabel =
     r.customer_short || r.customer_name || (r.customer_id ? `#${r.customer_id}` : '—');
-  const opisRada = r.opis_rada || '';
   const broj = r.broj_crteza || '—';
 
   const noteVal = r.shift_note || '';
@@ -303,21 +308,22 @@ function rowHtml(r) {
                 data-action="open-tech-procedure"
                 title="Otvori kompletan tehnološki postupak ovog RN-a">📋</button>
       </td>
-      <td class="pp-cell-muted" title="${escHtml(broj)}">
-        ${r.has_bigtehn_drawing
-          ? `<button type="button"
-                     class="pp-bigtehn-drawing-btn"
-                     data-action="open-bigtehn-drawing"
-                     data-broj="${escHtml(broj)}"
-                     title="Otvori PDF crtež ${escHtml(broj)} u novom tab-u">
-               📄 ${escHtml(broj)}
-             </button>`
-          : escHtml(broj)}
+      <td class="pp-cell-muted pp-cell-drawing" title="${escHtml(broj)}">
+        <div class="pp-drawing-cell">
+          <span class="pp-drawing-no">${escHtml(broj)}</span>
+          ${broj && broj !== '—'
+            ? `<button type="button"
+                       class="pp-drawing-pdf-icon"
+                       data-action="open-bigtehn-drawing"
+                       data-broj="${escHtml(broj)}"
+                       title="Otvori PDF crtež ${escHtml(broj)} u novom tab-u">
+                 📄 PDF
+               </button>`
+            : ''}
+        </div>
       </td>
       <td class="pp-cell-clip" title="${escHtml(r.naziv_dela || '')}">${escHtml(r.naziv_dela || '—')}</td>
-      <td class="pp-cell-muted" title="${escHtml(r.customer_name || '')}">${escHtml(customerLabel)}</td>
-      <td class="pp-cell-num pp-cell-strong">${escHtml(String(r.operacija ?? ''))}</td>
-      <td class="pp-cell-clip" title="${escHtml(opisRada)}">${escHtml(opisRada)}</td>
+      <td class="pp-cell-muted pp-col-customer" title="${escHtml(r.customer_name || '')}">${escHtml(customerLabel)}</td>
       <td>
         <span class="pp-rok urgency-${urgency || 'none'}" title="${rokLabel}">
           ${escHtml(rokLabel)}
