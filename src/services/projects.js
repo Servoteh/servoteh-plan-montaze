@@ -206,13 +206,39 @@ export async function loadProjectsFromDb() {
 export async function loadWorkPackagesFromDb(projectId) {
   if (!getIsOnline()) return null;
   const data = await sbReq('work_packages?project_id=eq.' + projectId + '&order=sort_order');
-  return data ? data.map(mapDbWP) : null;
+  if (!data) return null;
+  /* Schema reactivation: ako je u response-u barem jedan red sa poljem
+     `assembly_drawing_no`, kolona postoji u DB-u → uključi flag nazad
+     (pokrije slučaj kada je flag bio isključen pre primene migracije). */
+  if (data.length > 0 && Object.prototype.hasOwnProperty.call(data[0], 'assembly_drawing_no')) {
+    if (!wpAssemblyDrawingSchemaSupported) {
+      wpAssemblyDrawingSchemaSupported = true;
+      console.info('[wp.assembly_drawing_no] Column detected in DB; re-enabling save support.');
+    }
+  }
+  return data.map(mapDbWP);
 }
 
 export async function loadPhasesFromDb(projectId, wpId) {
   if (!getIsOnline()) return null;
   const data = await sbReq('phases?work_package_id=eq.' + wpId + '&order=sort_order');
-  return data ? data.map(mapDbPhase) : null;
+  if (!data) return null;
+  if (data.length > 0) {
+    const sample = data[0];
+    if (Object.prototype.hasOwnProperty.call(sample, 'linked_drawings') && !phaseLinkedDrawingsSchemaSupported) {
+      phaseLinkedDrawingsSchemaSupported = true;
+      console.info('[phase.linked_drawings] Column detected in DB; re-enabling save support.');
+    }
+    if (Object.prototype.hasOwnProperty.call(sample, 'description') && !phaseDescriptionSchemaSupported) {
+      phaseDescriptionSchemaSupported = true;
+      console.info('[phase.description] Column detected in DB; re-enabling save support.');
+    }
+    if (Object.prototype.hasOwnProperty.call(sample, 'phase_type') && !phaseTypeSchemaSupported) {
+      phaseTypeSchemaSupported = true;
+      console.info('[phase.phase_type] Column detected in DB; re-enabling save support.');
+    }
+  }
+  return data.map(mapDbPhase);
 }
 
 /** Učitaj WP-ove + faze za sve WP-ove. Vraća niz WP objekata sa popunjenim `phases`. */
@@ -236,15 +262,16 @@ export async function saveWorkPackageToDb(wp, projectId) {
   if (!getIsOnline() || !canEdit()) return null;
   let payload = buildWPPayload(wp, projectId);
   let res = await sbReq('work_packages', 'POST', payload);
-  if (res === null && payload.assembly_drawing_no !== undefined && wpAssemblyDrawingSchemaSupported) {
-    /* Fallback: kolona `assembly_drawing_no` ne postoji — isključi je za sesiju
-       i probaj ponovo da save WP ne padne kompletno. */
-    setWpAssemblyDrawingSchemaSupported(false);
+  if (res === null && payload.assembly_drawing_no !== undefined) {
+    /* Per-call fallback: ako kolona `assembly_drawing_no` ne postoji u DB-u,
+       izbaci je i pokušaj ponovo. NAMERNO ne setujemo globalni flag na false
+       — sledeći save opet pokušava sa puno polje. Time se izbegava trajno
+       „zaglavljivanje" sesije ako je migracija primenjena u međuvremenu. */
     const { assembly_drawing_no, ...rest } = payload;
     payload = rest;
     res = await sbReq('work_packages', 'POST', payload);
     if (res !== null) {
-      console.warn('[wp.assembly_drawing_no] Column not present in DB; skipping. Apply sql/migrations/add_wp_assembly_drawing.sql to enable.');
+      console.warn('[wp.assembly_drawing_no] Column not present in DB; skipping for this call. Apply sql/migrations/add_wp_assembly_drawing.sql to enable.');
     }
   }
   return res;
@@ -254,34 +281,29 @@ export async function savePhaseToDb(ph, projectId, wpId, sortOrder) {
   if (!getIsOnline() || !canEdit()) return null;
   let payload = buildPhasePayload(ph, projectId, wpId, sortOrder);
   let res = await sbReq('phases', 'POST', payload);
-  if (res === null && payload.phase_type !== undefined && phaseTypeSchemaSupported) {
-    /* Fallback: kolona phase_type ne postoji — isključi je i probaj ponovo. */
-    setPhaseTypeSchemaSupported(false);
+  if (res === null && payload.phase_type !== undefined) {
+    /* Per-call fallback (vidi komentar gore u saveWorkPackageToDb). */
     const { phase_type, ...rest } = payload;
     payload = rest;
     res = await sbReq('phases', 'POST', payload);
     if (res !== null) {
-      console.warn('[phase_type] Column not present in DB; skipping phase_type. Apply sql/migrations/add_phase_type.sql to enable.');
+      console.warn('[phase_type] Column not present in DB; skipping for this call. Apply sql/migrations/add_phase_type.sql to enable.');
     }
   }
-  if (res === null && payload.description !== undefined && phaseDescriptionSchemaSupported) {
-    /* Fallback: kolona `description` ne postoji — isključi je i probaj ponovo. */
-    setPhaseDescriptionSchemaSupported(false);
+  if (res === null && payload.description !== undefined) {
     const { description, ...rest } = payload;
     payload = rest;
     res = await sbReq('phases', 'POST', payload);
     if (res !== null) {
-      console.warn('[phase.description] Column not present in DB; skipping description. Apply sql/migrations/add_phase_description.sql to enable.');
+      console.warn('[phase.description] Column not present in DB; skipping for this call. Apply sql/migrations/add_phase_description.sql to enable.');
     }
   }
-  if (res === null && payload.linked_drawings !== undefined && phaseLinkedDrawingsSchemaSupported) {
-    /* Fallback: kolona `linked_drawings` ne postoji — isključi je i probaj ponovo. */
-    setPhaseLinkedDrawingsSchemaSupported(false);
+  if (res === null && payload.linked_drawings !== undefined) {
     const { linked_drawings, ...rest } = payload;
     payload = rest;
     res = await sbReq('phases', 'POST', payload);
     if (res !== null) {
-      console.warn('[phase.linked_drawings] Column not present in DB; skipping linked_drawings. Apply sql/migrations/add_phases_linked_drawings.sql to enable.');
+      console.warn('[phase.linked_drawings] Column not present in DB; skipping for this call. Apply sql/migrations/add_phases_linked_drawings.sql to enable.');
     }
   }
   return res;
