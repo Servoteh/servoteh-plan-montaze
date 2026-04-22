@@ -87,13 +87,14 @@ export async function loadUserRoleMatchesFromDb() {
   return unique.filter(r => r.email === emailNorm);
 }
 
-/** Prioritet: admin > leadpm > pm > hr > viewer. */
+/** Prioritet: admin > leadpm > pm > menadzment > hr > viewer. */
 export function effectiveRoleFromMatches(matches) {
   if (!matches || matches.length === 0) return 'viewer';
   const norm = matches.map(r => String(r.role || '').trim().toLowerCase());
   if (norm.includes('admin')) return 'admin';
   if (norm.includes('leadpm')) return 'leadpm';
   if (norm.includes('pm')) return 'pm';
+  if (norm.includes('menadzment')) return 'menadzment';
   if (norm.includes('hr')) return 'hr';
   if (norm.includes('viewer')) return 'viewer';
   console.warn('Unknown roles found in user_roles:', matches);

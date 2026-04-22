@@ -47,8 +47,8 @@ export const SESSION_KEYS = Object.freeze({
   POST_LOGIN_REDIRECT: 'plan_montaze_v51_post_login_redirect_v1',
 });
 
-/* ── Role hijerarhija (priority: admin > leadpm > pm > hr > viewer) ── */
-export const ROLES = Object.freeze(['admin', 'leadpm', 'pm', 'hr', 'viewer']);
+/* ── Role hijerarhija (priority: admin > leadpm > pm > menadzment > hr > viewer) ── */
+export const ROLES = Object.freeze(['admin', 'leadpm', 'pm', 'menadzment', 'hr', 'viewer']);
 
 /* ── Plan Montaže defaults ── */
 export const DEFAULT_PHASES = Object.freeze([

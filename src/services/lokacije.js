@@ -15,7 +15,7 @@ export async function fetchLocations({ activeOnly = true } = {}) {
 }
 
 /**
- * PATCH nad `loc_locations` (RLS: admin / leadpm / pm).
+ * PATCH nad `loc_locations` (RLS: `loc_can_manage_locations()` — admin / leadpm / pm / menadzment).
  * @param {string} id UUID lokacije
  * @param {Partial<{ name: string, location_type: string, parent_id: string|null, is_active: boolean, capacity_note: string, notes: string }>} patch
  * @returns {Promise<object|null>}

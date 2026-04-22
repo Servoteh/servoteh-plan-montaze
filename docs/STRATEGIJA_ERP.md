@@ -433,7 +433,7 @@ Pre nego što podeliš ovaj dokument sa timom, odluči sledeće:
 - TanStack Query: https://tanstack.com/query
 - TanStack Table: https://tanstack.com/table
 - BigTehn analiza: `docs/notes.md` (staro) + `script.sql` (MSSQL schema)
-- Postojeći moduli: `docs/Modul_Lokacije.md`, `docs/MOBILE.md`, `docs/KADROVSKA_DEPLOY.md`
+- Postojeći moduli: `docs/Lokacije_modul.md`, `docs/Kadrovska_modul.md`, `docs/MOBILE.md`
 
 ---
 

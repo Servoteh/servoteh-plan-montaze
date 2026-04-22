@@ -19,6 +19,11 @@ import {
   resetHistoryFilters,
   setHistoryPage,
   setHistoryPageSize,
+  setReportFilters,
+  resetReportFilters,
+  setReportPage,
+  setReportPageSize,
+  toggleReportSort,
 } from '../../state/lokacije.js';
 import { filterLocationsHierarchical } from '../../lib/lokacijeFilters.js';
 import { rowsToCsv, CSV_BOM } from '../../lib/csv.js';
@@ -30,6 +35,8 @@ import {
   fetchPlacements,
   fetchRecentMovements,
   fetchSyncOutboundEvents,
+  fetchLocReportPartsByLocations,
+  fetchAllLocReportPartsByLocations,
 } from '../../services/lokacije.js';
 import { loadUsersFromDb } from '../../services/users.js';
 import { hasSupabaseConfig } from '../../services/supabase.js';
@@ -41,7 +48,12 @@ import {
   toggleLocationActive,
 } from './modals.js';
 import { openScanMoveModal } from './scanModal.js';
-import { openShelfLabelsPrint } from './labelsPrint.js';
+import {
+  openShelfLabelsPrintPicker,
+  openTechProcessLabelPrintModal,
+  printTechProcessLabelWindow,
+  barcodeForPlacementRow,
+} from './labelsPrint.js';
 
 /* Jeftina provera može li kamera — bez uvoza barcode modula (koji vuče ZXing).
  * Barcode.js ima istu logiku; držimo je singleton-level za bundle splitting. */
@@ -56,6 +68,7 @@ const TABS = [
   { id: 'dashboard', label: 'Početna' },
   { id: 'browse', label: 'Lokacije' },
   { id: 'items', label: 'Stavke' },
+  { id: 'report', label: 'Pregled po lokacijama' },
   { id: 'history', label: 'Istorija' },
   { id: 'sync', label: 'Sync', adminOnly: true },
 ];
@@ -91,7 +104,12 @@ function locToolbarHtml({ extra = '' } = {}) {
   );
   if (canEdit()) {
     parts.push(`<button type="button" class="btn" id="locBtnNewLoc">Nova lokacija</button>`);
-    parts.push(`<button type="button" class="btn" id="locBtnLabels" title="Generiši nalepnice sa barkodom za štampu">🏷 Nalepnice polica</button>`);
+    parts.push(
+      `<button type="button" class="btn" id="locBtnLabels" title="Izaberi policu i štampaj nalepnicu (Code128 = šifra police)">🏷 Nalepnica police</button>`,
+    );
+    parts.push(
+      `<button type="button" class="btn" id="locBtnTpLabel" title="Štampa nalepnice za tehnološki postupak (RNZ / kratki barkod)">🏷 Nalepnica TP</button>`,
+    );
   }
   if (extra) parts.push(extra);
   return `<div class="loc-toolbar">${parts.join('')}</div>`;
@@ -110,7 +128,10 @@ function attachLocToolbar() {
     openNewLocationModal({ onSuccess: refreshLocPanel });
   });
   host.querySelector('#locBtnLabels')?.addEventListener('click', () => {
-    openShelfLabelsPrint();
+    openShelfLabelsPrintPicker();
+  });
+  host.querySelector('#locBtnTpLabel')?.addEventListener('click', () => {
+    openTechProcessLabelPrintModal();
   });
   const showInactiveCb = host.querySelector('#locBrowseShowInactive');
   if (showInactiveCb) {
@@ -169,13 +190,13 @@ function renderLocationsTableHtml(locs, canEditLocs) {
           return `<tr class="${inactiveCls}"><td class="loc-code-cell" style="padding-left:${pad}px">${escHtml(r.location_code || '')}</td><td>${escHtml(r.name || '')}</td><td>${escHtml(r.location_type || '')}</td><td class="loc-path">${escHtml(r.path_cached || '')}</td>${actions}</tr>`;
         })
         .join('')
-    : '';
+      : '';
   const headActions = canEditLocs ? '<th>Akcije</th>' : '';
   return `
     <div class="loc-table-wrap">
       <table class="loc-table">
         <thead><tr><th>Šifra</th><th>Naziv</th><th>Tip</th><th>Putanja</th>${headActions}</tr></thead>
-        <tbody>${rows || `<tr><td colspan="${colspan}" class="loc-muted">Nema lokacija. Unos master lokacija (admin/pm/leadpm) dolazi iz UI ili SQL.</td></tr>`}</tbody>
+        <tbody>${rows || `<tr><td colspan="${colspan}" class="loc-muted">Nema lokacija. Unos master lokacija (admin/LeadPM/PM/menadžment) dolazi iz UI ili SQL.</td></tr>`}</tbody>
       </table>
     </div>`;
 }
@@ -288,10 +309,17 @@ function attachItemsSearch() {
 }
 
 /**
- * HTML za paginator ispod items tabele.
- * @param {{ page: number, pageSize: number, total: number|null, loadedCount: number }} p
+ * HTML za paginator (items / report tab).
+ * @param {{ page: number, pageSize: number, total: number|null, loadedCount: number, idPrefix?: string, ariaLabel?: string }} p
  */
-function renderItemsPager({ page, pageSize, total, loadedCount }) {
+function renderLocPagerHtml({
+  page,
+  pageSize,
+  total,
+  loadedCount,
+  idPrefix = 'locItems',
+  ariaLabel = 'Paginacija',
+}) {
   const from = total === 0 ? 0 : page * pageSize + 1;
   const to = page * pageSize + loadedCount;
   const totalLabel = total == null ? '?' : String(total);
@@ -303,19 +331,24 @@ function renderItemsPager({ page, pageSize, total, loadedCount }) {
     .join('');
 
   return `
-    <div class="loc-pager" role="navigation" aria-label="Paginacija">
+    <div class="loc-pager" role="navigation" aria-label="${escHtml(ariaLabel)}">
       <div class="loc-pager-info">
         <span>${rangeLabel} od ${escHtml(totalLabel)}</span>
       </div>
       <div class="loc-pager-controls">
         <label class="loc-pager-size">
           <span>Po stranici:</span>
-          <select id="locItemsPageSize">${sizeOpts}</select>
+          <select id="${escHtml(idPrefix)}PageSize">${sizeOpts}</select>
         </label>
-        <button type="button" class="btn btn-xs" id="locItemsPrev" ${page === 0 ? 'disabled' : ''}>← Prethodna</button>
-        <button type="button" class="btn btn-xs" id="locItemsNext" ${isLast ? 'disabled' : ''}>Sledeća →</button>
+        <button type="button" class="btn btn-xs" id="${escHtml(idPrefix)}Prev" ${page === 0 ? 'disabled' : ''}>← Prethodna</button>
+        <button type="button" class="btn btn-xs" id="${escHtml(idPrefix)}Next" ${isLast ? 'disabled' : ''}>Sledeća →</button>
       </div>
     </div>`;
+}
+
+/** @param {Parameters<typeof renderLocPagerHtml>[0]} p */
+function renderItemsPager(p) {
+  return renderLocPagerHtml({ ...p, idPrefix: 'locItems', ariaLabel: 'Paginacija stavki' });
 }
 
 function attachItemsPager() {
@@ -587,7 +620,7 @@ async function renderPanel(host, tabId) {
            </ol>
          </div>`
       : isEmptyFirstRun
-        ? `<p class="loc-muted" style="padding:12px 0">Nema još master lokacija. Admin / PM mogu da ih dodaju.</p>`
+        ? `<p class="loc-muted" style="padding:12px 0">Nema još master lokacija. Korisnici sa ulogom za uređivanje mogu da ih dodaju (admin, LeadPM, PM, menadžment).</p>`
         : '';
 
     host.innerHTML = `
@@ -717,6 +750,150 @@ async function renderPanel(host, tabId) {
     attachItemsSearch();
     attachItemsPager();
     attachItemsExport();
+    return;
+  }
+
+  if (tabId === 'report') {
+    const ui = getLokacijeUiState();
+    const { reportFilters: rf, reportSort, reportSortDesc, reportPage, reportPageSize } = ui;
+    const offset = reportPage * reportPageSize;
+
+    const [repRes, locs] = await Promise.all([
+      fetchLocReportPartsByLocations({
+        drawingNo: rf.drawingNo,
+        orderNo: rf.orderNo,
+        tpNo: rf.tpNo,
+        projectSearch: rf.projectSearch,
+        locationId: rf.locationId || undefined,
+        locationQ: rf.locationQ,
+        sort: reportSort,
+        desc: reportSortDesc,
+        limit: reportPageSize,
+        offset,
+      }),
+      fetchLocations({ activeOnly: false }),
+    ]);
+
+    const locIdx = locationIndex(locs);
+    const total = repRes?.total ?? null;
+    const rows = repRes?.rows ?? null;
+    const err =
+      repRes === null
+        ? `<p class="loc-warn">Ne mogu da učitam pregled. Proveri da li je primenjena migracija <code>add_loc_report_by_locations_rpc.sql</code> i RLS prava.</p>`
+        : '';
+
+    const locOptions = (Array.isArray(locs) ? locs : [])
+      .sort((a, b) => (a.location_code || '').localeCompare(b.location_code || ''))
+      .map(
+        l =>
+          `<option value="${escHtml(l.id)}"${l.id === rf.locationId ? ' selected' : ''}>${escHtml(l.location_code || '')} — ${escHtml(l.name || '')}</option>`,
+      )
+      .join('');
+
+    const sortMark = col => {
+      if (reportSort !== col) return '';
+      return reportSortDesc ? ' ▼' : ' ▲';
+    };
+    const thSort = (col, label) =>
+      `<th><button type="button" class="btn btn-xs loc-sort-th${reportSort === col ? ' is-active' : ''}" data-report-sort="${escHtml(col)}">${escHtml(label)}${sortMark(col)}</button></th>`;
+
+    const bodyRows = Array.isArray(rows)
+      ? rows
+          .map(r => {
+            const rawTbl = String(r.item_ref_table || '');
+            const rawIid = String(r.item_ref_id || '');
+            const rawOrd = String(r.order_no || '');
+            const rawDr = String(r.drawing_no || '');
+            const tbl = escHtml(rawTbl);
+            const iid = escHtml(rawIid);
+            const ord = escHtml(rawOrd);
+            const locCell = r.location_code
+              ? `<strong>${escHtml(r.location_code)}</strong><span class="loc-muted"> · ${escHtml(r.location_name || '')}</span>`
+              : formatLocBrief(r.location_id, locIdx);
+            const proj = [r.project_code, r.project_name].filter(Boolean).join(' — ');
+            return `<tr class="loc-row-click" title="Klik za istoriju"
+              data-rep-item-table="${tbl}" data-rep-item-id="${iid}" data-rep-order="${ord}" data-rep-drawing="${escHtml(rawDr)}">
+              <td>${escHtml(proj || '—')}</td>
+              <td>${escHtml(String(r.customer_name || '—'))}</td>
+              <td>${rawOrd ? `<strong>${ord}</strong>` : '<span class="loc-muted">—</span>'}</td>
+              <td>${escHtml(String(r.drawing_no || '—'))}</td>
+              <td>${iid}</td>
+              <td>${locCell}</td>
+              <td class="loc-muted">${escHtml(String(r.shelf_note || '').slice(0, 40))}</td>
+              <td class="loc-qty-cell">${escHtml(String(r.qty_on_location ?? ''))}</td>
+              <td class="loc-qty-cell">${escHtml(String(r.qty_total_for_bucket ?? ''))}</td>
+              <td>${escHtml(String(r.placement_status || ''))}</td>
+              <td>${escHtml(String((r.last_moved_at || r.updated_at || '').replace('T', ' ').slice(0, 19)))}</td>
+              <td class="loc-actions-cell">
+                <button type="button" class="btn btn-xs" data-rep-print-tp title="Nalepnica TP (barkod)">TP</button>
+              </td>
+            </tr>`;
+          })
+          .join('')
+      : '';
+
+    const pagerHtml = renderLocPagerHtml({
+      page: reportPage,
+      pageSize: reportPageSize,
+      total,
+      loadedCount: Array.isArray(rows) ? rows.length : 0,
+      idPrefix: 'locRep',
+      ariaLabel: 'Paginacija pregleda',
+    });
+
+    host.innerHTML = `
+      <div class="kadr-panel active loc-panel">
+        ${err}
+        ${locToolbarHtml({ extra: '' })}
+        <div class="loc-history-filters" role="group" aria-label="Filteri pregleda po lokacijama">
+          <label class="loc-filter-field"><span>Broj crteža</span>
+            <input type="text" id="locRepDraw" class="loc-search-input" value="${escHtml(rf.drawingNo)}" maxlength="40" />
+          </label>
+          <label class="loc-filter-field"><span>Broj RN</span>
+            <input type="text" id="locRepOrder" class="loc-search-input" value="${escHtml(rf.orderNo)}" maxlength="40" />
+          </label>
+          <label class="loc-filter-field"><span>Broj TP</span>
+            <input type="text" id="locRepTp" class="loc-search-input" value="${escHtml(rf.tpNo)}" maxlength="12" inputmode="numeric" />
+          </label>
+          <label class="loc-filter-field"><span>Predmet / projekat</span>
+            <input type="search" id="locRepProj" class="loc-search-input" value="${escHtml(rf.projectSearch)}" placeholder="Kod ili naziv…" />
+          </label>
+          <label class="loc-filter-field"><span>Lokacija (master)</span>
+            <select id="locRepLoc" class="loc-search-input"><option value="">Sve</option>${locOptions}</select>
+          </label>
+          <label class="loc-filter-field"><span>Pretraga police</span>
+            <input type="search" id="locRepLocQ" class="loc-search-input" value="${escHtml(rf.locationQ)}" placeholder="Šifra ili naziv…" />
+          </label>
+          <div class="loc-filter-actions">
+            <button type="button" class="btn btn-xs" id="locRepApply">Primeni filtere</button>
+            <button type="button" class="btn btn-xs" id="locRepReset">Resetuj</button>
+            <button type="button" class="btn btn-xs" id="locRepExport" title="CSV trenutnog skupa filtera">Export CSV</button>
+          </div>
+        </div>
+        <p class="loc-muted">Klik na red otvara istoriju. „TP“ štampa nalepnicu ako postoji prepoznatljiv barkod za red.</p>
+        <div class="loc-table-wrap">
+          <table class="loc-table">
+            <thead><tr>
+              ${thSort('project_code', 'Predmet')}
+              ${thSort('customer_name', 'Kupac')}
+              ${thSort('order_no', 'RN')}
+              ${thSort('drawing_no', 'Crtež')}
+              ${thSort('item_ref_id', 'TP / ref')}
+              ${thSort('location_code', 'Lokacija')}
+              <th>Opis police</th>
+              ${thSort('qty_on_location', 'Kol. lok.')}
+              <th>Ukupno</th>
+              <th>Status</th>
+              ${thSort('updated_at', 'Posl. izmena')}
+              <th>Akcije</th>
+            </tr></thead>
+            <tbody>${bodyRows || '<tr><td colspan="12" class="loc-muted">Nema redova za zadate filtere.</td></tr>'}</tbody>
+          </table>
+        </div>
+        ${pagerHtml}
+      </div>`;
+    attachLocToolbar();
+    attachReportTabHandlers(locs);
     return;
   }
 
