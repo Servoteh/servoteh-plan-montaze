@@ -37,6 +37,7 @@ import {
   fetchSyncOutboundEvents,
   fetchLocReportPartsByLocations,
   fetchAllLocReportPartsByLocations,
+  fetchBridgeSyncStatus,
 } from '../../services/lokacije.js';
 import { loadUsersFromDb } from '../../services/users.js';
 import { hasSupabaseConfig } from '../../services/supabase.js';
@@ -54,6 +55,8 @@ import {
   printTechProcessLabelWindow,
   barcodeForPlacementRow,
 } from './labelsPrint.js';
+import { openWorkOrderLookupModal, openItemLookupModal } from './lookupModals.js';
+import { openTechProcedureModal } from '../planProizvodnje/techProcedureModal.js';
 
 /* Jeftina provera može li kamera — bez uvoza barcode modula (koji vuče ZXing).
  * Barcode.js ima istu logiku; držimo je singleton-level za bundle splitting. */
@@ -92,6 +95,52 @@ let showInactiveLocations = false;
 /** @type {'table'|'tree'} */
 let browseViewMode = 'table';
 
+/**
+ * Banner upozorenje ako su BigTehn cache tabele zastarele.
+ * Prag je 24h za work_orders/lines/tech_routing (sync na 15min) i 7 dana za
+ * drawings (foto-sinhronizacija je rede). Ako je sve sveže — vraća prazan string.
+ *
+ * @param {Array<{ sync_job: string, last_finished: string }>} statusList
+ */
+function renderBridgeStaleBanner(statusList) {
+  if (!Array.isArray(statusList) || !statusList.length) return '';
+  const now = Date.now();
+  const thresholds = {
+    production_work_orders: 6 * 3600 * 1000,
+    production_work_order_lines: 6 * 3600 * 1000,
+    production_tech_routing: 6 * 3600 * 1000,
+    catalog_items: 36 * 3600 * 1000,
+    production_bigtehn_drawings: 7 * 24 * 3600 * 1000,
+  };
+  const labels = {
+    production_work_orders: 'Radni nalozi',
+    production_work_order_lines: 'Linije RN',
+    production_tech_routing: 'Tehnološki postupci',
+    catalog_items: 'Predmeti',
+    production_bigtehn_drawings: 'Crteži (PDF)',
+  };
+  const stale = [];
+  for (const it of statusList) {
+    const limit = thresholds[it.sync_job];
+    if (!limit) continue;
+    const t = it.last_finished ? Date.parse(it.last_finished) : NaN;
+    if (!Number.isFinite(t)) continue;
+    const ageMs = now - t;
+    if (ageMs > limit) {
+      const days = Math.round(ageMs / (24 * 3600 * 1000));
+      const hours = Math.round(ageMs / (3600 * 1000));
+      const ageStr = days >= 1 ? `${days} dan${days === 1 ? '' : 'a'}` : `${hours} h`;
+      stale.push(`<li><strong>${escHtml(labels[it.sync_job])}</strong> — poslednji sync pre ${escHtml(ageStr)}</li>`);
+    }
+  }
+  if (!stale.length) return '';
+  return `
+    <div class="loc-warn" role="status" aria-live="polite" style="margin:8px 0">
+      <div><strong>BRIDGE sync upozorenje</strong> — neki BigTehn cache nije svež. Pretrage RN/TP/predmeta i kolone u „Pregled” oslanjaju se na ove tabele.</div>
+      <ul style="margin:6px 0 0 18px">${stale.join('')}</ul>
+    </div>`;
+}
+
 function locToolbarHtml({ extra = '' } = {}) {
   const parts = [];
   if (canUseCamera()) {
@@ -101,6 +150,12 @@ function locToolbarHtml({ extra = '' } = {}) {
   }
   parts.push(
     `<button type="button" class="btn" id="locBtnQuickMove">Brzo premeštanje</button>`,
+  );
+  parts.push(
+    `<button type="button" class="btn" id="locBtnLookupRn" title="Pretraga BigTehn radnih naloga (po crtežu, ident_broju, nazivu)">🔎 Crtež / RN</button>`,
+  );
+  parts.push(
+    `<button type="button" class="btn" id="locBtnLookupItem" title="Pretraga BigTehn predmeta">🔎 Predmet</button>`,
   );
   if (canEdit()) {
     parts.push(`<button type="button" class="btn" id="locBtnNewLoc">Nova lokacija</button>`);
@@ -132,6 +187,12 @@ function attachLocToolbar() {
   });
   host.querySelector('#locBtnTpLabel')?.addEventListener('click', () => {
     openTechProcessLabelPrintModal();
+  });
+  host.querySelector('#locBtnLookupRn')?.addEventListener('click', () => {
+    openWorkOrderLookupModal();
+  });
+  host.querySelector('#locBtnLookupItem')?.addEventListener('click', () => {
+    openItemLookupModal();
   });
   const showInactiveCb = host.querySelector('#locBrowseShowInactive');
   if (showInactiveCb) {
@@ -353,6 +414,16 @@ function attachReportTabHandlers() {
     });
   });
 
+  host.querySelectorAll('[data-rep-open-tp]').forEach(btn => {
+    btn.addEventListener('click', ev => {
+      ev.stopPropagation();
+      const id = Number(btn.getAttribute('data-wo-id'));
+      if (Number.isFinite(id)) {
+        void openTechProcedureModal({ work_order_id: id });
+      }
+    });
+  });
+
   host.querySelectorAll('[data-rep-print-tp]').forEach(btn => {
     btn.addEventListener('click', ev => {
       ev.stopPropagation();
@@ -419,6 +490,14 @@ function attachReportTabHandlers() {
           'Kupac',
           'RN',
           'Crtež',
+          'Naziv dela',
+          'Materijal',
+          'Dimenzija materijala',
+          'Komada (RN)',
+          'Težina obr (kg)',
+          'Revizija',
+          'Status RN',
+          'Rok izrade',
           'TP ref',
           'Tabela',
           'Lokacija šifra',
@@ -427,7 +506,7 @@ function attachReportTabHandlers() {
           'Opis police',
           'Kol lok',
           'Ukupno bucket',
-          'Status',
+          'Status placement',
           'Poslednje',
         ];
         const data = rows.map(r => [
@@ -435,7 +514,15 @@ function attachReportTabHandlers() {
           r.project_name || '',
           r.customer_name || '',
           r.order_no || '',
-          r.drawing_no || '',
+          r.drawing_no || r.wo_broj_crteza || '',
+          r.naziv_dela || '',
+          r.materijal || '',
+          r.dimenzija_materijala || '',
+          r.komada_rn ?? '',
+          r.tezina_obr ?? '',
+          r.revizija || '',
+          r.status_rn === true ? 'Zatvoren' : r.status_rn === false ? 'Otvoren' : '',
+          r.rok_izrade ? String(r.rok_izrade).slice(0, 10) : '',
           r.item_ref_id || '',
           r.item_ref_table || '',
           r.location_code || '',
@@ -765,10 +852,11 @@ async function renderPanel(host, tabId) {
   }
 
   if (tabId === 'dashboard') {
-    const [locs, plac, movs] = await Promise.all([
+    const [locs, plac, movs, syncStatus] = await Promise.all([
       fetchLocations(),
       fetchPlacements({ limit: 500 }),
       fetchRecentMovements(20),
+      fetchBridgeSyncStatus().catch(() => []),
     ]);
     const locN = Array.isArray(locs) ? locs.length : '—';
     const plN = Array.isArray(plac) ? plac.length : '—';
@@ -806,10 +894,13 @@ async function renderPanel(host, tabId) {
         ? `<p class="loc-muted" style="padding:12px 0">Nema još master lokacija. Korisnici sa ulogom za uređivanje mogu da ih dodaju (admin, LeadPM, PM, menadžment).</p>`
         : '';
 
+    const bridgeBanner = renderBridgeStaleBanner(syncStatus);
+
     host.innerHTML = `
       <div class="kadr-panel active loc-panel">
         ${err}
         ${locToolbarHtml()}
+        ${bridgeBanner}
         ${firstRunHtml}
         <div class="loc-kpi-row">
           <div class="loc-kpi"><span class="loc-kpi-label">Aktivnih lokacija</span><span class="loc-kpi-val">${escHtml(String(locN))}</span></div>
@@ -910,7 +1001,7 @@ async function renderPanel(host, tabId) {
       : `<span class="loc-muted loc-filter-hint">Pretraga ide na server, sortirana po poslednjoj izmeni.</span>`;
     const searchHtml = `
       <div class="loc-search loc-items-search">
-        <input type="search" id="locItemsSearch" class="loc-search-input" placeholder="Pretraga po ID-ju stavke ili tabeli (ceo skup)…" value="${escHtml(search)}" autocomplete="off" />
+        <input type="search" id="locItemsSearch" class="loc-search-input" placeholder="Pretraga: crtež · ID stavke · nalog · tabela (ceo skup)…" value="${escHtml(search)}" autocomplete="off" />
         <button type="button" class="btn btn-xs" id="locItemsExport" title="Preuzmi CSV koji odgovara trenutnoj pretrazi">Export CSV</button>
         ${searchHint}
       </div>`;
@@ -994,20 +1085,35 @@ async function renderPanel(host, tabId) {
               ? `<strong>${escHtml(r.location_code)}</strong><span class="loc-muted"> · ${escHtml(r.location_name || '')}</span>`
               : formatLocBrief(r.location_id, locIdx);
             const proj = [r.project_code, r.project_name].filter(Boolean).join(' — ');
+            const woId = r.work_order_id != null ? String(r.work_order_id) : '';
+            const naziv = String(r.naziv_dela || '').slice(0, 40);
+            const matCell = [r.materijal, r.dimenzija_materijala]
+              .filter(s => s != null && String(s).trim() !== '')
+              .join(' · ');
+            const rok = r.rok_izrade
+              ? String(r.rok_izrade).slice(0, 10)
+              : '';
+            const tezina = r.tezina_obr != null && Number(r.tezina_obr) > 0
+              ? Number(r.tezina_obr).toFixed(2)
+              : '';
+            const detailsBtn = woId
+              ? `<button type="button" class="btn btn-xs" data-rep-open-tp data-wo-id="${escHtml(woId)}" title="Otvori tehnološki postupak (operacije + prijave)">📋 RN/TP</button>`
+              : '';
             return `<tr class="loc-row-click" title="Klik za istoriju"
               data-rep-item-table="${tbl}" data-rep-item-id="${iid}" data-rep-order="${ord}" data-rep-drawing="${escHtml(rawDr)}">
               <td>${escHtml(proj || '—')}</td>
               <td>${escHtml(String(r.customer_name || '—'))}</td>
               <td>${rawOrd ? `<strong>${ord}</strong>` : '<span class="loc-muted">—</span>'}</td>
-              <td>${escHtml(String(r.drawing_no || '—'))}</td>
+              <td>${escHtml(String(r.drawing_no || r.wo_broj_crteza || '—'))}${naziv ? `<br><span class="loc-muted">${escHtml(naziv)}</span>` : ''}</td>
               <td>${iid}</td>
               <td>${locCell}</td>
-              <td class="loc-muted">${escHtml(String(r.shelf_note || '').slice(0, 40))}</td>
+              <td class="loc-muted">${escHtml(matCell)}${tezina ? `<br><span class="loc-muted">${tezina} kg</span>` : ''}</td>
               <td class="loc-qty-cell">${escHtml(String(r.qty_on_location ?? ''))}</td>
               <td class="loc-qty-cell">${escHtml(String(r.qty_total_for_bucket ?? ''))}</td>
               <td>${escHtml(String(r.placement_status || ''))}</td>
-              <td>${escHtml(String((r.last_moved_at || r.updated_at || '').replace('T', ' ').slice(0, 19)))}</td>
+              <td>${escHtml(rok)}</td>
               <td class="loc-actions-cell">
+                ${detailsBtn}
                 <button type="button" class="btn btn-xs" data-rep-print-tp title="Nalepnica TP (barkod)">TP</button>
               </td>
             </tr>`;
@@ -1053,21 +1159,21 @@ async function renderPanel(host, tabId) {
             <button type="button" class="btn btn-xs" id="locRepExport" title="CSV trenutnog skupa filtera">Export CSV</button>
           </div>
         </div>
-        <p class="loc-muted">Klik na red otvara istoriju. „TP“ štampa nalepnicu ako postoji prepoznatljiv barkod za red.</p>
+        <p class="loc-muted">Klik na red otvara istoriju. „📋 RN/TP“ otvara tehnološki postupak (operacije + prijave) iz BigTehn cache-a. „TP“ štampa nalepnicu ako postoji prepoznatljiv barkod.</p>
         <div class="loc-table-wrap">
           <table class="loc-table">
             <thead><tr>
               ${thSort('project_code', 'Predmet')}
               ${thSort('customer_name', 'Kupac')}
               ${thSort('order_no', 'RN')}
-              ${thSort('drawing_no', 'Crtež')}
+              ${thSort('drawing_no', 'Crtež / naziv')}
               ${thSort('item_ref_id', 'TP / ref')}
               ${thSort('location_code', 'Lokacija')}
-              <th>Opis police</th>
+              <th>Materijal · dimenzija</th>
               ${thSort('qty_on_location', 'Kol. lok.')}
               <th>Ukupno</th>
               <th>Status</th>
-              ${thSort('updated_at', 'Posl. izmena')}
+              ${thSort('rok_izrade', 'Rok')}
               <th>Akcije</th>
             </tr></thead>
             <tbody>${bodyRows || '<tr><td colspan="12" class="loc-muted">Nema redova za zadate filtere.</td></tr>'}</tbody>

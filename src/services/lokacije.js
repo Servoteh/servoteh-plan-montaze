@@ -53,11 +53,14 @@ export async function fetchPlacements({
 
   const s = typeof search === 'string' ? search.trim() : '';
   if (s) {
-    /* PostgREST `or=(cond,cond)` — item_ref_id/item_ref_table/order_no su TEXT.
+    /* PostgREST `or=(cond,cond)` — item_ref_id/item_ref_table/order_no/drawing_no su TEXT.
+     * `drawing_no` (v4) je first-class kolona, pa je pretraga po crtežu direktna.
      * Wildcards * postaju % na server-u. URI-encode radi zbog , : . koji su PostgREST separatori. */
     const needle = `*${s}*`;
     const enc = encodeURIComponent(needle);
-    parts.push(`or=(item_ref_id.ilike.${enc},item_ref_table.ilike.${enc},order_no.ilike.${enc})`);
+    parts.push(
+      `or=(item_ref_id.ilike.${enc},item_ref_table.ilike.${enc},order_no.ilike.${enc},drawing_no.ilike.${enc})`,
+    );
   }
 
   if (locationId && typeof locationId === 'string') {
@@ -399,6 +402,7 @@ const LOC_REPORT_SORT_WHITELIST = new Set([
   'customer_name',
   'project_code',
   'item_ref_id',
+  'rok_izrade',
 ]);
 
 /**
@@ -490,6 +494,81 @@ export async function fetchAllLocReportPartsByLocations(filters = {}, opts = {})
   }
 
   return { rows: all, total, truncated };
+}
+
+/**
+ * BigTehn lookup helper — pretraga radnih naloga po broju crteža/RN/nazivu.
+ * Čisto read-only nad `bigtehn_work_orders_cache` (RLS na tabeli pušta sve
+ * autentifikovane korisnike — koristi se i u Plan Proizvodnje).
+ *
+ * @param {string} q  bilo koji od: deo broja crteža, ident_broj, naziv dela
+ * @param {number} [limit=50]
+ * @returns {Promise<object[]>}
+ */
+export async function searchBigtehnWorkOrders(q, limit = 50) {
+  const s = typeof q === 'string' ? q.trim() : '';
+  if (!s) return [];
+  const lim = Math.max(1, Math.min(Number(limit) || 50, 200));
+  const enc = encodeURIComponent(`*${s}*`);
+  const sel =
+    'id,ident_broj,broj_crteza,naziv_dela,materijal,dimenzija_materijala,komada,tezina_obr,status_rn,revizija,rok_izrade,customer_id';
+  const path =
+    `bigtehn_work_orders_cache?select=${sel}` +
+    `&or=(broj_crteza.ilike.${enc},ident_broj.ilike.${enc},naziv_dela.ilike.${enc})` +
+    `&order=modified_at.desc&limit=${lim}`;
+  const rows = await sbReq(path);
+  return Array.isArray(rows) ? rows : [];
+}
+
+/**
+ * BigTehn lookup helper — pretraga predmeta (`bigtehn_items_cache`).
+ *
+ * @param {string} q  deo broja predmeta ili naziva
+ * @param {number} [limit=50]
+ * @returns {Promise<object[]>}
+ */
+export async function searchBigtehnItems(q, limit = 50) {
+  const s = typeof q === 'string' ? q.trim() : '';
+  if (!s) return [];
+  const lim = Math.max(1, Math.min(Number(limit) || 50, 200));
+  const enc = encodeURIComponent(`*${s}*`);
+  const sel =
+    'id,broj_predmeta,naziv_predmeta,opis,status,department_code,broj_ugovora,broj_narudzbenice,rok_zavrsetka,modified_at';
+  const path =
+    `bigtehn_items_cache?select=${sel}` +
+    `&or=(broj_predmeta.ilike.${enc},naziv_predmeta.ilike.${enc},broj_ugovora.ilike.${enc},broj_narudzbenice.ilike.${enc})` +
+    `&order=modified_at.desc&limit=${lim}`;
+  const rows = await sbReq(path);
+  return Array.isArray(rows) ? rows : [];
+}
+
+/**
+ * Vraća `last_finished` po BRIDGE sync job-u — koristi se za banner upozorenja
+ * (npr. „bigtehn_drawings_cache je star X dana”). Read-only nad `bridge_sync_log`,
+ * koji je dostupan svim ulogovanim korisnicima.
+ *
+ * @returns {Promise<Array<{ sync_job: string, last_finished: string, status: string }>>}
+ */
+export async function fetchBridgeSyncStatus() {
+  /* PostgREST nema GROUP BY direktno — uzimamo poslednjih 200 redova i agregiramo
+   * na klijentu. Bridge job-ovi se ponavljaju često (svakih 15 min), 200 je
+   * pokriva za svih 16 job-ova. */
+  const rows = await sbReq(
+    `bridge_sync_log?select=sync_job,finished_at,status&order=finished_at.desc&limit=200`,
+  );
+  if (!Array.isArray(rows)) return [];
+  const seen = new Map();
+  for (const r of rows) {
+    if (!r || !r.sync_job) continue;
+    if (!seen.has(r.sync_job)) {
+      seen.set(r.sync_job, {
+        sync_job: r.sync_job,
+        last_finished: r.finished_at,
+        status: r.status,
+      });
+    }
+  }
+  return Array.from(seen.values());
 }
 
 /**
