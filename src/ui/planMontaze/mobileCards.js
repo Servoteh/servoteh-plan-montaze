@@ -225,22 +225,19 @@ function _mobileCardHtml(row, i) {
   const hasDesc = !!(row.description && row.description.trim());
   const hasModel = !!getPhaseModel(row.id);
 
-  /* „Veza sa“ — povezani crteži (linked_drawings) */
+  /* „Veza sa“ — povezani crteži (linked_drawings).
+     Renderuju se kao chip-ovi (📄 broj) UNUTAR `m-card-name-meta` reda
+     (zajedno sa M/E + opis + 3D), kako bismo skratili vertikalu kartice. */
   const linkedNos = Array.isArray(row.linkedDrawings) ? row.linkedDrawings : [];
   const linkedCount = linkedNos.length;
-  const linksHtml = linkedCount
-    ? linkedNos.map(no => `<a class="m-linked-no" data-stop data-mlinked-no="${escHtml(no)}" href="#" title="Otvori PDF u novom tabu">${escHtml(no)}</a>`).join(', ')
-    : '<span class="m-linked-empty">—</span>';
-  const editBtnHtml = _edit
-    ? `<button type="button" class="m-linked-edit" data-stop data-mrow-action="linked" data-ri="${i}" title="${linkedCount ? 'Izmeni listu crteža' : 'Dodaj povezane crteže'}">${linkedCount ? '✏️' : '＋'}</button>`
-    : '';
-  const linkedRowHtml = `
-    <div class="m-card-linked" data-stop>
-      <span class="m-linked-label">🔗 Veza sa:</span>
-      <span class="m-linked-list">${linksHtml}</span>
-      ${editBtnHtml}
-    </div>
-  `;
+  const linkedChipsHtml = linkedNos.map(no => `
+    <button type="button" class="phase-linked-chip" data-stop data-mlinked-no="${escHtml(no)}" title="Otvori PDF crteža u novom tabu">
+      <span class="plc-ic">📄</span><span class="plc-no">${escHtml(no)}</span>
+    </button>
+  `).join('');
+  const linkedManageHtml = linkedCount
+    ? (_edit ? `<button type="button" class="row-btn btn-linked-manage" data-stop data-mrow-action="linked" data-ri="${i}" title="Izmeni listu crteža">✏️</button>` : '')
+    : (_edit ? `<button type="button" class="row-btn btn-linked" data-stop data-mrow-action="linked" data-ri="${i}" title="Dodaj povezane crteže"><span class="rb-ic">🔗</span>＋ Veza sa</button>` : '');
 
   /* Lokacija/person opcije */
   const locOpts = _locationOptionsHtml(row.loc);
@@ -280,6 +277,8 @@ function _mobileCardHtml(row, i) {
               <span class="pdb-ic">📝</span> opis
             </button>
             <button type="button" class="row-btn btn-3d${hasModel ? ' has-model' : ''}" data-stop data-mrow-action="model" data-ri="${i}" title="${hasModel ? '3D model dodeljen' : '3D model'}">🧩 3D</button>
+            ${linkedChipsHtml}
+            ${linkedManageHtml}
           </div>
           <div style="font-size:10px;color:var(--text3);margin-top:4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
             <span class="loc-chip" style="border-color:${locColor};color:${locColor};background:${locColor}22">
@@ -291,7 +290,6 @@ function _mobileCardHtml(row, i) {
         </div>
         <div class="m-card-badges">${rI} ${rB}</div>
       </div>
-      ${linkedRowHtml}
       <div class="m-card-row" data-mcard-toggle>
         <div class="m-card-field"><span class="m-lbl">Poč:</span> ${formatDate(row.start) || '—'}</div>
         <div class="m-card-field"><span class="m-lbl">Kraj:</span> ${formatDate(row.end) || '—'}</div>

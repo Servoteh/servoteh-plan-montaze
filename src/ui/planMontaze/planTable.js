@@ -335,7 +335,7 @@ function _planRowHtml(row, i) {
           ${remDot}
           <input class="phase-name-input" type="text" value="${escHtml(row.name)}" data-field="name" ${dis}>
         </div>
-        <div class="phase-meta-row">
+        <div class="phase-meta-row" aria-label="Akcije i povezani crteži">
           <button type="button" class="phase-type-chip ${ptCls}" data-toggle-type="${i}" title="${ptTitle}" ${dis}>
             <span class="pt-ic">${ptIc}</span>${ptLbl}
           </button>
@@ -343,13 +343,9 @@ function _planRowHtml(row, i) {
             <span class="pdb-ic">📝</span><span class="pdb-lbl">opis</span>
           </button>
           <button type="button" class="row-btn btn-3d ${getPhaseModel(row.id) ? 'has-model' : ''}" data-row-action="model" data-ri="${i}" title="${getPhaseModel(row.id) ? '3D: ' + escHtml(getPhaseModel(row.id).name || 'model dodeljen') : '3D model (nema)'}">🧩 3D</button>
-        </div>
-        ${(linkedHasAny || canEdit()) ? `
-        <div class="phase-linked-row" aria-label="Povezani crteži">
-          ${linkedHasAny ? '<span class="phase-linked-label">🔗 Crteži:</span>' : ''}
           ${linkedChipsHtml}
           ${linkedManageHtml}
-        </div>` : ''}
+        </div>
       </td>
       <td class="td-loc">
         <select class="loc-select" data-field="loc" style="border-left:3px solid ${locColor}" ${dis}>${locOpts}</select>

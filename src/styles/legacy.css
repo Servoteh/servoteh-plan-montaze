@@ -3539,23 +3539,22 @@ body.pdf-export .tg-wp-filter { display: none !important; }
   color: var(--accent);
 }
 
-/* Red sa chip-ovima ispod phase-meta-row (svaki chip = klikabilan PDF link) */
-.phase-linked-row {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-wrap: wrap;
-  margin-top: 4px;
-  padding-top: 4px;
-  border-top: 1px dashed var(--border);
+/* Chip-ovi povezanih crteža sada žive UNUTAR `phase-meta-row` (zajedno sa
+   M/E + opis + 3D), kako bi se smanjila visina reda. Prvi chip/dugme za
+   crteže dobija subtle border-left kao separator od akcionih dugmadi. */
+.phase-meta-row .phase-linked-chip:first-of-type,
+.phase-meta-row .row-btn.btn-linked,
+.phase-meta-row .row-btn.btn-linked-manage {
+  margin-left: 4px;
+  padding-left: 8px;
+  border-left: 1px solid var(--border);
+  border-radius: 6px;
 }
-.phase-linked-row .phase-linked-label {
-  font-size: 9px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text3);
-  margin-right: 2px;
+/* Kada postoji više chip-ova, samo prvi nosi separator (border-left/padding). */
+.phase-meta-row .phase-linked-chip:not(:first-of-type) {
+  margin-left: 0;
+  padding-left: 8px;
+  border-left: 1px solid transparent;
 }
 .phase-linked-chip {
   display: inline-flex;
@@ -3592,58 +3591,10 @@ body.pdf-export .tg-wp-filter { display: none !important; }
   color: #b6e7c4;
 }
 
-/* Mobile card: red sa povezanim crtežima ispod chipova */
-.m-card-linked {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  padding: 4px 0 6px;
-  font-size: 11px;
-  color: var(--text2);
-  border-top: 1px dashed var(--border);
-  margin-top: 4px;
-}
-.m-card-linked .m-linked-label {
-  font-weight: 600;
-  color: var(--text3);
-  text-transform: uppercase;
-  font-size: 10px;
-  letter-spacing: 0.02em;
-}
-.m-card-linked .m-linked-list {
-  flex: 1;
-  min-width: 0;
-  word-break: break-word;
-}
-.m-card-linked .m-linked-no {
-  color: var(--accent);
-  text-decoration: none;
-  border-bottom: 1px dotted color-mix(in srgb, var(--accent) 60%, transparent);
-  padding: 0 1px;
-}
-.m-card-linked .m-linked-no:hover {
-  color: var(--text);
-  border-bottom-color: var(--accent);
-}
-.m-card-linked .m-linked-empty {
-  color: var(--text3);
-  font-style: italic;
-}
-.m-card-linked .m-linked-edit {
-  background: var(--surface2);
-  border: 1px solid var(--border2);
-  color: var(--text2);
-  border-radius: 6px;
-  font-size: 11px;
-  padding: 2px 7px;
-  cursor: pointer;
-  line-height: 1.4;
-}
-.m-card-linked .m-linked-edit:hover {
-  background: var(--surface3);
-  color: var(--text);
-}
+/* `.m-card-linked` blok je uklonjen — chip-ovi povezanih crteža sada idu
+   UNUTAR `m-card-name-meta` reda (zajedno sa M/E + opis + 3D), čime se
+   smanjuje visina kartice. Stilovi za chip-ove dele se sa desktop verzijom
+   (`.phase-linked-chip`). */
 
 /* Linked Drawings dialog (linkedDrawingsDialog.js) */
 .modal-panel.ld-panel {
