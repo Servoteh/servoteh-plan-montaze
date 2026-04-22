@@ -87,9 +87,11 @@
   white-space: nowrap;
 }
 .pp-table tbody td {
-  padding: 8px;
+  padding: 4px 8px;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
+  font-size: 12px;
+  line-height: 1.35;
 }
 .pp-table tbody tr:hover { background: var(--surface2); }
 .pp-table tbody tr.is-non-machining td {
@@ -106,6 +108,7 @@
 .pp-cell-center { text-align: center; }
 .pp-cell-strong { font-weight: 700; }
 .pp-cell-muted  { color: var(--text2); }
+.pp-cell-sep    { color: var(--text3); margin: 0 3px; opacity: 0.6; }
 .pp-cell-clip {
   max-width: 280px;
   overflow: hidden;
@@ -149,11 +152,12 @@
 .pp-rok {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  border-radius: 6px;
+  gap: 4px;
+  padding: 1px 6px;
+  border-radius: 5px;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 11px;
+  line-height: 1.4;
   border: 1px solid transparent;
   white-space: nowrap;
 }
@@ -183,27 +187,27 @@
 .pp-table tbody tr.is-urgent-today {
   border-left-color: #f97316 !important;
 }
-/* ⚠ ikona u koloni Priority */
-.pp-table tbody tr.is-urgent td:nth-child(2) {
-  position: relative;
-}
-.pp-table tbody tr.is-urgent td:nth-child(2)::before {
-  content: '⚠';
-  position: absolute;
-  left: 2px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #fca5a5;
-  font-size: 14px;
+/* ⚠ badge u koloni Priority — pravi DOM <span> sa title atributom (tooltip).
+   Ranije je bio CSS ::before pseudoelement, što je sprečavalo prikaz tooltip-a. */
+.pp-urgent-badge {
+  display: inline-block;
+  margin-right: 4px;
+  font-size: 13px;
+  line-height: 1;
+  cursor: help;
   text-shadow: 0 0 4px rgba(239, 68, 68, 0.6);
+  vertical-align: middle;
 }
-.pp-table tbody tr.is-urgent-overdue td:nth-child(2)::before {
+.pp-urgent-badge.pp-urgent-overdue {
   color: #f87171;
   animation: pulseUrgent 2s ease-in-out infinite;
 }
+.pp-urgent-badge.pp-urgent-today {
+  color: #fdba74;
+}
 @keyframes pulseUrgent {
-  0%, 100% { opacity: 0.7; }
-  50%      { opacity: 1; transform: translateY(-50%) scale(1.15); }
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50%      { opacity: 1; transform: scale(1.18); }
 }
 /* RN broj u hitnim redovima — bold + crven */
 .pp-table tbody tr.is-urgent-overdue td:nth-child(3) {
@@ -215,16 +219,17 @@
 .pp-status {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
+  gap: 4px;
+  padding: 2px 8px;
   border-radius: 999px;
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 600;
   border: 1px solid transparent;
   cursor: pointer;
   text-transform: uppercase;
   letter-spacing: 0.3px;
   white-space: nowrap;
+  line-height: 1.4;
   transition: filter .12s ease;
 }
 .pp-status:hover { filter: brightness(1.1); }
@@ -258,16 +263,16 @@
 /* Inline napomena (textarea u tabeli) */
 .pp-note-input {
   width: 100%;
-  min-height: 30px;
+  min-height: 22px;
   resize: vertical;
   background: var(--surface2);
   border: 1px solid var(--border2);
   color: var(--text);
   border-radius: 6px;
-  padding: 5px 7px;
+  padding: 2px 6px;
   font: inherit;
-  font-size: 12px;
-  line-height: 1.4;
+  font-size: 11px;
+  line-height: 1.35;
   outline: none;
   transition: border-color .12s ease;
 }
@@ -589,13 +594,14 @@
 .pp-drawings-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
+  gap: 3px;
+  padding: 1px 6px;
   background: transparent;
   border: 1px dashed var(--border2);
   color: var(--text2);
-  border-radius: 6px;
-  font-size: 12px;
+  border-radius: 5px;
+  font-size: 11px;
+  line-height: 1.4;
   cursor: pointer;
   transition: all 0.15s;
   font-variant-numeric: tabular-nums;
@@ -619,14 +625,15 @@
 .pp-bigtehn-drawing-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
+  gap: 3px;
+  padding: 1px 6px;
   background: color-mix(in srgb, #fbbf24 12%, transparent);
   border: 1px solid color-mix(in srgb, #fbbf24 40%, transparent);
   color: #fbbf24;
-  border-radius: 6px;
-  font-size: 12px;
+  border-radius: 5px;
+  font-size: 11px;
   font-weight: 600;
+  line-height: 1.4;
   cursor: pointer;
   font-variant-numeric: tabular-nums;
   transition: all 0.15s;
@@ -1145,4 +1152,76 @@
   color: #86efac;
   font-weight: 700;
   font-size: 10.5px;
+}
+
+/* Inline PDF crtež ispod tabele operacija (Sprint F.5d) */
+.tpm-pdf-section {
+  margin-top: 18px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+.tpm-pdf-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.tpm-pdf-title {
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 600;
+}
+.tpm-pdf-title strong {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: #fbbf24;
+}
+.tpm-pdf-open-tab {
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  color: var(--text2);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.tpm-pdf-open-tab:hover {
+  background: var(--surface3);
+  color: var(--text);
+  border-color: var(--blue-bar, #4f9bff);
+}
+.tpm-pdf-frame-wrap {
+  position: relative;
+  width: 100%;
+  height: 600px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.tpm-pdf-frame {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.tpm-pdf-frame.is-loaded { opacity: 1; }
+.tpm-pdf-msg {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text2);
+  font-size: 13px;
+  pointer-events: none;
+}
+.tpm-pdf-msg.is-error {
+  color: #fca5a5;
+}
+@media (max-width: 720px) {
+  .tpm-pdf-frame-wrap { height: 420px; }
 }

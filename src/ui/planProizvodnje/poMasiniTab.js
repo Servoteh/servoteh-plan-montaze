@@ -229,8 +229,8 @@ function renderTable() {
           <th class="pp-cell-num" style="width:48px">Op</th>
           <th>Opis</th>
           <th>Rok</th>
-          <th class="pp-cell-num" title="Urađeno / Ukupno">Plan / Done</th>
-          <th class="pp-cell-num" title="Tehnološki / Stvarni">T / R</th>
+          <th class="pp-cell-num" title="Urađeno / Ukupno komada">Done / Plan</th>
+          <th class="pp-cell-num" title="Tehnološko / Stvarno vreme">T / R</th>
           <th>Status</th>
           <th style="min-width:200px">Šefova napomena</th>
           <th title="Skice / slike">📎</th>
@@ -272,10 +272,19 @@ function rowHtml(r) {
 
   /* F.5c: HITNE pozicije — overdue (kasni) i today (rok je danas) dobijaju
      crveni leftborder, suptilno crveni background i ⚠ ikonu pre prioriteta.
-     Ne za 'completed' overlay (ali takve i ne stižu ovde) i ne za RN_zavrsen. */
+     ⚠ je pravi DOM <span> sa title/aria-label (ranije je bio CSS ::before
+     pseudo-element, koji ne prima tooltip — bug fix). */
   const isUrgent = (urgency === 'overdue' || urgency === 'today');
   const urgentClass = isUrgent
     ? (urgency === 'overdue' ? ' is-urgent is-urgent-overdue' : ' is-urgent is-urgent-today')
+    : '';
+  const urgentTitle = urgency === 'overdue'
+    ? `Rok je istekao (${rokLabel}) — hitno!`
+    : urgency === 'today'
+      ? `Rok je danas (${rokLabel})!`
+      : '';
+  const urgentBadgeHtml = isUrgent
+    ? `<span class="pp-urgent-badge ${urgency === 'overdue' ? 'pp-urgent-overdue' : 'pp-urgent-today'}" title="${escHtml(urgentTitle)}" aria-label="${escHtml(urgentTitle)}">⚠</span>`
     : '';
 
   return `
@@ -286,7 +295,7 @@ function rowHtml(r) {
       class="${r.is_non_machining ? 'is-non-machining' : ''}${isReassigned ? ' is-reassigned' : ''}${urgentClass}"
       ${state.canEdit ? 'draggable="true"' : ''}>
       <td class="pp-drag-handle" title="${state.canEdit ? 'Prevuci za prioritet' : 'Drag dostupan samo za pm/admin'}">⠿</td>
-      <td class="pp-cell-center">${priCell}</td>
+      <td class="pp-cell-center">${urgentBadgeHtml}${priCell}</td>
       <td class="pp-cell-strong" title="RN ${escHtml(r.rn_ident_broj || '')}">
         ${escHtml(r.rn_ident_broj || '—')}
         <button type="button"
@@ -318,9 +327,9 @@ function rowHtml(r) {
         <span class="pp-cell-strong">${escHtml(String(r.komada_done ?? 0))}</span>
         <span class="pp-cell-muted"> / ${escHtml(String(r.komada_total ?? 0))}</span>
       </td>
-      <td class="pp-cell-num pp-cell-muted" title="Tehnološko vs stvarno vreme">
+      <td class="pp-cell-num pp-cell-muted" title="Tehnološko / Stvarno vreme">
         ${escHtml(formatSecondsHm(planSec))}
-        <br>
+        <span class="pp-cell-sep">/</span>
         <span style="color:#86efac">${escHtml(formatSecondsHm(r.real_seconds))}</span>
       </td>
       <td>

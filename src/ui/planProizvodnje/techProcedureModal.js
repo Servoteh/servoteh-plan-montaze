@@ -104,11 +104,11 @@ async function loadAndRender(root, workOrderId) {
       body.innerHTML = `<div class="tpm-empty">Nema operacija za ovaj RN.</div>`;
       return;
     }
-    body.innerHTML = renderHeader(header) + renderOperations(operations, logs);
+    body.innerHTML = renderHeader(header) + renderOperations(operations, logs) + renderPdfSection(header);
 
-    /* Wire klik na PDF crtež u header-u */
-    const pdfBtn = body.querySelector('[data-action="open-bigtehn-drawing"]');
-    if (pdfBtn) {
+    /* Wire klik na PDF crtež dugmad — otvara u novom tab-u (zoom/štampa).
+       Ima ih više: jedan u headeru kraj broja crteža + jedan iznad PDF iframe-a. */
+    body.querySelectorAll('[data-action="open-bigtehn-drawing"]').forEach((pdfBtn) => {
       pdfBtn.addEventListener('click', async () => {
         const broj = pdfBtn.dataset.broj;
         const tab = window.open('about:blank', '_blank');
@@ -123,6 +123,30 @@ async function loadAndRender(root, workOrderId) {
           console.error(e);
         }
       });
+    });
+
+    /* Inline PDF iframe ispod operacija — lazy load signed URL-a (signed URL
+       sprečava direktno embed-ovanje preko storage_path). */
+    const pdfFrame = body.querySelector('[data-role="pdf-frame"]');
+    const pdfMsg = body.querySelector('[data-role="pdf-msg"]');
+    if (pdfFrame && header?.has_bigtehn_drawing && header?.broj_crteza) {
+      try {
+        const url = await getBigtehnDrawingSignedUrl(header.broj_crteza);
+        if (url) {
+          pdfFrame.src = url + '#toolbar=1&view=FitH';
+          pdfFrame.classList.add('is-loaded');
+          if (pdfMsg) pdfMsg.remove();
+        } else if (pdfMsg) {
+          pdfMsg.textContent = `PDF crtež "${header.broj_crteza}" nije pronađen u Bridge cache-u.`;
+          pdfMsg.classList.add('is-error');
+        }
+      } catch (e) {
+        console.error('[tpm pdf inline]', e);
+        if (pdfMsg) {
+          pdfMsg.textContent = 'Greška pri učitavanju PDF crteža.';
+          pdfMsg.classList.add('is-error');
+        }
+      }
     }
 
     /* Wire expand/collapse za prijave po operaciji */
@@ -225,6 +249,25 @@ function renderOperations(operations, allLogs) {
           ${operations.map((op) => renderOpRow(op, logsByOp.get(op.operacija) || [])).join('')}
         </tbody>
       </table>
+    </section>
+  `;
+}
+
+function renderPdfSection(h) {
+  /* Inline PDF crtež ispod tabele operacija — šef vidi sve na jednom ekranu.
+     Ako nema crteža u BigTehn cache-u, sekcija se ne prikazuje. */
+  if (!h || !h.has_bigtehn_drawing || !h.broj_crteza) return '';
+  const broj = h.broj_crteza;
+  return `
+    <section class="tpm-pdf-section">
+      <div class="tpm-pdf-header">
+        <div class="tpm-pdf-title">📄 Crtež <strong>${escHtml(broj)}</strong></div>
+        <button type="button" class="tpm-pdf-open-tab" data-action="open-bigtehn-drawing" data-broj="${escHtml(broj)}" title="Otvori u novom tab-u (zoom, štampa)">↗ Novi tab</button>
+      </div>
+      <div class="tpm-pdf-frame-wrap">
+        <iframe class="tpm-pdf-frame" data-role="pdf-frame" title="Crtež ${escHtml(broj)}" referrerpolicy="no-referrer"></iframe>
+        <div class="tpm-pdf-msg" data-role="pdf-msg">Učitavam PDF…</div>
+      </div>
     </section>
   `;
 }
