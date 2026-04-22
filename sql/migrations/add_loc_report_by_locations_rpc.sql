@@ -36,6 +36,16 @@ DECLARE
   v_dir text := CASE WHEN COALESCE(p_desc, true) THEN 'DESC' ELSE 'ASC' END;
   res jsonb;
 BEGIN
+  /* Isti princip kao ostatak modula: JWT sesija + bar jedna aktivna uloga u
+   * user_roles (public.loc_auth_roles). Bez toga prazan rezultat — bez curenja
+   * podataka preko anon ključa ili „golog“ JWT-a. */
+  IF auth.uid() IS NULL THEN
+    RETURN '{"total":0,"rows":[]}'::jsonb;
+  END IF;
+  IF cardinality(public.loc_auth_roles()) = 0 THEN
+    RETURN '{"total":0,"rows":[]}'::jsonb;
+  END IF;
+
   IF v_sort NOT IN (
     'updated_at',
     'drawing_no',
@@ -143,11 +153,16 @@ END;
 $fn$;
 
 COMMENT ON FUNCTION public.loc_report_parts_by_locations IS
-  'Lokacije: tabelarni pregled placement-a sa agregatom po nalog/crtež bucket-u, opcionim join-om na BigTehn RN i projekat.';
+  'Lokacije: tabelarni pregled placement-a (SECURITY INVOKER + RLS na tabelama). '
+  'Zahteva auth.uid() i bar jednu aktivnu ulogu iz user_roles (loc_auth_roles). '
+  'Agregat po nalog/crtež bucket-u, join na BigTehn RN i opciono projekat.';
 
 REVOKE ALL ON FUNCTION public.loc_report_parts_by_locations(
   text, text, text, text, uuid, text, text, boolean, int, int
 ) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.loc_report_parts_by_locations(
+  text, text, text, text, uuid, text, text, boolean, int, int
+) FROM anon;
 GRANT EXECUTE ON FUNCTION public.loc_report_parts_by_locations(
   text, text, text, text, uuid, text, text, boolean, int, int
 ) TO authenticated;

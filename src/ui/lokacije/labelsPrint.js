@@ -314,20 +314,6 @@ export async function openShelfLabelsPrintPicker() {
   filterList();
 }
 
-/** Bulk štampa svih polica (legacy). */
-export async function openShelfLabelsPrint({ onlyTypes = SHELF_TYPES } = {}) {
-  const locs = await fetchLocations();
-  if (!Array.isArray(locs) || !locs.length) {
-    showToast('⚠ Nema lokacija za štampu');
-    return;
-  }
-  const filtered = locs
-    .filter(l => l.is_active !== false)
-    .filter(l => onlyTypes.includes(l.location_type))
-    .sort((a, b) => (a.location_code || '').localeCompare(b.location_code || ''));
-  await printShelfLabelsToBrowserWindow(filtered);
-}
-
 /**
  * @param {{ title: string, lines: { text: string, small?: boolean }[], barcodeValue: string }} spec
  */
