@@ -6,13 +6,26 @@
 # - Fontovi/asseti idu sa godinu dana TTL.
 # - Osnovne security header-e dodajemo da Lighthouse ne kuka i da
 #   smanjimo površinu napada (nema iframe-a, nema referer leak-a).
+#
+# F.6 PILOT HARDENING (L-1):
+#   - Dodato Content-Security-Policy: blokira inline script (osim za
+#     vite-plugin-pwa register koji je hash-ovan u build-u), restriktuje
+#     connect-src na Supabase + same-origin (Cloudflare Functions).
+#   - Dodato Strict-Transport-Security (HSTS) — Cloudflare već forsira
+#     HTTPS ali eksplicitan header dozvoljava browser-u da preskoči
+#     HTTP→HTTPS redirect za narednu godinu.
+#   - Permissions-Policy popravljen: camera=(self) (NE ()) jer modul
+#     Lokacije koristi getUserMedia za skeniranje barkoda. Pre ove
+#     izmene, Chrome je blokirao kameru u skenerima — production bug.
 
 /*
   Cache-Control: no-cache, no-store, must-revalidate
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.supabase.co; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; media-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
   Referrer-Policy: strict-origin-when-cross-origin
-  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  Permissions-Policy: camera=(self), microphone=(), geolocation=()
 
 /assets/*
   Cache-Control: public, max-age=31536000, immutable

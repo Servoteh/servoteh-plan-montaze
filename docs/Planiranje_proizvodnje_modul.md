@@ -83,14 +83,24 @@ Lokalni statusi u UI konstantama: `LOCAL_STATUSES`, ciklus `STATUS_CYCLE_NEXT` (
 
 ### View
 
-- **`v_production_operations`** — denormalizovan spoj linija RN-a, RN headera, kupca, mašine, overlay-a, tech routing agregata, broja crteža; kolona **`effective_machine_code`** = `COALESCE(assigned_machine_code, original_machine_code)`.
+- **`v_production_operations`** — denormalizovan spoj linija RN-a, RN headera, kupca, mašine, overlay-a, tech routing agregata, broja crteža; kolona **`effective_machine_code`** = `COALESCE(assigned_machine_code, original_machine_code)`. Od F.6 pilot hardening-a, kolona **`shift_note`** je maskovana kao `NULL` za uloge bez `can_edit_plan_proizvodnje()` (viewer, hr, leadpm) — sprečava data-leak slobodnog teksta sa poslovno-osetljivim sadržajem.
+
+### Sigurnost (F.6 pilot hardening)
+
+- **H-2**: `loc_create_movement` RPC zahteva `loc_can_manage_locations()` (admin/leadpm/pm/menadzment). Viewer/hr dobijaju `{ok:false, error:'forbidden'}`.
+- **H-1**: `v_production_operations.shift_note` je maskovan za uloge bez `can_edit_plan_proizvodnje()`.
+- **M-4**: BEFORE INSERT/UPDATE trigger `pp_force_audit_columns()` na `production_overlays` i `production_drawings` forsira `created_by`/`updated_by` iz `auth.jwt()` — klijent ne može impersonirati drugog korisnika u audit trail-u.
+- **L-1**: Cloudflare Pages `_headers` fajl postavlja CSP, HSTS, X-Frame-Options=DENY, Permissions-Policy (kamera dozvoljena za skener u Lokacijama, mikrofon/geolokacija blokirani).
 
 Redosled migracija (tipično):
 
 ```text
-add_plan_proizvodnje.sql              # tabele + RLS + can_edit_plan_proizvodnje + bucket
-add_v_production_operations.sql       # view (zavisi od cache tabela + overlays + drawings)
-add_plan_proizvodnje_menadzment_edit.sql   # proširenje can_edit_plan_proizvodnje za menadzment
+add_plan_proizvodnje.sql                       # tabele + RLS + can_edit_plan_proizvodnje + bucket
+add_v_production_operations.sql                # view (zavisi od cache tabela + overlays + drawings)
+add_plan_proizvodnje_menadzment_edit.sql       # proširenje can_edit_plan_proizvodnje za menadzment
+add_loc_create_movement_role_guard.sql         # F.6 H-2: role guard na loc_create_movement
+add_pp_shift_note_masking.sql                  # F.6 H-1: shift_note masking u view-u
+add_pp_audit_columns_guard.sql                 # F.6 M-4: trigger forsira created_by/updated_by
 ```
 
 BigTehn cache i bridge sync nisu u ovom fajlu — zavise od ostalih migracija/workera (`bigtehn_work_orders_cache`, `bigtehn_work_order_lines_cache`, …).
