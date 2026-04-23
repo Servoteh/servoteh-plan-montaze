@@ -12,15 +12,24 @@
  * ========================================================================= */
 
 .pp-dept-tabs {
+  /* 2 reda — Red 1 (osnovne mašinske obrade) + Red 2 (završne / sekundarne).
+     Forsiramo column flex sa dva eksplicitna `pp-dept-tabs-row` div-a, jer
+     `flex-wrap: wrap` u jednom dugačkom redu prelama gde stigne i korisnik
+     dobija nepravilne rasporede u zavisnosti od širine. */
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
+  flex-direction: column;
+  gap: 6px;
   padding: 6px;
   margin-bottom: 12px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
-  overflow-x: auto;
+}
+.pp-dept-tabs-row {
+  display: flex;
+  flex-wrap: wrap;       /* dozvoli da se prelome unutar reda na vrlo uskim ekranima */
+  gap: 4px;
+  align-items: center;
 }
 .pp-dept-tab {
   background: transparent;

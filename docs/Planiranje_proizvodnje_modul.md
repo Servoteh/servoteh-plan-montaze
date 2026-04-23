@@ -38,23 +38,28 @@ Pomoćni moduli: **`departments.js`** (single source of truth za tabove odeljenj
 
 ### Tabovi „Po mašini" (v2)
 
-Tab → filter (vidi `src/ui/planProizvodnje/departments.js` za autoritativan spisak):
+Tabovi su raspoređeni u **2 reda** (forsiran column-flex layout, ne `flex-wrap` koji bi se prelivao). Vidi `src/ui/planProizvodnje/departments.js` za autoritativan spisak:
 
-| # | Tab | Tip | Filter |
-|---|-----|-----|--------|
+**Red 1**: Sve · Glodanje · Struganje · Brušenje · Erodiranje · Ažistiranje
+**Red 2**: Sečenje i savijanje · Bravarsko · Farbanje i površinska zaštita · CAM programiranje · Ostalo
+
+| # | Tab | Tip | Filter (autoritativ: `departments.js`) |
+|---|-----|-----|----------------------------------------|
 | 1 | Sve | dropdown | — (legacy: dropdown mašine + operacije) |
-| 2 | Glodanje | lista mašina → drill-down | `rj_code` prefiks `3` (uključuje borverke `3.21`, `3.22`) |
-| 3 | Struganje | lista mašina → drill-down | `rj_code` prefiks `2` |
-| 4 | Brušenje | lista mašina → drill-down | `rj_code` prefiks `6` |
-| 5 | Erodiranje | lista mašina → drill-down | `rj_code` prefiks `10` |
-| 6 | Ažistiranje | lista operacija | `effective_machine_code = '8.2'` (exact) |
-| 7 | Sečenje i savijanje | lista operacija | `effective_machine_code` prefiks `1` ili `4` |
-| 8 | Bravarsko | lista operacija | `opis_rada` ILIKE `bravar` ili `zavariv` (bez dijakritike) |
-| 9 | Farbanje i površinska zaštita | lista operacija | `effective_machine_code` prefiks `5` |
-| 10 | CAM programiranje | lista operacija | `effective_machine_code` prefiks `17` |
-| 11 | Ostalo | mašine bez kategorije + operacije bez kategorije | safety bucket |
+| 2 | Glodanje | lista mašina → drill-down | `machinePrefixes:['3']` (uklj. borvere `3.21`/`3.22`, Štos `3.50`) |
+| 3 | Struganje | lista mašina → drill-down | `machinePrefixes:['2']`, `excludeMachineCodes:['21.1','21.2']` |
+| 4 | Brušenje | lista mašina → drill-down | `machinePrefixes:['6']`, `excludeMachineCodes:['6.8']` (Laser-Graviranje ide u Ostalo) |
+| 5 | Erodiranje | lista mašina → drill-down | `machineCodes:['10.1','10.2','10.3','10.4','10.5']` |
+| 6 | Ažistiranje | lista mašina → drill-down | `machineCodes:['8.2']` — SAMO „Ručni radovi-Ažistiranje" |
+| 7 | Sečenje i savijanje | lista mašina → drill-down | `machineCodes:['1.10','1.2','1.30','1.40','1.50','1.60','1.71','1.72']` (sečenje + Apkant Hammerle) |
+| 8 | Bravarsko | lista mašina → drill-down | `machineCodes:['4.1','4.11','4.12','4.2','4.3','4.4']` (savijanje + bušilice + zavarivanje MIG-MAG/REL/TIG) |
+| 9 | Farbanje i površinska zaštita | lista mašina → drill-down | `machineCodes:['5.1'…'5.8','5.11']` — NE 5.9 Graviranje |
+| 10 | CAM programiranje | lista mašina → drill-down | `machineCodes:['17.0','17.1']` |
+| 11 | Ostalo | mašine bez kategorije + operacije bez kategorije | safety bucket (Termička 7.x, 3D 21.x, Kooperacija 9.x, Opšti 0.0, Graviranje 5.9/6.8, Montaža/Kontrola 8.1/8.3/8.4, Ispravljanje 7.5) |
 
-Drag-drop reorder (`shift_sort_order`) dostupan je SAMO u single-machine kontekstu (Sve dropdown + drill-down u machines tabu) — operacioni tabovi prikazuju mešavinu mašina, pa je drag onemogućen.
+**Promena 22.04.2026**: svih 5 grupa koje su bile `kind:'operations'` (Ažistiranje, Sečenje+savijanje, Bravarsko, Farbanje, CAM) su pretvorene u `kind:'machines'` po eksplicitnom zahtevu — korisnik želi za svaku grupu prvo listu mašina, pa drill-down na operacije te mašine (kao za Brušenje). Stara `operationPrefixes` / `operationNamePatterns` polja su zamenjena `machineCodes` (eksplicitna lista `rj_code`-ova).
+
+Drag-drop reorder (`shift_sort_order`) dostupan je SAMO u single-machine kontekstu (Sve dropdown + drill-down u machines tabu).
 
 ---
 

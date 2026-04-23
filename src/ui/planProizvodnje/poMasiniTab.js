@@ -56,6 +56,8 @@ import { openDrawingManager } from './drawingManager.js';
 import { openTechProcedureModal } from './techProcedureModal.js';
 import {
   DEPARTMENTS,
+  DEPARTMENTS_ROW_1,
+  DEPARTMENTS_ROW_2,
   getDepartment,
   filterMachinesForDept,
   findDeptForMachineCode,
@@ -197,7 +199,10 @@ function machineFitsDept(rjCode, dept) {
 function renderDeptTabs() {
   const el = state.host?.querySelector('#ppDeptTabs');
   if (!el) return;
-  el.innerHTML = DEPARTMENTS.map(d => `
+  /* Forsiramo 2 reda — Red 1 (6 tabova) i Red 2 (5 tabova). Bez
+     `flex-wrap: wrap` na single rowu, jer browser prelama gde stigne i
+     korisnik dobije nepravilne rasporede u zavisnosti od širine. */
+  const renderRow = (depts) => depts.map(d => `
     <button
       type="button" role="tab"
       class="pp-dept-tab${d.slug === state.selectedDeptSlug ? ' is-active' : ''}"
@@ -206,6 +211,10 @@ function renderDeptTabs() {
       ${escHtml(d.label)}
     </button>
   `).join('');
+  el.innerHTML = `
+    <div class="pp-dept-tabs-row">${renderRow(DEPARTMENTS_ROW_1)}</div>
+    <div class="pp-dept-tabs-row">${renderRow(DEPARTMENTS_ROW_2)}</div>
+  `;
 }
 
 function wireDeptTabs() {
