@@ -10,7 +10,8 @@
     "preview": "vite preview --host",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:sql": "echo Run manually: pg_prove -h localhost -U postgres -d DBNAME sql/tests/*.sql"
+    "test:sql": "echo Run manually: pg_prove -h localhost -U postgres -d DBNAME sql/tests/*.sql",
+    "check:schema-baseline": "node scripts/check-schema-security-baseline.cjs"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",

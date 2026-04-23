@@ -202,3 +202,21 @@ export const SUPABASE_CONFIG = Object.freeze({
 export function hasSupabaseConfig() {
   return !!(SUPABASE_CONFIG.url && SUPABASE_CONFIG.anonKey);
 }
+
+/**
+ * "Nastavi offline" dugme na login ekranu.
+ *
+ * Bezbednost (Faza 1, 2026-04-23): offline mode UI prevara — postavlja
+ * `pm` rolu bez prave autentifikacije. Server-side RLS i dalje blokira
+ * pisanja (token je null → fallback na anon ključ → `TO authenticated`
+ * politike pucaju), ali korisnik vidi cache-irane podatke i UI mu
+ * dozvoljava pokušaje izmena koji tiho propadaju.
+ *
+ * Default: ISKLJUČENO. Uključuje se eksplicitnim VITE_ENABLE_OFFLINE_MODE=true
+ * u `.env` za lokalni dev / ad-hoc terensko testiranje. Production build
+ * (Cloudflare Pages) NEMA ovaj flag → dugme se ne renderuje.
+ */
+export function isOfflineModeEnabled() {
+  const v = String(import.meta.env.VITE_ENABLE_OFFLINE_MODE || '').trim().toLowerCase();
+  return v === 'true' || v === '1' || v === 'yes';
+}

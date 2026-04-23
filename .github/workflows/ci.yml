@@ -15,6 +15,26 @@ permissions:
   contents: write  # potrebno za `gh api commits/<sha>/comments` u CI diagnostici
 
 jobs:
+  schema-baseline:
+    name: SQL schema security baseline
+    runs-on: ubuntu-24.04
+    # Faza 1 hardening (2026-04-23). Zaustavlja merge ako neko vrati pilot
+    # anti-pattern u sql/schema.sql (npr. has_edit_role RETURN true,
+    # roles_select USING(true), GRANT ... TO anon na osetljivim view-ima).
+    # Skripta i pravila: scripts/check-schema-security-baseline.cjs.
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Run schema security baseline check
+        run: node scripts/check-schema-security-baseline.cjs
+
   js-tests:
     name: JS unit tests (Vitest)
     runs-on: ubuntu-24.04

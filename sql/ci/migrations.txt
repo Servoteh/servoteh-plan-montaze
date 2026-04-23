@@ -14,3 +14,9 @@ sql/migrations/add_loc_module.sql
 sql/migrations/add_loc_step2_ci_unique.sql
 sql/migrations/add_loc_step3_cleanup.sql
 sql/migrations/add_loc_step5_sync_rpcs.sql
+
+# Faza 1 security hardening (2026-04-23). Migracija je idempotentna i
+# preživljava izvrsavanje cak i ako v_production_operations ne postoji
+# (REVOKE FROM anon na nepostojecem objektu padne — pa je u CI svjesno
+# preskocena dok ne ukljucimo full plan-proizvodnje migracije u CI listu).
+# sql/migrations/revoke_anon_v_production_operations.sql

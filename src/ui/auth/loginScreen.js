@@ -13,7 +13,7 @@
 import { login } from '../../services/auth.js';
 import { setUser, setOnline, setRole } from '../../state/auth.js';
 import { escHtml, showToast } from '../../lib/dom.js';
-import { hasSupabaseConfig } from '../../lib/constants.js';
+import { hasSupabaseConfig, isOfflineModeEnabled } from '../../lib/constants.js';
 
 /**
  * @param {object} opts
@@ -26,6 +26,20 @@ export function renderLoginScreen({ onLoginSuccess, onForgotPassword }) {
   const overlay = document.createElement('div');
   overlay.className = 'auth-overlay';
   overlay.id = 'authOverlay';
+
+  /* Offline dugme se renderuje SAMO ako je eksplicitno omogućeno preko
+     VITE_ENABLE_OFFLINE_MODE=true (dev/terensko testiranje). U produkciji
+     je sakriveno da operater ne dobije lažni utisak da je prijavljen kao
+     `pm` (rola se postavlja u UI bez tokena → svako pisanje pada na RLS-u). */
+  const offlineEnabled = isOfflineModeEnabled();
+  const offlineBlock = offlineEnabled
+    ? `
+      <div class="auth-divider">ili</div>
+
+      <button type="button" class="auth-btn-ghost" id="authOfflineBtn">Nastavi offline</button>
+    `
+    : '';
+
   overlay.innerHTML = `
     <div class="auth-box" role="dialog" aria-labelledby="authTitle" aria-describedby="authSubtitle">
       <div class="auth-brand">
@@ -57,10 +71,7 @@ export function renderLoginScreen({ onLoginSuccess, onForgotPassword }) {
           </button>
         </div>
       </form>
-
-      <div class="auth-divider">ili</div>
-
-      <button type="button" class="auth-btn-ghost" id="authOfflineBtn">Nastavi offline</button>
+      ${offlineBlock}
 
       <div class="auth-msg" id="authMsg" role="status" aria-live="polite"></div>
 
@@ -107,12 +118,14 @@ export function renderLoginScreen({ onLoginSuccess, onForgotPassword }) {
     onForgotPassword?.();
   });
 
-  offlineBtn.addEventListener('click', () => {
-    /* Offline mode: nema Supabase pristupa, ali aplikacija radi sa local cache-em */
+  offlineBtn?.addEventListener('click', () => {
+    /* Offline mode (samo kad je VITE_ENABLE_OFFLINE_MODE=true) — bez Supabase
+       autentifikacije; aplikacija radi sa local cache-em. Rola `pm` je čisto
+       UI atribut — server-side RLS svejedno blokira sva pisanja. */
     setUser({ email: 'offline@local', emailRaw: 'offline@local', id: 'local', _token: null });
     setOnline(false);
     setRole('pm');
-    showToast('💾 Offline režim — localStorage');
+    showToast('💾 Offline režim — localStorage (DEV)');
     onLoginSuccess?.({ offline: true });
   });
 

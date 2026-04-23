@@ -2,6 +2,21 @@
 -- SUPABASE SQL SCHEMA — Plan Montaže v5.1
 -- Supabase-first, upsert-ready, with RLS
 -- ═══════════════════════════════════════════════════════════
+-- Bezbednosno usklađivanje (Faza 1, 2026-04-23):
+--   * `has_edit_role()` više NIJE pilot „RETURN true" — proverava
+--     globalne (admin/hr/menadzment/pm/leadpm) i project-specifične
+--     (pm/leadpm) role iz `user_roles`. Sinhrono sa migracijom
+--     `add_menadzment_full_edit_kadrovska.sql`.
+--   * `user_roles` više NEMA `roles_select USING(true)` ni `roles_manage`
+--     iz pilot perioda — zamenjeno read-self + admin-all + admin-write
+--     politikama (sinhrono sa `enable_user_roles_rls_proper.sql` +
+--     `cleanup_user_roles_legacy_policies.sql`).
+--
+-- Pravilo:
+--   `schema.sql` mora ostati primenljiv na praznu bazu BEZ otvaranja
+--   bezbednosnih rupa. Ako menjate ovaj fajl, proverite skriptom:
+--     node scripts/check-schema-security-baseline.cjs
+-- ═══════════════════════════════════════════════════════════
 
 -- PROJECTS
 CREATE TABLE projects (
@@ -234,15 +249,62 @@ ALTER TABLE absences ENABLE ROW LEVEL SECURITY;
 ALTER TABLE work_hours ENABLE ROW LEVEL SECURITY;
 ALTER TABLE contracts ENABLE ROW LEVEL SECURITY;
 
--- Helper: check if current user has edit role
-CREATE OR REPLACE FUNCTION has_edit_role(proj_id UUID DEFAULT NULL)
-RETURNS BOOLEAN AS $$
+-- ═══════════════════════════════════════════════════════════
+-- Helper: has_edit_role()
+--
+-- TRUE za:
+--   * globalnu rolu (project_id IS NULL): admin / hr / menadzment / pm / leadpm
+--   * project-specifičnu rolu pm / leadpm na zadatom `proj_id`
+-- FALSE inače (uključujući viewer i nepoznatu/odjavljenu sesiju).
+--
+-- Sinhrono sa migracijom add_menadzment_full_edit_kadrovska.sql i
+-- src/state/auth.js → canEdit() / canEditKadrovska(). Bilo koja izmena
+-- ovde zahteva i izmenu te migracije + JS helpera.
+--
+-- Bezbedno: SECURITY DEFINER + SET search_path da spreči hijack, ali
+-- bez recursive RLS poziva (čita user_roles direktno iz public schema).
+-- ═══════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION public.has_edit_role(proj_id UUID DEFAULT NULL)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  auth_email TEXT := lower(coalesce(auth.jwt()->>'email', ''));
 BEGIN
-  -- Pilot hardening: for this pilot round, allow editing for any authenticated user.
-  -- (Front-end still shows role labels, but RLS no longer blocks INSERT/UPDATE/DELETE.)
-  RETURN true;
+  IF auth_email = '' THEN
+    RETURN false;
+  END IF;
+
+  -- Globalna rola.
+  IF EXISTS (
+    SELECT 1
+    FROM   public.user_roles
+    WHERE  lower(email) = auth_email
+      AND  project_id IS NULL
+      AND  role IN ('admin','hr','menadzment','pm','leadpm')
+      AND  is_active = true
+  ) THEN
+    RETURN true;
+  END IF;
+
+  -- Project-specifična rola (samo pm/leadpm; admin/hr/menadzment se daje
+  -- isključivo globalno — ne mešamo per-project menadžment koncept).
+  IF proj_id IS NOT NULL AND EXISTS (
+    SELECT 1
+    FROM   public.user_roles
+    WHERE  lower(email) = auth_email
+      AND  project_id = proj_id
+      AND  role IN ('pm','leadpm')
+      AND  is_active = true
+  ) THEN
+    RETURN true;
+  END IF;
+
+  RETURN false;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 -- PROJECTS: everyone can read, PM/LeadPM can write
 CREATE POLICY "projects_select" ON projects FOR SELECT TO authenticated USING (true);
@@ -262,27 +324,69 @@ CREATE POLICY "phases_insert" ON phases FOR INSERT TO authenticated WITH CHECK (
 CREATE POLICY "phases_update" ON phases FOR UPDATE TO authenticated USING (has_edit_role(project_id)) WITH CHECK (has_edit_role(project_id));
 CREATE POLICY "phases_delete" ON phases FOR DELETE TO authenticated USING (has_edit_role(project_id));
 
--- USER ROLES: only global PM can manage roles
-CREATE POLICY "roles_select" ON user_roles FOR SELECT TO authenticated USING (true);
-CREATE POLICY "roles_manage" ON user_roles FOR ALL TO authenticated USING (
-  EXISTS (
-    SELECT 1
-    FROM user_roles ur
-    WHERE lower(ur.email) = lower(coalesce(auth.jwt()->>'email', ''))
-      AND ur.project_id IS NULL
-      AND ur.role = 'pm'
-      AND ur.is_active = true
+-- ═══════════════════════════════════════════════════════════
+-- USER ROLES — ne-rekurzivne RLS politike
+--
+-- Sinhrono sa migracijama enable_user_roles_rls_proper.sql i
+-- cleanup_user_roles_legacy_policies.sql. NE SME se vraćati na
+-- pilot `roles_select USING(true)` — to bi otvorilo ceo `user_roles`
+-- registar svakom autentifikovanom korisniku.
+--
+-- Politike:
+--   user_roles_read_self       — svako vidi SVOJ red (po email iz JWT)
+--   user_roles_read_admin_all  — admin vidi sve (preko SECURITY DEFINER helper-a)
+--   user_roles_admin_write     — INSERT/UPDATE/DELETE: samo admin
+--
+-- `current_user_is_admin()` helper se kreira u
+-- enable_user_roles_rls_proper.sql; ovde ga referenciramo defanzivno
+-- preko EXISTS check-a na user_roles (nema rekurzije jer je politika
+-- `read_self` već dovoljno permisivna za sopstveni admin red).
+-- ═══════════════════════════════════════════════════════════
+
+ALTER TABLE user_roles FORCE ROW LEVEL SECURITY;
+
+-- Read-self: svako autentifikovan vidi svoj red, bez podupita iz user_roles.
+CREATE POLICY "user_roles_read_self" ON user_roles
+  FOR SELECT TO authenticated
+  USING (lower(email) = lower(coalesce(auth.jwt()->>'email', '')));
+
+-- Read-all-admin: admin vidi ceo registar.
+CREATE POLICY "user_roles_read_admin_all" ON user_roles
+  FOR SELECT TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM   public.user_roles ur
+      WHERE  lower(ur.email) = lower(coalesce(auth.jwt()->>'email', ''))
+        AND  ur.project_id IS NULL
+        AND  ur.role = 'admin'
+        AND  ur.is_active = true
+    )
+  );
+
+-- Write: samo admin može INSERT/UPDATE/DELETE.
+CREATE POLICY "user_roles_admin_write" ON user_roles
+  FOR ALL TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM   public.user_roles ur
+      WHERE  lower(ur.email) = lower(coalesce(auth.jwt()->>'email', ''))
+        AND  ur.project_id IS NULL
+        AND  ur.role = 'admin'
+        AND  ur.is_active = true
+    )
   )
-) WITH CHECK (
-  EXISTS (
-    SELECT 1
-    FROM user_roles ur
-    WHERE lower(ur.email) = lower(coalesce(auth.jwt()->>'email', ''))
-      AND ur.project_id IS NULL
-      AND ur.role = 'pm'
-      AND ur.is_active = true
-  )
-);
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM   public.user_roles ur
+      WHERE  lower(ur.email) = lower(coalesce(auth.jwt()->>'email', ''))
+        AND  ur.project_id IS NULL
+        AND  ur.role = 'admin'
+        AND  ur.is_active = true
+    )
+  );
 
 -- REMINDER LOG: PM/LeadPM can read/write
 CREATE POLICY "reminder_select" ON reminder_log FOR SELECT TO authenticated USING (true);
