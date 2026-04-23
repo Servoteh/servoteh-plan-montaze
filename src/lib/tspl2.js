@@ -132,8 +132,12 @@ export function buildTspLabelProgram(spec) {
    * Koordinate u dots; rotation 0=normalno, 90/180/270 za rotaciju.
    */
 
-  const PAD_LEFT = mm(1.5);
-  const RIGHT_HALF_X = mm(42); /* polovina od ~80mm; dovoljno mesta za desnu polovinu */
+  /* PAD_LEFT je IDENTICAN sa BC_X (2mm) tako da levi rub teksta i barkoda
+   * budu poravnati. RIGHT_HALF_X = 41mm (centar nalepnice).
+   * Tekst nikad ne sme biti siri od barkoda (~76mm), pa je truncFit na
+   * desnim celijama postavljen tako da staju u 36mm. */
+  const PAD_LEFT = mm(2);
+  const RIGHT_HALF_X = mm(41);
 
   /* ─ Visina budžeta (40.30mm fizički):
    *   y=0.5mm pad

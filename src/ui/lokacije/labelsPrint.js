@@ -406,10 +406,13 @@ const TECH_LABEL_CSS = `
   }
   .toolbar button { margin-left:8px; padding:4px 10px; cursor:pointer; }
   .toolbar .hint { color:#444; margin-left:12px; }
-  /* Total budget na 38mm: 0.5mm pad + 14mm text zone + 0.3mm gap + 17mm barkod + 0.5mm pad = 32.3mm */
+  /* Total budget na 38mm: 0.4mm pad + 14mm text zone + 0.3mm gap + 17mm barkod + 0.4mm pad = 32.1mm
+   * Padding gore/dole = 0.4mm = 0.0157" — ispod operaterskog limita 0.03" (0.762mm).
+   * Padding levo/desno = 2mm — IDENTICNO sa barkod quiet zone-om, tako da
+   * tekst NIKAD ne moze da bude siri od barkoda (poravnati levi i desni rub). */
   .label {
     width: 80mm; height: 38mm; max-height: 38mm;
-    padding: 0.5mm 1.5mm;
+    padding: 0.4mm 2mm; /* top/bottom 0.4mm = 0.0157", left/right 2mm = align sa barkodom */
     display: flex; flex-direction: column;
     gap: 0.2mm;
     page-break-after: always;
@@ -436,7 +439,7 @@ const TECH_LABEL_CSS = `
     flex: 0 0 17mm; max-height: 17mm;
     display: flex; align-items: center; justify-content: center;
     margin-top: 0.3mm;
-    padding: 0 2mm; /* quiet zone leva i desna strana */
+    padding: 0; /* quiet zone vec dolazi iz .label padding (2mm) — ne dupliraj */
     overflow: hidden;
   }
   .lbl-bc svg { width: 100%; height: 100%; max-height: 17mm; display: block; }
