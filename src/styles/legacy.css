@@ -1729,6 +1729,73 @@ body.module-kadrovska > #module-settings { display:none !important; }
 .kadr-summary-chip.muted .kscv { color:var(--text3); }
 @media (max-width:640px) { .kadr-summary-strip { padding:10px 16px 0; } }
 
+/* Mesečni grid — pretraga radnika (Kadrovska) */
+.kadr-grid-search-bar {
+  padding:10px 24px 6px;
+  background:var(--surface);
+}
+.kadr-grid-search-inner {
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:8px;
+  max-width:min(100%, 520px);
+}
+.kadr-grid-search-icon { flex-shrink:0; font-size:16px; line-height:1; }
+.kadr-grid-search-field {
+  position:relative;
+  flex:1;
+  min-width:200px;
+  display:flex;
+  align-items:center;
+}
+.kadr-grid-search-input {
+  width:100%;
+  min-height:44px;
+  box-sizing:border-box;
+  padding:8px 40px 8px 12px;
+  font-size:15px;
+  line-height:1.25;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:var(--surface2);
+  color:var(--text);
+}
+.kadr-grid-search-input:focus {
+  outline:2px solid color-mix(in srgb, var(--accent) 50%, transparent);
+  outline-offset:0;
+}
+.kadr-grid-search-clear {
+  position:absolute;
+  right:4px;
+  top:50%;
+  transform:translateY(-50%);
+  min-width:40px;
+  min-height:40px;
+  margin:0;
+  border:none;
+  border-radius:6px;
+  background:transparent;
+  color:var(--text2);
+  font-size:16px;
+  line-height:1;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:0;
+}
+.kadr-grid-search-clear:hover { color:var(--text); background:var(--surface); }
+.kadr-grid-search-meta {
+  margin:4px 0 0 28px;
+  font-size:11px;
+  color:var(--text3);
+}
+@media (max-width:640px) {
+  .kadr-grid-search-bar { padding:10px 16px 6px; }
+  .kadr-grid-search-inner { max-width:100%; }
+}
+
 /* --- MESECNI GRID (Excel-like) --- */
 .grid-wrap {
   position:relative;

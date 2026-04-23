@@ -26,10 +26,25 @@ import { ensureEmployeesLoaded } from '../../services/kadrovska.js';
 import { loadGridMonth, batchUpsertGrid } from '../../services/grid.js';
 import { renderSummaryChips } from './shared.js';
 import { loadXlsx } from '../../lib/xlsx.js';
+import { SESSION_KEYS } from '../../lib/constants.js';
+import { ssGet, ssSet } from '../../lib/storage.js';
 
 /* ─── KONSTANTE ───────────────────────────────────────────────────────── */
 
 const GRID_ABS_CODES = ['go', 'bo', 'sp', 'np', 'sl', 'pr'];
+/* Faza K3.3 — bolovanje subtype kodovi za grid:
+   'bo'  → obicno (65%)
+   'bop' → povreda na radu (100%)
+   'bot' → održavanje trudnoće (100%) */
+const GRID_BO_SUBTYPE_MAP = {
+  bo:  'obicno',
+  bop: 'povreda_na_radu',
+  bot: 'odrzavanje_trudnoce',
+};
+/* Tipovi rada koji NEMAJU pravo na plaćeno odsustvo. */
+const GRID_NO_PAID_LEAVE_WORKTYPES = new Set(['praksa', 'dualno', 'penzioner']);
+/* Šifre koje su zabranjene za radnike bez prava na plaćeno odsustvo. */
+const GRID_PAID_ONLY_CODES = new Set(['go', 'bo', 'bop', 'bot', 'sp', 'sl']);
 /** Dani u nedelji — index 0 = Sunday. */
 const GRID_DAY_LETTERS = ['N', 'P', 'U', 'S', 'Č', 'P', 'S'];
 const GRID_FIELD_SUBTYPE_DEFAULT = 'domestic';
@@ -41,9 +56,13 @@ const gridState = {
   rowsByEmpDate: new Map(), // Map<empId, Map<ymd, mappedRow>>
   dirty: new Map(),         // Map<'empId|ymd', { hours, overtime_hours, field_hours, field_subtype, two_machine_hours, absence_code }>
   saving: false,
+  /** Sinhronizovano sa #gridSearch + sessionStorage (SESSION_KEYS.KADR_GRID_SEARCH) */
+  searchQuery: '',
 };
 
 let panelRoot = null;
+/** @type {ReturnType<typeof setTimeout> | null} */
+let _gridSearchDebounce = null;
 
 /* ─── HELPERS ──────────────────────────────────────────────────────────── */
 
@@ -95,6 +114,7 @@ function _gridEffective(empId, ymd) {
       field_subtype: 'field_subtype' in d ? d.field_subtype : (db?.fieldSubtype || null),
       two_machine_hours: d.two_machine_hours != null ? d.two_machine_hours : (db?.twoMachineHours || 0),
       absence_code: 'absence_code' in d ? d.absence_code : (db?.absenceCode || null),
+      absence_subtype: 'absence_subtype' in d ? d.absence_subtype : (db?.absenceSubtype || null),
     };
   }
   return {
@@ -104,6 +124,7 @@ function _gridEffective(empId, ymd) {
     field_subtype: db?.fieldSubtype || null,
     two_machine_hours: db?.twoMachineHours || 0,
     absence_code: db?.absenceCode || null,
+    absence_subtype: db?.absenceSubtype || null,
   };
 }
 
@@ -114,7 +135,11 @@ function _gridEffective(empId, ymd) {
 function _gridParseCellText(raw) {
   const v = String(raw || '').trim().toLowerCase();
   if (!v) return { kind: 'empty' };
-  if (GRID_ABS_CODES.includes(v)) return { kind: 'abs', code: v };
+  /* Faza K3.3 — bolovanje subtype kodovi: bo / bop / bot. */
+  if (Object.prototype.hasOwnProperty.call(GRID_BO_SUBTYPE_MAP, v)) {
+    return { kind: 'abs', code: 'bo', subtype: GRID_BO_SUBTYPE_MAP[v] };
+  }
+  if (GRID_ABS_CODES.includes(v)) return { kind: 'abs', code: v, subtype: null };
   const num = parseFloat(v.replace(',', '.'));
   if (
     isFinite(num) &&
@@ -152,16 +177,21 @@ function _gridApplyEdit(empId, ymd, kind, parsed) {
     field_subtype: eff.field_subtype,
     two_machine_hours: eff.two_machine_hours,
     absence_code: eff.absence_code,
+    absence_subtype: eff.absence_subtype,
   };
   if (kind === 'reg') {
     if (parsed.kind === 'abs') {
       next.absence_code = parsed.code;
+      /* subtype validan samo uz 'bo'. */
+      next.absence_subtype = parsed.code === 'bo' ? (parsed.subtype || 'obicno') : null;
       next.hours = 0;
     } else if (parsed.kind === 'num') {
       next.absence_code = null;
+      next.absence_subtype = null;
       next.hours = parsed.value;
     } else if (parsed.kind === 'empty') {
       next.absence_code = null;
+      next.absence_subtype = null;
       next.hours = 0;
     }
   } else if (kind === 'ot') {
@@ -202,12 +232,48 @@ function _gridUpdateDirtyBadge() {
   }
 }
 
-function _gridFilteredEmployees() {
+/** Aktivni + firma (filter) + sort; bez pretrage — za čip, badge, XLSX. */
+function _gridEmployeesCompanyOnly() {
   const company = panelRoot?.querySelector('#gridCompanyFilter')?.value || '';
   return kadrovskaState.employees
     .filter(e => e.isActive)
     .filter(e => !company || e.department === company)
     .sort((a, b) => String(a.fullName || '').localeCompare(String(b.fullName || ''), 'sr'));
+}
+
+function _gridCurrentSearchQuery() {
+  const fromInput = panelRoot?.querySelector('#gridSearch')?.value;
+  if (fromInput != null) return String(fromInput).trim();
+  return String(gridState.searchQuery || '').trim();
+}
+
+/** Company filter AND pretraga po imenu (case-insensitive), klijent-side. */
+function _gridFilteredEmployees() {
+  const base = _gridEmployeesCompanyOnly();
+  const q = _gridCurrentSearchQuery().toLowerCase();
+  if (!q) return base;
+  return base.filter(e => {
+    const name = String(e.fullName || '').toLowerCase();
+    return name.includes(q);
+  });
+}
+
+function _syncGridSearchMeta(companyCount, visibleCount) {
+  const el = panelRoot?.querySelector('#gridSearchMeta');
+  const clearBtn = panelRoot?.querySelector('#gridSearchClear');
+  if (clearBtn) {
+    const q = _gridCurrentSearchQuery();
+    clearBtn.style.visibility = q ? 'visible' : 'hidden';
+  }
+  if (!el) return;
+  const q = _gridCurrentSearchQuery();
+  if (!q) {
+    el.style.display = 'none';
+    el.textContent = '';
+    return;
+  }
+  el.style.display = 'block';
+  el.textContent = `Prikazano ${visibleCount} od ${companyCount}`;
 }
 
 function _gridGroupedByDepartment(emps) {
@@ -274,14 +340,26 @@ export function renderGridTab() {
         </div>
         <div class="grid-legend" aria-label="Legenda">
           <span class="grid-legend-pill abs-go">go = god. odmor</span>
-          <span class="grid-legend-pill abs-bo">bo = bolovanje</span>
-          <span class="grid-legend-pill abs-sp">sp = slobodan prazn.</span>
+          <span class="grid-legend-pill abs-bo">bo = bolovanje 65%</span>
+          <span class="grid-legend-pill abs-bo">bop = povreda na radu 100%</span>
+          <span class="grid-legend-pill abs-bo">bot = održavanje trudnoće 100%</span>
+          <span class="grid-legend-pill abs-sp">sp = plaćeni praznik</span>
           <span class="grid-legend-pill abs-np">np = neopravdano</span>
-          <span class="grid-legend-pill abs-sl">sl = slobodan</span>
+          <span class="grid-legend-pill abs-sl">sl = slobodan dan</span>
           <span class="grid-legend-pill abs-pr">pr = prazan dan</span>
         </div>
       </div>
       <div class="kadr-summary-strip" id="gridSummary"></div>
+      <div class="kadr-grid-search-bar" role="search" aria-label="Pretraga radnika u mesečnom gridu">
+        <div class="kadr-grid-search-inner">
+          <span class="kadr-grid-search-icon" aria-hidden="true">🔎</span>
+          <div class="kadr-grid-search-field">
+            <input type="search" class="kadr-grid-search-input" id="gridSearch" name="kadrGridSearch" inputmode="search" enterkeyhint="search" autocomplete="off" placeholder="Pretraga po imenu i prezimenu" spellcheck="false" aria-label="Pretraga po imenu i prezimenu">
+            <button type="button" class="kadr-grid-search-clear" id="gridSearchClear" title="Obriši pretragu" aria-label="Obriši pretragu" style="visibility:hidden">✕</button>
+          </div>
+        </div>
+        <p class="kadr-grid-search-meta" id="gridSearchMeta" style="display:none" aria-live="polite"></p>
+      </div>
       <div id="gridWrap" class="grid-wrap"></div>
       <div id="gridEmpty" class="kadr-empty" style="display:none">Nema aktivnih radnika za izbrane filtere.</div>
     </section>
@@ -301,19 +379,37 @@ function _renderGridBody() {
   gridState.monthKey = yyyymm;
   const days = _gridDaysInMonth(yyyymm);
 
+  const companyEmps = _gridEmployeesCompanyOnly();
   const emps = _gridFilteredEmployees();
-  /* Update tab badge (broj aktivnih) */
   const badge = document.getElementById('kadrTabCountGrid');
-  if (badge) badge.textContent = String(emps.length);
+  if (badge) badge.textContent = String(companyEmps.length);
+  _syncGridSearchMeta(companyEmps.length, emps.length);
 
-  if (emps.length === 0) {
+  if (companyEmps.length === 0) {
     wrap.innerHTML = '';
-    if (empty) empty.style.display = 'block';
-    _renderSummary(emps, days);
+    if (empty) {
+      empty.style.display = 'block';
+      empty.textContent = 'Nema aktivnih radnika za izbrane filtere.';
+    }
+    _renderSummary(emps, days, null, companyEmps.length);
     _gridUpdateDirtyBadge();
     return;
   }
-  if (empty) empty.style.display = 'none';
+  if (emps.length === 0) {
+    wrap.innerHTML = '';
+    if (empty) {
+      empty.style.display = 'block';
+      empty.textContent = 'Nema radnika koji odgovaraju pretrazi.';
+    }
+    /* Čip + Σ za celu firmu; pretraga samo suzi grid. */
+    _renderSummary(companyEmps, days, null, companyEmps.length);
+    _gridUpdateDirtyBadge();
+    return;
+  }
+  if (empty) {
+    empty.style.display = 'none';
+    empty.textContent = 'Nema aktivnih radnika za izbrane filtere.';
+  }
 
   const groups = _gridGroupedByDepartment(emps);
   const today = _gridIsoToday();
@@ -382,7 +478,13 @@ function _renderGridBody() {
 
         let regVal, regCls = ['grid-cell'];
         if (eff.absence_code) {
-          regVal = eff.absence_code;
+          /* Faza K3.3 — prikaži bo subtype kao bo/bop/bot. */
+          if (eff.absence_code === 'bo') {
+            const subToCode = { obicno: 'bo', povreda_na_radu: 'bop', odrzavanje_trudnoce: 'bot' };
+            regVal = subToCode[eff.absence_subtype] || 'bo';
+          } else {
+            regVal = eff.absence_code;
+          }
           regCls.push('is-absence', 'abs-' + eff.absence_code);
         } else {
           regVal = _gridFormatNum(eff.hours);
@@ -458,11 +560,12 @@ function _renderGridBody() {
   });
 
   _gridUpdateDirtyBadge();
-  _renderSummary(emps, days, grandTot);
+  _renderSummary(emps, days, grandTot, companyEmps.length);
 }
 
-function _renderSummary(emps, days, gt) {
+function _renderSummary(emps, days, gt, companyCount) {
   const company = panelRoot?.querySelector('#gridCompanyFilter')?.value || '';
+  const nCompany = companyCount != null ? companyCount : emps.length;
   let g = gt;
   if (!g || g.fdom === undefined) {
     g = { reg: 0, ot: 0, field: 0, fdom: 0, ffor: 0, fdomDays: 0, fforDays: 0, tm: 0, tmDays: 0 };
@@ -484,7 +587,7 @@ function _renderSummary(emps, days, gt) {
     });
   }
   renderSummaryChips('gridSummary', [
-    { label: 'Aktivnih radnika', value: emps.length, tone: 'accent' },
+    { label: 'Aktivnih radnika', value: nCompany, tone: 'accent' },
     { label: 'Firma (filter)', value: company || 'Sve', tone: 'muted' },
     { label: 'Mesec', value: gridState.monthKey || '—', tone: 'muted' },
     { label: 'Σ Redovni', value: _gridFormatSum(g.reg), tone: 'accent' },
@@ -510,11 +613,24 @@ function _gridOnCellInput(e) {
   if (parsed.kind === 'err') {
     td.classList.add('cell-error');
     if (kind === 'reg') {
-      e.target.title = 'Nevažeća vrednost: broj 0–24 ili oznaka ' + GRID_ABS_CODES.join('/');
+      e.target.title = 'Nevažeća vrednost: broj 0–24 ili oznaka ' + GRID_ABS_CODES.join('/') + ' (bo/bop/bot za bolovanje)';
     } else {
       e.target.title = 'Nevažeća vrednost: broj 0–24';
     }
     return;
+  }
+  /* Faza K3.3 — validacija plaćenog odsustva po tipu rada. */
+  if (kind === 'reg' && parsed.kind === 'abs') {
+    const emp = kadrovskaState.employees.find(x => x.id === empId);
+    const wt = emp?.workType || 'ugovor';
+    const code = parsed.code;
+    /* Sve osim 'np' i 'pr' su plaćena odsustva. */
+    if (GRID_NO_PAID_LEAVE_WORKTYPES.has(wt) && GRID_PAID_ONLY_CODES.has(code)) {
+      td.classList.add('cell-error');
+      e.target.title = `Šifra "${code}" nije dozvoljena za tip rada "${wt}". Dozvoljeno: np / pr.`;
+      showToast(`⚠ ${code.toUpperCase()} nije dozvoljeno za ${wt}`);
+      return;
+    }
   }
   e.target.title = '';
   if (kind === 'reg') {
@@ -553,9 +669,19 @@ function _gridOnCellBlur(e) {
   if (!td) return;
   const parsed = _gridParseCellText(e.target.value);
   if (parsed.kind === 'err') return;
-  if (parsed.kind === 'num') e.target.value = _gridFormatNum(parsed.value);
-  else if (parsed.kind === 'abs') e.target.value = parsed.code;
-  else e.target.value = '';
+  if (parsed.kind === 'num') {
+    e.target.value = _gridFormatNum(parsed.value);
+  } else if (parsed.kind === 'abs') {
+    /* Sačuvaj subtype šifru za 'bo' u displej-u (bo/bop/bot). */
+    if (parsed.code === 'bo') {
+      const subToCode = { obicno: 'bo', povreda_na_radu: 'bop', odrzavanje_trudnoce: 'bot' };
+      e.target.value = subToCode[parsed.subtype] || 'bo';
+    } else {
+      e.target.value = parsed.code;
+    }
+  } else {
+    e.target.value = '';
+  }
 }
 
 function _gridOnFieldSubToggle(btn) {
@@ -728,99 +854,122 @@ async function _loadAndRender(yyyymm) {
   _renderGridBody();
 }
 
-/* ─── EXCEL EXPORT ────────────────────────────────────────────────────── */
+/* ─── EXCEL EXPORT ──────────────────────────────────────────────────────
+ * Isti obrazac kao `planMontaze/exportModal.js`: `import { loadXlsx } from '../../lib/xlsx.js'`
+ * + `const XLSX = await loadXlsx()`. Izvoz: svi aktivni po firma-filteru, bez pretrage.
+ */
 
 async function _exportToXlsx() {
+  const yyyymm = gridState.monthKey || panelRoot?.querySelector('#gridMonth')?.value;
+  if (!yyyymm) {
+    showToast('⚠ Nema izabranog meseca');
+    return;
+  }
+  const emps = _gridEmployeesCompanyOnly();
+  if (emps.length === 0) {
+    showToast('Nema podataka za izvoz u odabranom mesecu.');
+    return;
+  }
+
+  showToast('⏳ Učitavam XLSX...');
   let XLSX;
   try {
     XLSX = await loadXlsx();
   } catch (err) {
-    console.error('[grid] xlsx load failed', err);
-    showToast('⚠ XLSX biblioteka nije dostupna');
+    console.error('[kadr-grid-xlsx]', err);
+    showToast('Neuspešno učitavanje biblioteke za Excel. Proveri mrežu ili osveži stranicu. Pokušaj ponovo „📊 Excel“.');
     return;
   }
-  const yyyymm = gridState.monthKey || panelRoot?.querySelector('#gridMonth')?.value;
-  if (!yyyymm) { showToast('⚠ Nema izabranog meseca'); return; }
-  const days = _gridDaysInMonth(yyyymm);
-  const emps = _gridFilteredEmployees();
-  if (emps.length === 0) { showToast('⚠ Nema radnika za izvoz'); return; }
-  const groups = _gridGroupedByDepartment(emps);
-  const monthLabel = (() => {
-    const [y, m] = yyyymm.split('-');
-    const names = ['Januar', 'Februar', 'Mart', 'April', 'Maj', 'Jun', 'Jul', 'Avgust', 'Septembar', 'Oktobar', 'Novembar', 'Decembar'];
-    return (names[parseInt(m, 10) - 1] || m).toUpperCase() + ' ' + y;
-  })();
 
-  const aoa = [];
-  aoa.push([monthLabel].concat(new Array(days.length + 3).fill('')));
-  aoa.push([]);
-  aoa.push(['#', 'Ime i prezime', 'Tip'].concat(days.map(d => d.day)).concat(['Σ']));
-  aoa.push(['', '', ''].concat(days.map(d => d.letter)).concat(['']));
+  try {
+    const days = _gridDaysInMonth(yyyymm);
+    const groups = _gridGroupedByDepartment(emps);
+    const monthLabel = (() => {
+      const [y, m] = yyyymm.split('-');
+      const names = ['Januar', 'Februar', 'Mart', 'April', 'Maj', 'Jun', 'Jul', 'Avgust', 'Septembar', 'Oktobar', 'Novembar', 'Decembar'];
+      return (names[parseInt(m, 10) - 1] || m).toUpperCase() + ' ' + y;
+    })();
 
-  let serialNo = 0;
-  const grand = { reg: 0, ot: 0, field: 0, fdom: 0, ffor: 0, fdomDays: 0, fforDays: 0, tm: 0, tmDays: 0 };
-  const colTotals = days.map(() => ({ reg: 0, ot: 0, field: 0, tm: 0 }));
+    const aoa = [];
+    aoa.push([monthLabel].concat(new Array(days.length + 3).fill('')));
+    aoa.push([]);
+    aoa.push(['#', 'Ime i prezime', 'Tip'].concat(days.map(d => d.day)).concat(['Σ']));
+    aoa.push(['', '', ''].concat(days.map(d => d.letter)).concat(['']));
 
-  groups.forEach(([dep, list]) => {
-    aoa.push([`${dep} (${list.length})`].concat(new Array(days.length + 3).fill('')));
-    list.forEach(emp => {
-      serialNo++;
-      let sR = 0, sO = 0, sF = 0, sFd = 0, sFf = 0, sTm = 0;
-      const rowR = [serialNo + '.', emp.fullName || '—', 'Redovni'];
-      const rowO = ['', '', 'Prekov.'];
-      const rowF = ['', '', 'Teren'];
-      const rowTm = ['', '', '2 maš.'];
-      days.forEach((d, i) => {
-        const eff = _gridEffective(emp.id, d.ymd);
-        const fH = Number(eff.field_hours || 0);
-        const tmH = Number(eff.two_machine_hours || 0);
-        if (eff.absence_code) rowR.push(eff.absence_code.toUpperCase());
-        else rowR.push(eff.hours || '');
-        rowO.push(eff.overtime_hours || '');
-        if (fH > 0) {
-          rowF.push(eff.field_subtype === 'foreign' ? (_gridFormatNum(fH) + ' I') : _gridFormatNum(fH));
-          if (eff.field_subtype === 'foreign') { sFf += fH; grand.fforDays++; }
-          else { sFd += fH; grand.fdomDays++; }
-        } else {
-          rowF.push('');
-        }
-        rowTm.push(tmH || '');
-        if (tmH > 0) grand.tmDays++;
-        sR += Number(eff.hours || 0);
-        sO += Number(eff.overtime_hours || 0);
-        sF += fH;
-        sTm += tmH;
-        colTotals[i].reg += Number(eff.hours || 0);
-        colTotals[i].ot += Number(eff.overtime_hours || 0);
-        colTotals[i].field += fH;
-        colTotals[i].tm += tmH;
+    let serialNo = 0;
+    const grand = { reg: 0, ot: 0, field: 0, fdom: 0, ffor: 0, fdomDays: 0, fforDays: 0, tm: 0, tmDays: 0 };
+    const colTotals = days.map(() => ({ reg: 0, ot: 0, field: 0, tm: 0 }));
+
+    groups.forEach(([dep, list]) => {
+      aoa.push([`${dep} (${list.length})`].concat(new Array(days.length + 3).fill('')));
+      list.forEach(emp => {
+        serialNo++;
+        let sR = 0, sO = 0, sF = 0, sFd = 0, sFf = 0, sTm = 0;
+        const rowR = [serialNo + '.', emp.fullName || '—', 'Redovni'];
+        const rowO = ['', '', 'Prekov.'];
+        const rowF = ['', '', 'Teren'];
+        const rowTm = ['', '', '2 maš.'];
+        days.forEach((d, i) => {
+          const eff = _gridEffective(emp.id, d.ymd);
+          const fH = Number(eff.field_hours || 0);
+          const tmH = Number(eff.two_machine_hours || 0);
+          if (eff.absence_code) {
+            if (eff.absence_code === 'bo') {
+              const subToCode = { obicno: 'BO', povreda_na_radu: 'BOP', odrzavanje_trudnoce: 'BOT' };
+              rowR.push(subToCode[eff.absence_subtype] || 'BO');
+            } else {
+              rowR.push(eff.absence_code.toUpperCase());
+            }
+          } else rowR.push(eff.hours || '');
+          rowO.push(eff.overtime_hours || '');
+          if (fH > 0) {
+            rowF.push(eff.field_subtype === 'foreign' ? (_gridFormatNum(fH) + ' I') : _gridFormatNum(fH));
+            if (eff.field_subtype === 'foreign') { sFf += fH; grand.fforDays++; }
+            else { sFd += fH; grand.fdomDays++; }
+          } else {
+            rowF.push('');
+          }
+          rowTm.push(tmH || '');
+          if (tmH > 0) grand.tmDays++;
+          sR += Number(eff.hours || 0);
+          sO += Number(eff.overtime_hours || 0);
+          sF += fH;
+          sTm += tmH;
+          colTotals[i].reg += Number(eff.hours || 0);
+          colTotals[i].ot += Number(eff.overtime_hours || 0);
+          colTotals[i].field += fH;
+          colTotals[i].tm += tmH;
+        });
+        grand.reg += sR; grand.ot += sO; grand.field += sF;
+        grand.fdom += sFd; grand.ffor += sFf; grand.tm += sTm;
+        rowR.push(sR || 0); rowO.push(sO || 0); rowF.push(sF || 0); rowTm.push(sTm || 0);
+        aoa.push(rowR); aoa.push(rowO); aoa.push(rowF); aoa.push(rowTm);
       });
-      grand.reg += sR; grand.ot += sO; grand.field += sF;
-      grand.fdom += sFd; grand.ffor += sFf; grand.tm += sTm;
-      rowR.push(sR || 0); rowO.push(sO || 0); rowF.push(sF || 0); rowTm.push(sTm || 0);
-      aoa.push(rowR); aoa.push(rowO); aoa.push(rowF); aoa.push(rowTm);
     });
-  });
-  aoa.push([]);
-  aoa.push(['', 'UKUPNO', 'Redovni'].concat(colTotals.map(c => c.reg || 0)).concat([grand.reg || 0]));
-  aoa.push(['', '', 'Prekov.'].concat(colTotals.map(c => c.ot || 0)).concat([grand.ot || 0]));
-  aoa.push(['', '', 'Teren'].concat(colTotals.map(c => c.field || 0)).concat([grand.field || 0]));
-  aoa.push(['', '', '2 maš.'].concat(colTotals.map(c => c.tm || 0)).concat([grand.tm || 0]));
-  aoa.push([]);
-  aoa.push(['', 'TEREN BREAKDOWN', 'Domaći (h)', grand.fdom || 0, '', '', 'Domaći (dani)', grand.fdomDays || 0]);
-  aoa.push(['', '', 'Inostrani (h)', grand.ffor || 0, '', '', 'Inostrani (dani)', grand.fforDays || 0]);
-  aoa.push(['', 'RAD NA 2 MAŠINE', 'Sati', grand.tm || 0, '', '', 'Dani', grand.tmDays || 0]);
+    aoa.push([]);
+    aoa.push(['', 'UKUPNO', 'Redovni'].concat(colTotals.map(c => c.reg || 0)).concat([grand.reg || 0]));
+    aoa.push(['', '', 'Prekov.'].concat(colTotals.map(c => c.ot || 0)).concat([grand.ot || 0]));
+    aoa.push(['', '', 'Teren'].concat(colTotals.map(c => c.field || 0)).concat([grand.field || 0]));
+    aoa.push(['', '', '2 maš.'].concat(colTotals.map(c => c.tm || 0)).concat([grand.tm || 0]));
+    aoa.push([]);
+    aoa.push(['', 'TEREN BREAKDOWN', 'Domaći (h)', grand.fdom || 0, '', '', 'Domaći (dani)', grand.fdomDays || 0]);
+    aoa.push(['', '', 'Inostrani (h)', grand.ffor || 0, '', '', 'Inostrani (dani)', grand.fforDays || 0]);
+    aoa.push(['', 'RAD NA 2 MAŠINE', 'Sati', grand.tm || 0, '', '', 'Dani', grand.tmDays || 0]);
 
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws['!cols'] = [{ wch: 5 }, { wch: 26 }, { wch: 9 }].concat(days.map(() => ({ wch: 4 }))).concat([{ wch: 7 }]);
-  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: days.length + 3 } }];
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = [{ wch: 5 }, { wch: 26 }, { wch: 9 }].concat(days.map(() => ({ wch: 4 }))).concat([{ wch: 7 }]);
+    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: days.length + 3 } }];
 
-  const wb = XLSX.utils.book_new();
-  const sheetName = monthLabel.length > 31 ? monthLabel.slice(0, 31) : monthLabel;
-  XLSX.utils.book_append_sheet(wb, ws, sheetName);
-  const fname = 'Sati_' + yyyymm + '.xlsx';
-  XLSX.writeFile(wb, fname);
-  showToast('📊 Izvezeno: ' + fname);
+    const wb = XLSX.utils.book_new();
+    const sheetName = monthLabel.length > 31 ? monthLabel.slice(0, 31) : monthLabel;
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    const fname = 'Sati_' + yyyymm + '.xlsx';
+    XLSX.writeFile(wb, fname);
+    showToast('📊 Izvezeno: ' + fname);
+  } catch (err) {
+    console.error('[kadr-grid-xlsx]', err);
+    showToast('Greška pri izvozu: ' + (err && err.message ? err.message : String(err)));
+  }
 }
 
 /* ─── PUBLIC: WIRE ────────────────────────────────────────────────────── */
@@ -842,7 +991,34 @@ export async function wireGridTab(panel) {
     await _loadAndRender(yyyymm);
   });
   panel.querySelector('#gridSaveAll')?.addEventListener('click', _saveAllGrid);
-  panel.querySelector('#gridExport')?.addEventListener('click', _exportToXlsx);
+  panel.querySelector('#gridExport')?.addEventListener('click', () => {
+    void _exportToXlsx().catch(err => {
+      console.error('[kadr-grid-xlsx]', err);
+      showToast('Greška pri izvozu: ' + (err && err.message ? err.message : String(err)));
+    });
+  });
+
+  const savedSearch = ssGet(SESSION_KEYS.KADR_GRID_SEARCH, '') || '';
+  gridState.searchQuery = savedSearch;
+  const searchInp = panel.querySelector('#gridSearch');
+  if (searchInp) searchInp.value = savedSearch;
+  searchInp?.addEventListener('input', () => {
+    clearTimeout(_gridSearchDebounce);
+    _gridSearchDebounce = setTimeout(() => {
+      const v = panel.querySelector('#gridSearch')?.value ?? '';
+      gridState.searchQuery = String(v);
+      ssSet(SESSION_KEYS.KADR_GRID_SEARCH, String(v));
+      _renderGridBody();
+    }, 150);
+  });
+  panel.querySelector('#gridSearchClear')?.addEventListener('click', () => {
+    const inp = panel.querySelector('#gridSearch');
+    if (inp) inp.value = '';
+    gridState.searchQuery = '';
+    ssSet(SESSION_KEYS.KADR_GRID_SEARCH, '');
+    clearTimeout(_gridSearchDebounce);
+    _renderGridBody();
+  });
 
   /* Učitaj zaposlene (potrebno za firma filter i grupisanje) */
   try {

@@ -42,6 +42,8 @@ export const ROLE_LABELS = Object.freeze({
 /* ── sessionStorage ključevi ── */
 export const SESSION_KEYS = Object.freeze({
   KADR_TAB: 'plan_montaze_kadr_active_tab_v1',
+  /** Pretraga u Mesečnom gridu (Kadrovska) — vidljivost redova, ne lokalni storage */
+  KADR_GRID_SEARCH: 'plan_montaze_kadr_grid_search_v1',
   MODULE_HUB: 'plan_montaze_v51_active_module',
   SETTINGS_TAB: 'plan_montaze_v51_settings_tab',
   /** Posle login-a: pun path + query (npr. /maintenance/machines/8.3?tab=checks) */
