@@ -42,19 +42,54 @@ export const SIGNED_URL_TTL_SECONDS = 300;
  * @returns {Promise<{ resolvedDrawingNo: string, storagePath: string,
  *                     isFallback: boolean } | null>}
  */
+/**
+ * Sanitizuje broj crteža iz BigTehn-a.
+ *
+ * BigTehn ima brojne data-quality probleme u koloni `broj_crteza`:
+ *   - Leading/trailing whitespace (uobičajeno)
+ *   - Trailing tačke: `1109245.`, `1117073..`, `1130518.` — verovatno
+ *     copy-paste artefakti. Storage fajlovi su BEZ tačke.
+ *   - Pure-dot vrednosti: `.`, `..`, `...` — placeholder kad tehnolog
+ *     nije znao broj. Tretiramo kao prazno (vraćamo null).
+ *
+ * @returns {string|null} očišćen broj, ili null ako je placeholder/prazno
+ */
+export function sanitizeDrawingNo(brojCrteza) {
+  if (brojCrteza == null) return null;
+  let s = String(brojCrteza).trim();
+  if (!s) return null;
+  /* Skini leading/trailing tačke i razmake (npr. `..1133219.` → `1133219`,
+     `1109245.` → `1109245`). */
+  s = s.replace(/^[.\s]+/, '').replace(/[.\s]+$/, '');
+  if (!s) return null;
+  /* Pure-dot/garbage vrednosti (`.`, `..`, `...`) ostaće prazne nakon
+     trim-a → vraćamo null. Dodatno: ako je nakon sanitizacije jedini
+     karakter tačka/space (paranoja), tretiramo kao prazno. */
+  if (/^[.\s]*$/.test(s)) return null;
+  return s;
+}
+
+/**
+ * Vraća true ako je broj crteža sanitizan-prazna ili placeholder vrednost
+ * (npr. `.`, `..`, `   `, ``, null). Korisno UI-ju da NE renderuje PDF
+ * dugme za garbage podatke iz BigTehn-a.
+ */
+export function isPlaceholderDrawingNo(brojCrteza) {
+  return sanitizeDrawingNo(brojCrteza) === null;
+}
+
 export async function resolveBigtehnDrawing(brojCrteza) {
-  if (!brojCrteza) {
-    console.warn('[drawings.resolve] missing brojCrteza');
+  const code = sanitizeDrawingNo(brojCrteza);
+  if (!code) {
+    console.warn('[drawings.resolve] empty/placeholder brojCrteza:', JSON.stringify(brojCrteza));
     return null;
   }
   if (!getIsOnline()) {
-    console.warn('[drawings.resolve] offline → cannot resolve', brojCrteza);
+    console.warn('[drawings.resolve] offline → cannot resolve', code);
     return null;
   }
-  const code = String(brojCrteza).trim();
-  if (!code) return null;
 
-  /* 1) Exact match */
+  /* 1) Exact match na sanitizovan code */
   {
     const p = new URLSearchParams();
     p.set('select', 'drawing_no,storage_path');
@@ -84,7 +119,7 @@ export async function resolveBigtehnDrawing(brojCrteza) {
   p.set('limit', '50');
   const rows = await sbReq(`bigtehn_drawings_cache?${p.toString()}`);
   if (!Array.isArray(rows) || rows.length === 0) {
-    console.warn('[drawings.resolve] no rows in cache for', code, 'or revisions');
+    console.warn('[drawings.resolve] no rows in cache for', code, 'or revisions (Bridge sync ne pokriva ovaj fajl?)');
     return null;
   }
   const prefix = code + '_';

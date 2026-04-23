@@ -30,6 +30,7 @@ import {
   plannedSeconds,
   getBigtehnDrawingSignedUrl,
 } from '../../services/planProizvodnje.js';
+import { sanitizeDrawingNo, isPlaceholderDrawingNo } from '../../services/drawings.js';
 import { openDrawingManager } from './drawingManager.js';
 import { openTechProcedureModal } from './techProcedureModal.js';
 
@@ -265,7 +266,19 @@ function rowHtml(r) {
     && r.assigned_machine_code !== r.original_machine_code;
   const customerLabel =
     r.customer_short || r.customer_name || (r.customer_id ? `#${r.customer_id}` : '—');
-  const broj = r.broj_crteza || '—';
+
+  /* Broj crteža: BigTehn često ima garbage/dirty vrednosti (`.`, `..`,
+     `1109245.` sa trailing tačkom itd.). Sanitizujemo za prikaz i odluku
+     da li uopšte prikazati 📄 PDF dugme. Ako je placeholder/empty,
+     dugme se NE renderuje (besmisleno je); prikaz pokazuje originalnu
+     vrednost ili `—`. */
+  const brojRaw = r.broj_crteza || '';
+  const brojSan = sanitizeDrawingNo(brojRaw);
+  const isPlaceholder = isPlaceholderDrawingNo(brojRaw);
+  const brojDisplay = brojSan || (brojRaw && brojRaw.trim() ? brojRaw : '—');
+  const brojTooltip = brojSan && brojSan !== brojRaw.trim()
+    ? `${brojSan} (BigTehn: "${brojRaw}")`
+    : brojDisplay;
 
   const noteVal = r.shift_note || '';
   const noteId = `note-${r.work_order_id}-${r.line_id}`;
@@ -308,15 +321,16 @@ function rowHtml(r) {
                 data-action="open-tech-procedure"
                 title="Otvori kompletan tehnološki postupak ovog RN-a">📋</button>
       </td>
-      <td class="pp-cell-muted pp-cell-drawing" title="${escHtml(broj)}">
+      <td class="pp-cell-muted pp-cell-drawing" title="${escHtml(brojTooltip)}">
         <div class="pp-drawing-cell">
-          <span class="pp-drawing-no">${escHtml(broj)}</span>
-          ${broj && broj !== '—'
+          <span class="pp-drawing-no">${escHtml(brojDisplay)}</span>
+          ${!isPlaceholder
             ? `<button type="button"
                        class="pp-drawing-pdf-icon"
                        data-action="open-bigtehn-drawing"
-                       data-broj="${escHtml(broj)}"
-                       title="Otvori PDF crtež ${escHtml(broj)} u novom tab-u">
+                       data-broj="${escHtml(brojSan)}"
+                       data-broj-raw="${escHtml(brojRaw)}"
+                       title="Otvori PDF crtež ${escHtml(brojSan)} u novom tab-u">
                  📄 PDF
                </button>`
             : ''}
@@ -479,6 +493,7 @@ async function onOpenDrawings(btn) {
  */
 async function onOpenBigtehnDrawing(btn) {
   const broj = btn.dataset.broj;
+  const brojRaw = btn.dataset.brojRaw || broj;
   if (!broj) return;
   const tab = window.open('about:blank', '_blank');
   if (!tab) {
@@ -489,7 +504,18 @@ async function onOpenBigtehnDrawing(btn) {
     const url = await getBigtehnDrawingSignedUrl(broj);
     if (!url) {
       tab.close();
-      showToast(`PDF crtež "${broj}" nije pronađen u Bridge cache-u.`);
+      /* Razlikujemo dva slučaja:
+         (a) sanitizovan broj se RAZLIKUJE od BigTehn vrednosti — verovatno
+             trailing dot/whitespace; korisnik vidi obe verzije.
+         (b) sanitizovan broj == BigTehn vrednost — Bridge sync nije pokrio
+             ovaj fajl (treba rerun bridge_sync ili crtež fakat ne postoji u PDM-u). */
+      const cleaned = brojRaw && brojRaw.trim() !== broj
+        ? ` (BigTehn ima "${brojRaw}", traženo "${broj}")`
+        : '';
+      showToast(
+        `PDF crtež "${broj}"${cleaned} nije u Bridge keš-u. ` +
+        `Pokreni Bridge sync ili proveri da li PDF postoji u PDM-u.`,
+      );
       return;
     }
     tab.location.href = url;
