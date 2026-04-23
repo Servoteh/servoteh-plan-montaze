@@ -392,7 +392,12 @@ function buildTechLabelHtmlBlock(spec, index = 0) {
  * print dijalogu isključiti „Headers and footers" za TSC profil.
  */
 const TECH_LABEL_CSS = `
-  @page { size: 80mm 40mm; margin: 0; }
+  /* @page postavljen NAMERNO na 38mm umesto fizičkih 40.30mm — Chrome
+   * koristi @page za page-break računanje. Ako sadržaj pređe @page visinu
+   * ZA SAMO PIKSEL, Chrome pravi novu stranu → sledeća fizička nalepnica
+   * dobija pola sadržaja. Sa 38mm imamo ~2.3mm rezerve za browser
+   * line-height/rendering toleranciju. */
+  @page { size: 80mm 38mm; margin: 0; }
   * { box-sizing: border-box; }
   html, body { margin:0; padding:0; font-family: 'Arial', 'Liberation Sans', sans-serif; color:#000; background:#fff; }
   .toolbar {
@@ -401,38 +406,40 @@ const TECH_LABEL_CSS = `
   }
   .toolbar button { margin-left:8px; padding:4px 10px; cursor:pointer; }
   .toolbar .hint { color:#444; margin-left:12px; }
+  /* Total budget na 38mm: 0.5mm pad + 14mm text zone + 0.3mm gap + 17mm barkod + 0.5mm pad = 32.3mm */
   .label {
-    width: 80mm; height: 40mm;
-    padding: 1mm 1.5mm 0.5mm;
+    width: 80mm; height: 38mm; max-height: 38mm;
+    padding: 0.5mm 1.5mm;
     display: flex; flex-direction: column;
-    gap: 0.3mm;
+    gap: 0.2mm;
     page-break-after: always;
     break-after: page;
     overflow: hidden;
   }
   .label:last-child { page-break-after: auto; break-after: auto; }
-  .lbl-meta { display: flex; flex-direction: column; gap: 0.1mm; flex: 0 0 auto; }
+  .lbl-meta { display: flex; flex-direction: column; gap: 0; flex: 0 0 auto; max-height: 14mm; overflow: hidden; }
   .lbl-row {
-    font-size: 7pt; line-height: 1.1;
-    display: flex; gap: 4mm;
+    font-size: 6.5pt; line-height: 1;
+    display: flex; gap: 3mm;
     overflow: hidden;
-    height: 3mm;
+    height: 2.6mm;
   }
   .lbl-row-full { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .lbl-row-split { display: flex; justify-content: space-between; align-items: baseline; }
   .lbl-cell { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1 1 50%; }
   .lbl-cell-right { text-align: right; }
-  .lbl-rn { font-size: 11pt; font-weight: 700; line-height: 1; flex: 1 1 auto; }
-  .lbl-row-split:first-child { height: 4.5mm; align-items: center; }
+  .lbl-rn { font-size: 10pt; font-weight: 700; line-height: 1; flex: 1 1 auto; }
+  .lbl-row-split:first-child { height: 3.6mm; align-items: center; }
   .lbl-k { font-weight: 700; }
   .lbl-v { font-weight: 500; }
   .lbl-bc {
-    flex: 1 1 auto; min-height: 16mm;
+    flex: 0 0 17mm; max-height: 17mm;
     display: flex; align-items: center; justify-content: center;
-    margin-top: 0.5mm;
+    margin-top: 0.3mm;
     padding: 0 2mm; /* quiet zone leva i desna strana */
+    overflow: hidden;
   }
-  .lbl-bc svg { width: 100%; height: 100%; max-height: 20mm; }
+  .lbl-bc svg { width: 100%; height: 100%; max-height: 17mm; display: block; }
   @media print {
     .toolbar { display: none !important; }
     body { margin:0; padding:0; }

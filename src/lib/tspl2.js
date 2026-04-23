@@ -134,56 +134,63 @@ export function buildTspLabelProgram(spec) {
 
   const PAD_LEFT = mm(1.5);
   const RIGHT_HALF_X = mm(42); /* polovina od ~80mm; dovoljno mesta za desnu polovinu */
-  const RIGHT_FAR_X = mm(80) - mm(2); /* "right-aligned" emulacija — ovo je x za TEKST koji počinje desno; TSPL2 nema native right-align, pa kalkulišemo */
+
+  /* ─ Visina budžeta (40.30mm fizički):
+   *   y=0.5mm pad
+   *   y=0.5mm  Red 1 (RN, font "4" ~4mm)
+   *   y=4.5mm  Red 2 (Predmet, font "2" ~2.5mm)
+   *   y=7.0mm  Red 3 (Deo)
+   *   y=9.5mm  Red 4 (Crtez | Materijal)
+   *   y=12.0mm Red 5 (Kol | Datum)
+   *   y=14.8mm Barkod start, h=15mm → ends y=29.8mm
+   *   pad bottom: 40.30 - 29.8 = 10.5mm rezerve (više nego dovoljno)
+   * Hard ograničavamo barkod na 15mm da niko nikad ne pređe ivicu. */
 
   /* ─ Red 1: Broj Predmeta (levo, naglašen) | Komitent (desno) ─ */
   if (f.brojPredmeta) {
-    lines.push(`TEXT ${PAD_LEFT},${mm(1)},"4",0,1,1,${tsplStr(truncFit(f.brojPredmeta, 18))}`);
+    lines.push(`TEXT ${PAD_LEFT},${mm(0.5)},"4",0,1,1,${tsplStr(truncFit(f.brojPredmeta, 18))}`);
   }
   if (f.komitent) {
-    /* Komitent ide u desnu polovinu na fiksnoj X koordinati (RIGHT_HALF_X). */
-    lines.push(`TEXT ${RIGHT_HALF_X},${mm(2)},"2",0,1,1,${tsplStr(truncFit(f.komitent, 28))}`);
+    lines.push(`TEXT ${RIGHT_HALF_X},${mm(1.2)},"2",0,1,1,${tsplStr(truncFit(f.komitent, 28))}`);
   }
 
   /* ─ Red 2: Naziv predmeta (full width) ─ */
   if (f.nazivPredmeta) {
-    lines.push(`TEXT ${PAD_LEFT},${mm(5.5)},"2",0,1,1,${tsplStr(truncFit(f.nazivPredmeta, 60))}`);
+    lines.push(`TEXT ${PAD_LEFT},${mm(4.5)},"2",0,1,1,${tsplStr(truncFit(f.nazivPredmeta, 60))}`);
   }
 
   /* ─ Red 3: Naziv dela (full width) ─ */
   if (f.nazivDela) {
-    lines.push(`TEXT ${PAD_LEFT},${mm(8.5)},"2",0,1,1,${tsplStr(truncFit(f.nazivDela, 60))}`);
+    lines.push(`TEXT ${PAD_LEFT},${mm(7)},"2",0,1,1,${tsplStr(truncFit(f.nazivDela, 60))}`);
   }
 
   /* ─ Red 4: Broj crteža (levo) | Materijal (desno) ─ */
   if (f.brojCrteza) {
-    lines.push(`TEXT ${PAD_LEFT},${mm(11.5)},"2",0,1,1,${tsplStr('Crtez: ' + truncFit(f.brojCrteza, 18))}`);
+    lines.push(`TEXT ${PAD_LEFT},${mm(9.5)},"2",0,1,1,${tsplStr('Crtez: ' + truncFit(f.brojCrteza, 18))}`);
   }
   if (f.materijal) {
-    lines.push(`TEXT ${RIGHT_HALF_X},${mm(11.5)},"2",0,1,1,${tsplStr(truncFit(f.materijal, 28))}`);
+    lines.push(`TEXT ${RIGHT_HALF_X},${mm(9.5)},"2",0,1,1,${tsplStr(truncFit(f.materijal, 28))}`);
   }
 
   /* ─ Red 5: Količina (levo) | Datum (desno) ─ */
   if (f.kolicina) {
-    lines.push(`TEXT ${PAD_LEFT},${mm(14.5)},"2",0,1,1,${tsplStr('Kol: ' + truncFit(f.kolicina, 18))}`);
+    lines.push(`TEXT ${PAD_LEFT},${mm(12)},"2",0,1,1,${tsplStr('Kol: ' + truncFit(f.kolicina, 18))}`);
   }
   if (f.datum) {
-    lines.push(`TEXT ${RIGHT_HALF_X},${mm(14.5)},"2",0,1,1,${tsplStr(f.datum)}`);
+    lines.push(`TEXT ${RIGHT_HALF_X},${mm(12)},"2",0,1,1,${tsplStr(f.datum)}`);
   }
 
   /* ─ Barkod (dole, full-width minus 2mm quiet zone svake strane) ─
    * BARCODE x,y,"128M",height,human_readable,rotation,narrow,wide,content
-   *   - 128M = CODE128 sa auto-subset switching
-   *   - height u dots (20mm * 11.81 = ~236)
-   *   - human_readable=0 = bez teksta ispod (Broj Predmeta je već gore)
+   *   - height = 15mm → 177 dots (smanjeno sa 20mm da apsolutno stane)
+   *   - human_readable=0 = bez teksta ispod (RN je gore u Redu 1)
    *   - narrow=2 dots (~0.17mm) → modul width za 300 DPI
    *
-   * Quiet zone: leva margina 2mm = mm(2) dots; barkod širina ~76mm
-   * (auto), ostaje ~2mm desno = OK.
+   * Quiet zone: leva 2mm + barkod ~76mm + desno ~2mm = OK.
    */
   const BC_X = mm(2);
-  const BC_Y = mm(17);
-  const BC_H = mm(20);
+  const BC_Y = mm(14.8);
+  const BC_H = mm(15);
   lines.push(`BARCODE ${BC_X},${BC_Y},"128M",${BC_H},0,0,2,4,${tsplStr(bc)}`);
 
   /* ─ Pošalji u feed ─ */

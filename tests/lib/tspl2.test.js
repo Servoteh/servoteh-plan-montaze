@@ -92,15 +92,16 @@ describe('buildTspLabelProgram', () => {
     expect(out).toContain('\r\n');
   });
 
-  it('places barcode roughly in lower half (y >= ~16mm) so 5-row text zona ima mesta gore', () => {
+  it('places barcode below 5-row text zona and inside physical 40.30mm height', () => {
     const out = buildTspLabelProgram(baseSpec);
-    const m = out.match(/BARCODE \d+,(\d+),"128M"/);
+    const m = out.match(/BARCODE \d+,(\d+),"128M",(\d+)/);
     expect(m).not.toBeNull();
     const yDots = Number(m[1]);
-    /* 16mm * 11.81 ≈ 189 dots */
-    expect(yDots).toBeGreaterThanOrEqual(180);
-    /* 22mm * 11.81 ≈ 260 dots — barkod ne sme da padne ispod sredine 40.3mm nalepnice */
-    expect(yDots).toBeLessThan(260);
+    const hDots = Number(m[2]);
+    /* y mora biti ispod Reda 5 (~12mm + 2.5mm = 14.5mm * 11.81 ≈ 171 dots) */
+    expect(yDots).toBeGreaterThanOrEqual(160);
+    /* y + height MORA stati u fizičkih 40.30mm (476 dots) sa malo rezerve */
+    expect(yDots + hDots).toBeLessThan(380); /* 32mm * 11.81 ≈ 378 — daje >8mm donje rezerve */
   });
 });
 
