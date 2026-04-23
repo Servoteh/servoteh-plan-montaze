@@ -47,13 +47,47 @@ export const STATUS_CYCLE_NEXT = {
  * Vraća listu svih mašina iz BigTehn cache-a (RJ grupe RC).
  * Filter `no_procedure=false` po default-u JESTE primenjen u UI selektoru,
  * ali ovde vraćamo SVE da bi REASSIGN dropdown imao kompletan spisak.
+ *
+ * Uz osnovne kolone, embedduje i naziv odeljenja iz
+ * `bigtehn_departments_cache` (FK `department_id` → `id`). Naziv se
+ * koristi u `poMasiniTab.js` za filtriranje mašina po odeljenju (tabovi
+ * iznad dropdown-a). Ako embed iz bilo kog razloga padne, fallback na
+ * dva odvojena query-ja sa client-side merge — bitno je da svaka mašina
+ * dobije polje `departmentName`.
  */
 export async function loadMachines() {
   if (!getIsOnline()) return [];
-  const data = await sbReq(
-    'bigtehn_machines_cache?select=rj_code,name,no_procedure,department_id&order=name.asc',
+
+  /* Primarno: PostgREST resource embedding preko FK relacije. Alias
+     `department:` daje stabilan ključ u JSON-u bez obzira na ime FK-a. */
+  let data = await sbReq(
+    'bigtehn_machines_cache?select=rj_code,name,no_procedure,department_id,department:bigtehn_departments_cache(id,name)&order=name.asc',
   );
-  return Array.isArray(data) ? data : [];
+
+  if (!Array.isArray(data)) {
+    /* Fallback: dva odvojena fetcha + client-side merge. */
+    const [machines, departments] = await Promise.all([
+      sbReq('bigtehn_machines_cache?select=rj_code,name,no_procedure,department_id&order=name.asc'),
+      sbReq('bigtehn_departments_cache?select=id,name'),
+    ]);
+    if (!Array.isArray(machines)) return [];
+    const deptById = new Map(
+      (Array.isArray(departments) ? departments : []).map(d => [String(d.id), d]),
+    );
+    data = machines.map(m => ({
+      ...m,
+      department: m.department_id != null ? deptById.get(String(m.department_id)) || null : null,
+    }));
+  }
+
+  return data.map(m => ({
+    rj_code:        m.rj_code,
+    name:           m.name,
+    no_procedure:   m.no_procedure,
+    department_id:  m.department_id ?? null,
+    departmentId:   m.department_id ?? null,
+    departmentName: m.department?.name ?? null,
+  }));
 }
 
 /**

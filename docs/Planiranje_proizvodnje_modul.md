@@ -30,7 +30,7 @@ Modul: `sessionStorage` / hub modul **`plan-proizvodnje`**, `src/ui/planProizvod
 
 | Tab | Svrha | Glavni fajl |
 |-----|--------|-------------|
-| **Po mašini** | Izbor mašine (`rj_code`), tabela operacija, drag-drop redosled, status pill, napomena, REASSIGN, otvaranje skica i TP modala | `poMasiniTab.js` |
+| **Po mašini** | Izbor mašine (`rj_code`), tabela operacija, drag-drop redosled, status pill, napomena, REASSIGN, otvaranje skica i TP modala. Iznad dropdown-a je red tabova odeljenja (Sve, Glodanje, Struganje, Borverci, Ažistiranje, Sečenje, Bravarsko, Farbanje, Površinska zaštita, Ostalo) koji filtrira listu mašina. Mapiranje BigTehn naziva odeljenja (`bigtehn_departments_cache.name`) na tab-ove je u `src/ui/planProizvodnje/departments.js` (case-insensitive, bez dijakritike; svaki no-match pada u `Ostalo`). | `poMasiniTab.js` |
 | **Zauzetost mašina** | Zbirno: otvorene operacije i planirano vreme po mašini; skok u „Po mašini” | `zauzetostTab.js` |
 | **Pregled svih** | Matrica mašina × narednih radnih dana; skok u „Po mašini” | `pregledTab.js` |
 
@@ -82,6 +82,7 @@ BigTehn cache i bridge sync nisu u ovom fajlu — zavise od ostalih migracija/wo
 ## Lokalni storage (UX)
 
 - Poslednja izabrana mašina: `plan-proizvodnje:last-machine` (`localStorage`).
+- Poslednje izabrano odeljenje u tabu „Po mašini”: `plan-proizvodnje:last-department` (`localStorage`) — slug iz `DEPARTMENTS` u `src/ui/planProizvodnje/departments.js` (npr. `sve`, `glodanje`, `ostalo`). Skok iz „Zauzetost” / „Pregled” u „Po mašini” automatski upisuje slug odeljenja izabrane mašine kako bi se tab vizuelno refleksovao.
 - Tabovi „Zauzetost” / „Pregled”: filter/sort ključevi u `zauzetostTab.js` / `pregledTab.js` (prefiks `plan-proizvodnje:`).
 
 ---

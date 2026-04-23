@@ -1371,3 +1371,50 @@
   .tpm-pdf-header { flex-direction: column; align-items: stretch; gap: 10px; }
   .tpm-pdf-header .tpm-pdf-primary-btn { width: 100%; justify-content: center; }
 }
+
+/* ============================================================================
+ * Tabovi odeljenja iznad dropdown-a mašina (Po mašini → filter mašina po
+ * BigTehn department-u). Mapiranje BigTehn naziva → tab je u
+ * `src/ui/planProizvodnje/departments.js`.
+ * ========================================================================= */
+.pp-dept-tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 8px 12px;
+  margin: 0 0 8px 0;
+  border-bottom: 1px solid var(--border, #e5e7eb);
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+.pp-dept-tabs::-webkit-scrollbar { height: 4px; }
+
+.pp-dept-tab {
+  flex: 0 0 auto;
+  padding: 8px 14px;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 999px;
+  background: var(--surface, #fff);
+  color: var(--text, #111827);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  min-height: 36px;
+}
+.pp-dept-tab:hover { background: var(--surface2, #f3f4f6); }
+.pp-dept-tab[aria-selected="true"] {
+  background: #111827;
+  color: #fff;
+  border-color: #111827;
+}
+.pp-dept-tab:focus-visible {
+  outline: 2px solid var(--blue-bar, #4f9bff);
+  outline-offset: 1px;
+}
+
+@media (max-width: 640px) {
+  .pp-dept-tab { padding: 10px 14px; font-size: 15px; min-height: 44px; }
+}

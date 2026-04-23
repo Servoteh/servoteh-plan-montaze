@@ -38,15 +38,18 @@ import {
 } from '../../services/drawings.js';
 import { openDrawingManager } from './drawingManager.js';
 import { openTechProcedureModal } from './techProcedureModal.js';
+import { DEPARTMENTS, resolveDepartmentSlug } from './departments.js';
 
 /* ── Local state (po instanci taba — postoji jedan u svakom trenutku) ── */
 const STORAGE_KEY_LAST_MACHINE = 'plan-proizvodnje:last-machine';
+const STORAGE_KEY_LAST_DEPT    = 'plan-proizvodnje:last-department';
 
 const state = {
   host: null,
   canEdit: false,
-  machines: [],          /* [{rj_code, name, no_procedure, department_id}] */
+  machines: [],          /* [{rj_code, name, no_procedure, department_id, departmentName}] */
   selectedMachine: null, /* string rj_code */
+  selectedDeptSlug: 'sve',
   rows: [],              /* trenutne operacije */
   loading: false,
   error: null,
@@ -65,8 +68,29 @@ export async function renderPoMasiniTab(host, { canEdit }) {
     || localStorage.getItem(STORAGE_KEY_LAST_MACHINE)
     || null;
 
-  /* Inicijalni HTML — mašine se učitavaju asinhrono */
+  state.selectedDeptSlug =
+    localStorage.getItem(STORAGE_KEY_LAST_DEPT)
+    || 'sve';
+  /* Sanity: ako je u storage-u stari/nepoznati slug, fallback na 'sve'. */
+  if (!DEPARTMENTS.some(d => d.slug === state.selectedDeptSlug)) {
+    state.selectedDeptSlug = 'sve';
+  }
+
+  /* Inicijalni HTML — mašine se učitavaju asinhrono. Tabovi odeljenja su
+     iznad toolbar-a sa MAŠINA dropdown-om i filtriraju listu mašina. */
   host.innerHTML = `
+    <div class="pp-dept-tabs" id="ppDeptTabs" role="tablist" aria-label="Odeljenje">
+      ${DEPARTMENTS.map(dept => `
+        <button
+          type="button"
+          role="tab"
+          class="pp-dept-tab"
+          data-slug="${escHtml(dept.slug)}"
+          aria-selected="${dept.slug === state.selectedDeptSlug ? 'true' : 'false'}"
+        >${escHtml(dept.label)}</button>
+      `).join('')}
+    </div>
+
     <div class="pp-toolbar">
       <span class="pp-toolbar-label">Mašina:</span>
       <select class="pp-machine-select" id="ppMachineSelect" disabled>
@@ -93,6 +117,7 @@ export async function renderPoMasiniTab(host, { canEdit }) {
   /* Wire toolbar */
   const machineSel = host.querySelector('#ppMachineSelect');
   const refreshBtn = host.querySelector('#ppRefreshBtn');
+  const deptTabsEl = host.querySelector('#ppDeptTabs');
   machineSel.addEventListener('change', () => {
     state.selectedMachine = machineSel.value || null;
     if (state.selectedMachine) {
@@ -104,6 +129,18 @@ export async function renderPoMasiniTab(host, { canEdit }) {
     if (state.loading) return;
     refreshOperations({ force: true });
   });
+  if (deptTabsEl) {
+    deptTabsEl.addEventListener('click', (e) => {
+      const btn = e.target.closest('.pp-dept-tab');
+      if (!btn) return;
+      const slug = btn.dataset.slug;
+      if (!slug || slug === state.selectedDeptSlug) return;
+      state.selectedDeptSlug = slug;
+      localStorage.setItem(STORAGE_KEY_LAST_DEPT, slug);
+      updateDeptTabsSelected();
+      renderMachineSelect();
+    });
+  }
 
   /* Učitaj mašine */
   await loadMachineSelect();
@@ -115,6 +152,7 @@ export function teardownPoMasiniTab() {
   state.rows = [];
   state.dragRowKey = null;
   state.error = null;
+  /* Ne resetujemo selectedDeptSlug — re-mount učita iz localStorage. */
 }
 
 /* ── Mašine ── */
@@ -140,19 +178,57 @@ async function loadMachineSelect() {
     return;
   }
 
-  /* Filter (opciono): mašine koje su mašinske obrade — to znači NE no_procedure.
-     Ali REASSIGN dropdown treba SVE; zato ovde u glavnom selektoru dajemo
-     SVE, samo grupiše procedure mašine na vrh + non-procedure na dnu. */
-  const procedural = state.machines.filter(m => !m.no_procedure);
-  const nonProcedural = state.machines.filter(m => m.no_procedure);
+  if (btn) btn.disabled = false;
+
+  renderMachineSelect();
+}
+
+/**
+ * Filtrira `state.machines` po trenutno izabranom tab-odeljenju.
+ * 'sve' → sve mašine; ostali slug-ovi → samo mašine čiji
+ * `resolveDepartmentSlug(departmentName)` matchuje.
+ */
+function getFilteredMachines(allMachines, slug) {
+  if (slug === 'sve') return allMachines;
+  return allMachines.filter(m => resolveDepartmentSlug(m.departmentName) === slug);
+}
+
+/**
+ * (Re)render dropdown-a mašina na osnovu trenutno izabranog tab-odeljenja.
+ *
+ * Ako se trenutno izabrana mašina (`state.selectedMachine`) NE nalazi u
+ * filtriranom skupu — `select` se vraća na placeholder „— izaberi mašinu —"
+ * (po dogovoru: jednostavnije nego prikazivanje „van filtera" oznake).
+ * Time se izbegava zbunjujuće stanje u tabeli.
+ */
+function renderMachineSelect() {
+  const sel = state.host?.querySelector('#ppMachineSelect');
+  if (!sel) return;
+
+  const filtered = getFilteredMachines(state.machines, state.selectedDeptSlug);
+
+  if (filtered.length === 0) {
+    sel.innerHTML = '<option value="">— nema mašina u ovom odeljenju —</option>';
+    sel.disabled = true;
+    state.selectedMachine = null;
+    renderEmptyTable('Promeni odeljenje iznad ili izaberi „Sve" da vidiš sve mašine.');
+    setCounter(null);
+    return;
+  }
+
+  /* Mašinske obrade na vrh, „pomoćne" (no_procedure) na dno — REASSIGN
+     i dalje treba sve mašine, ali to dropdown otvara zaseban kod
+     (`onReassign`), tako da ovde radimo samo izbor radne mašine. */
+  const procedural    = filtered.filter(m => !m.no_procedure);
+  const nonProcedural = filtered.filter(m =>  m.no_procedure);
 
   sel.innerHTML = `
     <option value="">— izaberi mašinu —</option>
-    <optgroup label="Mašine">
+    ${procedural.length ? `<optgroup label="Mašine">
       ${procedural.map(m =>
         `<option value="${escHtml(m.rj_code)}">${escHtml(m.name)} (${escHtml(m.rj_code)})</option>`,
       ).join('')}
-    </optgroup>
+    </optgroup>` : ''}
     ${nonProcedural.length ? `<optgroup label="Ostalo (kontrola, kooperacija…)">
       ${nonProcedural.map(m =>
         `<option value="${escHtml(m.rj_code)}">${escHtml(m.name)} (${escHtml(m.rj_code)})</option>`,
@@ -160,17 +236,34 @@ async function loadMachineSelect() {
     </optgroup>` : ''}
   `;
   sel.disabled = false;
-  if (btn) btn.disabled = false;
 
-  /* Vrati prethodno izabranu mašinu ako još postoji u listi */
-  if (state.selectedMachine && state.machines.some(m => m.rj_code === state.selectedMachine)) {
+  /* Vrati prethodno izabranu mašinu ako još postoji u filtriranoj listi */
+  if (
+    state.selectedMachine
+    && filtered.some(m => m.rj_code === state.selectedMachine)
+  ) {
     sel.value = state.selectedMachine;
-    await refreshOperations();
+    refreshOperations();
   } else {
-    state.selectedMachine = null;
+    if (state.selectedMachine) {
+      /* Edge case: izabrana mašina nije u novom filteru. Po dogovoru:
+         ne pamtimo je više kao izabranu — korisnik mora ručno izabrati
+         iz suženog spiska. */
+      state.selectedMachine = null;
+    }
     renderEmptyTable('Izaberi mašinu iz dropdown-a iznad da vidiš njene otvorene operacije.');
     setCounter(null);
   }
+}
+
+/** Update aria-selected na svim tab dugmadima na osnovu state.selectedDeptSlug. */
+function updateDeptTabsSelected() {
+  const tabs = state.host?.querySelectorAll('.pp-dept-tabs .pp-dept-tab');
+  if (!tabs) return;
+  tabs.forEach(btn => {
+    const isSel = btn.dataset.slug === state.selectedDeptSlug;
+    btn.setAttribute('aria-selected', isSel ? 'true' : 'false');
+  });
 }
 
 /* ── Operacije ── */
