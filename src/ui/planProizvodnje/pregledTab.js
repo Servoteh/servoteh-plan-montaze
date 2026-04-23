@@ -24,19 +24,27 @@ import {
   loadMachines,
   buildDeadlineMatrix,
 } from '../../services/planProizvodnje.js';
+import {
+  MACHINE_GROUPS,
+  countMachinesPerGroup,
+  getMachineGroup,
+} from '../../lib/machineGroups.js';
 
 const state = {
   host: null,
   rows: [],
   machinesMap: null,
+  machinesAll: [],
   matrix: { days: [], machines: [] },
   loading: false,
   error: null,
   filter: 'all',
+  group: 'all',
   onJumpToPoMasini: null,
 };
 
 const STORAGE_KEY_FILTER = 'plan-proizvodnje:pregled:filter';
+const STORAGE_KEY_GROUP  = 'plan-proizvodnje:machine-group';
 
 /* ── Public ── */
 
@@ -46,8 +54,16 @@ export async function renderPregledTab(host, { canEdit, onJumpToPoMasini } = {})
   void canEdit;
 
   state.filter = localStorage.getItem(STORAGE_KEY_FILTER) || 'all';
+  state.group  = localStorage.getItem(STORAGE_KEY_GROUP)  || 'all';
 
   host.innerHTML = `
+    <div class="mg-chipbar" id="pmGroupChipbar" role="tablist" aria-label="Filter mašina po grupi">
+      <span class="mg-chipbar-label">Grupa:</span>
+      <div class="mg-chipbar-scroll" id="pmGroupChipbarScroll">
+        <span class="pp-cell-muted">Učitavanje grupa…</span>
+      </div>
+    </div>
+
     <div class="pp-toolbar">
       <span class="pp-toolbar-label">Filter:</span>
       <div class="zm-filter" role="group" aria-label="Filter mašina">
@@ -112,7 +128,8 @@ async function reload() {
       loadMachines(),
       loadAllOpenOperations(),
     ]);
-    state.machinesMap = new Map((machines || []).map(m => [m.rj_code, m]));
+    state.machinesAll = machines || [];
+    state.machinesMap = new Map(state.machinesAll.map(m => [m.rj_code, m]));
     state.rows = rows || [];
     state.matrix = buildDeadlineMatrix(state.rows, 5);
     /* Obogati machines metadatom */
@@ -122,8 +139,10 @@ async function reload() {
         ...m,
         machineName: meta?.name || '',
         noProcedure: !!meta?.no_procedure,
+        groupId: getMachineGroup(meta || { rj_code: m.machineCode }),
       };
     });
+    renderGroupChipbar();
     renderMatrix();
   } catch (e) {
     console.error('[pregled] reload failed', e);
@@ -138,6 +157,37 @@ async function reload() {
 function setRefreshSpinning(on) {
   const btn = state.host?.querySelector('#pmRefreshBtn');
   if (btn) btn.classList.toggle('is-spinning', !!on);
+}
+
+function renderGroupChipbar() {
+  const host = state.host?.querySelector('#pmGroupChipbarScroll');
+  if (!host) return;
+  const counts = countMachinesPerGroup(state.machinesAll);
+  const visible = MACHINE_GROUPS.filter(
+    (g) => g.id === 'all' || (counts.get(g.id) || 0) > 0,
+  );
+  host.innerHTML = visible.map((g) => {
+    const n = counts.get(g.id) || 0;
+    const isActive = g.id === state.group;
+    return `
+      <button type="button" role="tab"
+              class="mg-chip${isActive ? ' is-active' : ''}"
+              data-group-id="${escHtml(g.id)}"
+              aria-selected="${isActive ? 'true' : 'false'}"
+              title="${escHtml(g.label)} — ${n} mašina">
+        ${escHtml(g.label)} <span class="mg-chip-count">${n}</span>
+      </button>`;
+  }).join('');
+  host.querySelectorAll('button[data-group-id]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.groupId;
+      if (!id || id === state.group) return;
+      state.group = id;
+      try { localStorage.setItem(STORAGE_KEY_GROUP, id); } catch { /* ignore */ }
+      renderGroupChipbar();
+      renderMatrix();
+    });
+  });
 }
 
 /* ── Render ── */
@@ -155,6 +205,9 @@ function renderMatrix() {
 
   const { days } = state.matrix;
   let { machines } = state.matrix;
+  if (state.group && state.group !== 'all') {
+    machines = machines.filter(m => m.groupId === state.group);
+  }
   if (state.filter === 'proc') {
     machines = machines.filter(m => m.noProcedure === false);
   }

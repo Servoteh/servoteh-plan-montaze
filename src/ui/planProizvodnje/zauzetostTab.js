@@ -20,20 +20,28 @@ import {
   summarizeByMachine,
   formatSecondsHm,
 } from '../../services/planProizvodnje.js';
+import {
+  MACHINE_GROUPS,
+  countMachinesPerGroup,
+  getMachineGroup,
+} from '../../lib/machineGroups.js';
 
 const STORAGE_KEY_SORT     = 'plan-proizvodnje:zauzetost:sort';
 const STORAGE_KEY_FILTER   = 'plan-proizvodnje:zauzetost:filter'; /* 'all' | 'proc' */
+const STORAGE_KEY_GROUP    = 'plan-proizvodnje:machine-group';   /* deli se sa svim tabovima */
 
 const state = {
   host: null,
   rows: [],          /* sirove operacije (samo za reload) */
-  machinesMap: null, /* Map<rj_code, {name, no_procedure}> */
+  machinesMap: null, /* Map<rj_code, {name, no_procedure, department_id}> */
+  machinesAll: [],   /* lista mašina za chip-bar count-ove */
   summary: [],       /* output summarizeByMachine */
   loading: false,
   error: null,
   sortKey: 'totalOps',
   sortDir: 'desc',
   filter: 'all',
+  group: 'all',
   onJumpToPoMasini: null,
 };
 
@@ -134,8 +142,16 @@ export async function renderZauzetostTab(host, { canEdit, onJumpToPoMasini } = {
     if (saved.dir) state.sortDir = saved.dir;
   } catch { /* ignore */ }
   state.filter = localStorage.getItem(STORAGE_KEY_FILTER) || 'all';
+  state.group  = localStorage.getItem(STORAGE_KEY_GROUP)  || 'all';
 
   host.innerHTML = `
+    <div class="mg-chipbar" id="zmGroupChipbar" role="tablist" aria-label="Filter mašina po grupi">
+      <span class="mg-chipbar-label">Grupa:</span>
+      <div class="mg-chipbar-scroll" id="zmGroupChipbarScroll">
+        <span class="pp-cell-muted">Učitavanje grupa…</span>
+      </div>
+    </div>
+
     <div class="pp-toolbar">
       <span class="pp-toolbar-label">Filter:</span>
       <div class="zm-filter" role="group" aria-label="Filter mašina">
@@ -203,8 +219,9 @@ async function reload() {
       loadAllOpenOperations(),
     ]);
 
+    state.machinesAll = machines || [];
     state.machinesMap = new Map(
-      (machines || []).map(m => [m.rj_code, m]),
+      state.machinesAll.map(m => [m.rj_code, m]),
     );
     state.rows = rows || [];
     state.summary = summarizeByMachine(state.rows).map(s => {
@@ -213,8 +230,10 @@ async function reload() {
         ...s,
         machineName: meta?.name || '',
         noProcedure: !!meta?.no_procedure,
+        groupId: getMachineGroup(meta || { rj_code: s.machineCode }),
       };
     });
+    renderGroupChipbar();
     renderTable();
   } catch (e) {
     console.error('[zauzetost] reload failed', e);
@@ -231,6 +250,37 @@ function setRefreshSpinning(on) {
   if (btn) btn.classList.toggle('is-spinning', !!on);
 }
 
+function renderGroupChipbar() {
+  const host = state.host?.querySelector('#zmGroupChipbarScroll');
+  if (!host) return;
+  const counts = countMachinesPerGroup(state.machinesAll);
+  const visible = MACHINE_GROUPS.filter(
+    (g) => g.id === 'all' || (counts.get(g.id) || 0) > 0,
+  );
+  host.innerHTML = visible.map((g) => {
+    const n = counts.get(g.id) || 0;
+    const isActive = g.id === state.group;
+    return `
+      <button type="button" role="tab"
+              class="mg-chip${isActive ? ' is-active' : ''}"
+              data-group-id="${escHtml(g.id)}"
+              aria-selected="${isActive ? 'true' : 'false'}"
+              title="${escHtml(g.label)} — ${n} mašina">
+        ${escHtml(g.label)} <span class="mg-chip-count">${n}</span>
+      </button>`;
+  }).join('');
+  host.querySelectorAll('button[data-group-id]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.groupId;
+      if (!id || id === state.group) return;
+      state.group = id;
+      try { localStorage.setItem(STORAGE_KEY_GROUP, id); } catch { /* ignore */ }
+      renderGroupChipbar();
+      renderTable();
+    });
+  });
+}
+
 /* ── Render ── */
 
 function renderTable() {
@@ -244,8 +294,11 @@ function renderTable() {
     ? `<div class="pp-error">${escHtml(state.error)}</div>`
     : '';
 
-  /* Filter */
+  /* Filter (po grupi mašina + samo proceduralne) */
   let data = state.summary;
+  if (state.group && state.group !== 'all') {
+    data = data.filter(r => r.groupId === state.group);
+  }
   if (state.filter === 'proc') {
     data = data.filter(r => r.noProcedure === false);
   }

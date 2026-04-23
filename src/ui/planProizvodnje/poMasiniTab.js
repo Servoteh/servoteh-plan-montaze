@@ -38,15 +38,23 @@ import {
 } from '../../services/drawings.js';
 import { openDrawingManager } from './drawingManager.js';
 import { openTechProcedureModal } from './techProcedureModal.js';
+import {
+  MACHINE_GROUPS,
+  countMachinesPerGroup,
+  filterMachinesByGroup,
+  sortMachinesByGroupOrder,
+} from '../../lib/machineGroups.js';
 
 /* ── Local state (po instanci taba — postoji jedan u svakom trenutku) ── */
 const STORAGE_KEY_LAST_MACHINE = 'plan-proizvodnje:last-machine';
+const STORAGE_KEY_MACHINE_GROUP = 'plan-proizvodnje:machine-group';
 
 const state = {
   host: null,
   canEdit: false,
   machines: [],          /* [{rj_code, name, no_procedure, department_id}] */
   selectedMachine: null, /* string rj_code */
+  selectedGroup: 'all',  /* chip-bar filter */
   rows: [],              /* trenutne operacije */
   loading: false,
   error: null,
@@ -65,8 +73,19 @@ export async function renderPoMasiniTab(host, { canEdit }) {
     || localStorage.getItem(STORAGE_KEY_LAST_MACHINE)
     || null;
 
-  /* Inicijalni HTML — mašine se učitavaju asinhrono */
+  state.selectedGroup =
+    localStorage.getItem(STORAGE_KEY_MACHINE_GROUP) || 'all';
+
+  /* Inicijalni HTML — mašine se učitavaju asinhrono. Chip-bar dolazi iznad
+     glavnog toolbar-a, jer je grupa kontekst za sve ostalo. */
   host.innerHTML = `
+    <div class="mg-chipbar" id="ppGroupChipbar" role="tablist" aria-label="Filter mašina po grupi">
+      <span class="mg-chipbar-label">Grupa:</span>
+      <div class="mg-chipbar-scroll" id="ppGroupChipbarScroll">
+        <span class="pp-cell-muted">Učitavanje grupa…</span>
+      </div>
+    </div>
+
     <div class="pp-toolbar">
       <span class="pp-toolbar-label">Mašina:</span>
       <select class="pp-machine-select" id="ppMachineSelect" disabled>
@@ -137,33 +156,21 @@ async function loadMachineSelect() {
     sel.disabled = true;
     if (btn) btn.disabled = true;
     renderEmptyTable('Nijedna mašina nije pronađena u <code>bigtehn_machines_cache</code>.');
+    renderGroupChipbar();
     return;
   }
 
-  /* Filter (opciono): mašine koje su mašinske obrade — to znači NE no_procedure.
-     Ali REASSIGN dropdown treba SVE; zato ovde u glavnom selektoru dajemo
-     SVE, samo grupiše procedure mašine na vrh + non-procedure na dnu. */
-  const procedural = state.machines.filter(m => !m.no_procedure);
-  const nonProcedural = state.machines.filter(m => m.no_procedure);
-
-  sel.innerHTML = `
-    <option value="">— izaberi mašinu —</option>
-    <optgroup label="Mašine">
-      ${procedural.map(m =>
-        `<option value="${escHtml(m.rj_code)}">${escHtml(m.name)} (${escHtml(m.rj_code)})</option>`,
-      ).join('')}
-    </optgroup>
-    ${nonProcedural.length ? `<optgroup label="Ostalo (kontrola, kooperacija…)">
-      ${nonProcedural.map(m =>
-        `<option value="${escHtml(m.rj_code)}">${escHtml(m.name)} (${escHtml(m.rj_code)})</option>`,
-      ).join('')}
-    </optgroup>` : ''}
-  `;
-  sel.disabled = false;
+  renderGroupChipbar();
+  populateMachineSelect();
   if (btn) btn.disabled = false;
 
-  /* Vrati prethodno izabranu mašinu ako još postoji u listi */
-  if (state.selectedMachine && state.machines.some(m => m.rj_code === state.selectedMachine)) {
+  /* Vrati prethodno izabranu mašinu ako još postoji u listi (i u trenutnoj
+     grupi). Ako mašina pripada nekoj drugoj grupi, ne menjamo grupu — samo
+     je odznačimo. */
+  const filtered = filterMachinesByGroup(state.machines, state.selectedGroup);
+  const picked = state.selectedMachine
+    && filtered.some(m => m.rj_code === state.selectedMachine);
+  if (picked) {
     sel.value = state.selectedMachine;
     await refreshOperations();
   } else {
@@ -171,6 +178,101 @@ async function loadMachineSelect() {
     renderEmptyTable('Izaberi mašinu iz dropdown-a iznad da vidiš njene otvorene operacije.');
     setCounter(null);
   }
+}
+
+/**
+ * Render chip-bar grupisanja iznad toolbar-a. Klik na chip filtrira
+ * dropdown mašina i (ako trenutno izabrana mašina nije u toj grupi)
+ * resetuje izbor mašine. Default „Sve" je redovan brojač = ukupno.
+ */
+function renderGroupChipbar() {
+  const host = state.host?.querySelector('#ppGroupChipbarScroll');
+  if (!host) return;
+  const counts = countMachinesPerGroup(state.machines);
+  /* Sakrij grupe koje su prazne (zero), izuzev "Sve" — uvek je vidljiva. */
+  const visible = MACHINE_GROUPS.filter(
+    (g) => g.id === 'all' || (counts.get(g.id) || 0) > 0,
+  );
+  host.innerHTML = visible
+    .map((g) => {
+      const n = counts.get(g.id) || 0;
+      const isActive = g.id === state.selectedGroup;
+      return `
+        <button type="button" role="tab"
+                class="mg-chip${isActive ? ' is-active' : ''}"
+                data-group-id="${escHtml(g.id)}"
+                aria-selected="${isActive ? 'true' : 'false'}"
+                title="${escHtml(g.label)} — ${n} mašina">
+          ${escHtml(g.label)} <span class="mg-chip-count">${n}</span>
+        </button>`;
+    })
+    .join('');
+
+  host.querySelectorAll('button[data-group-id]').forEach((btn) => {
+    btn.addEventListener('click', () => onSelectGroup(btn.dataset.groupId));
+  });
+}
+
+function onSelectGroup(groupId) {
+  if (!groupId || groupId === state.selectedGroup) return;
+  state.selectedGroup = groupId;
+  try {
+    localStorage.setItem(STORAGE_KEY_MACHINE_GROUP, groupId);
+  } catch { /* SSR/private mode safe */ }
+  renderGroupChipbar();
+  populateMachineSelect();
+
+  const sel = state.host?.querySelector('#ppMachineSelect');
+  const filtered = filterMachinesByGroup(state.machines, state.selectedGroup);
+  if (
+    state.selectedMachine
+    && filtered.some(m => m.rj_code === state.selectedMachine)
+  ) {
+    /* Trenutno izabrana mašina i dalje je u grupi — ostaje. */
+    if (sel) sel.value = state.selectedMachine;
+    return;
+  }
+  /* Izabrana mašina nije više u grupi (ili nije bila izabrana) — resetuj. */
+  state.selectedMachine = null;
+  state.rows = [];
+  if (sel) sel.value = '';
+  renderEmptyTable('Izaberi mašinu iz nove grupe da vidiš njene operacije.');
+  setCounter(null);
+}
+
+/**
+ * Popuni `<select>` listom mašina po trenutnoj grupi. Unutar grupe sortira
+ * po prirodnom redosledu (rj_code numerički), procedural mašine ispred
+ * non-procedural ako ih ima i jedan i drugi tip.
+ */
+function populateMachineSelect() {
+  const sel = state.host?.querySelector('#ppMachineSelect');
+  if (!sel) return;
+  const filtered = sortMachinesByGroupOrder(
+    filterMachinesByGroup(state.machines, state.selectedGroup),
+  );
+  const procedural = filtered.filter((m) => !m.no_procedure);
+  const nonProcedural = filtered.filter((m) => m.no_procedure);
+
+  if (filtered.length === 0) {
+    sel.innerHTML = '<option value="">— nema mašina u izabranoj grupi —</option>';
+    sel.disabled = true;
+    return;
+  }
+  sel.disabled = false;
+  sel.innerHTML = `
+    <option value="">— izaberi mašinu —</option>
+    ${procedural.length ? `<optgroup label="Mašine">
+      ${procedural.map(m =>
+        `<option value="${escHtml(m.rj_code)}">${escHtml(m.name)} (${escHtml(m.rj_code)})</option>`,
+      ).join('')}
+    </optgroup>` : ''}
+    ${nonProcedural.length ? `<optgroup label="Ostalo (kontrola, kooperacija…)">
+      ${nonProcedural.map(m =>
+        `<option value="${escHtml(m.rj_code)}">${escHtml(m.name)} (${escHtml(m.rj_code)})</option>`,
+      ).join('')}
+    </optgroup>` : ''}
+  `;
 }
 
 /* ── Operacije ── */

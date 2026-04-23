@@ -34,6 +34,8 @@ Modul: `sessionStorage` / hub modul **`plan-proizvodnje`**, `src/ui/planProizvod
 | **Zauzetost mašina** | Zbirno: otvorene operacije i planirano vreme po mašini; skok u „Po mašini” | `zauzetostTab.js` |
 | **Pregled svih** | Matrica mašina × narednih radnih dana; skok u „Po mašini” | `pregledTab.js` |
 
+Iznad svakog taba je **chip-bar grupisanja mašina** (Glodanje, Borverci, Struganje, Erodiranje, Brušenje, Sečenje, Apkant, Bušenje, Zavarivanje, Termička, Farbanje, Montaža, 3D, CAM, Kooperacija, Ostalo). Klik filtrira dropdown / tabelu / matricu i pamti se u `localStorage` ključem **`plan-proizvodnje:machine-group`** zajednički za sva 3 taba (jednom izabrano = primenjeno svuda). Definicija grupa: **`src/lib/machineGroups.js`** — klijentska mapa nad postojećim poljima `bigtehn_machines_cache.department_id` i `rj_code`, bez SQL migracije.
+
 Pomoćni moduli: **`drawingManager.js`** (upload/lista/signed URL za `production-drawings`), **`techProcedureModal.js`** (detalji operacije / BigTehn kontekst gde je predviđeno).
 
 ---

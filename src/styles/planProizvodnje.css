@@ -5,6 +5,98 @@
  * status pill, drag-drop, REASSIGN dropdown.
  * ========================================================================= */
 
+/* ============================================================================
+ * MACHINE GROUP CHIP BAR (mg-*)
+ *
+ * Filter mašina po proizvodnoj grupi (Glodanje, Borverci, Struganje, ...).
+ * Zajednički je za sva tri taba (Po mašini, Zauzetost, Pregled). Izbor se
+ * čuva u localStorage pod ključem `plan-proizvodnje:machine-group` i deli
+ * se između tabova.
+ *
+ * Dizajn:
+ *   - Horizontalno scrollable na malim ekranima — mašine grupisane sa
+ *     overflow-x:auto, ali bez vidljivog scrollbar-a (preferiramo smooth
+ *     touch swipe).
+ *   - Chip-ovi imaju brojač u zagradi: Glodanje 22, Borverci 2, ...
+ *   - Aktivan chip je obojen accent bojom + bold.
+ * ========================================================================= */
+.mg-chipbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 8px;
+  min-height: 44px;
+}
+.mg-chipbar-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-weight: 600;
+  color: var(--text2);
+  flex-shrink: 0;
+}
+.mg-chipbar-scroll {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  overflow-x: auto;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  padding: 2px 0;
+}
+.mg-chipbar-scroll::-webkit-scrollbar { display: none; }
+
+.mg-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  color: var(--text2);
+  font: inherit;
+  font-size: 12.5px;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  flex-shrink: 0;
+}
+.mg-chip:hover {
+  background: var(--surface3);
+  color: var(--text);
+}
+.mg-chip.is-active {
+  background: var(--blue-bar, #4f9bff);
+  color: #fff;
+  border-color: var(--blue-bar, #4f9bff);
+  font-weight: 600;
+}
+.mg-chip-count {
+  display: inline-block;
+  min-width: 22px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text2) 18%, transparent);
+  color: inherit;
+  font-weight: 600;
+}
+.mg-chip.is-active .mg-chip-count {
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+@media (max-width: 640px) {
+  .mg-chipbar { padding: 6px 10px; }
+  .mg-chip { padding: 4px 9px; font-size: 12px; }
+}
+
 /* Toolbar iznad tabele (selektor mašine + refresh + counter) */
 .pp-toolbar {
   display: flex;
