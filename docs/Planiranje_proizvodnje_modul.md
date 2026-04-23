@@ -83,14 +83,34 @@ Lokalni statusi u UI konstantama: `LOCAL_STATUSES`, ciklus `STATUS_CYCLE_NEXT` (
 
 ### View
 
-- **`v_production_operations`** — denormalizovan spoj linija RN-a, RN headera, kupca, mašine, overlay-a, tech routing agregata, broja crteža; kolona **`effective_machine_code`** = `COALESCE(assigned_machine_code, original_machine_code)`.
+- **`v_production_operations`** — denormalizovan spoj linija RN-a, RN headera, kupca, mašine, overlay-a, tech routing agregata, broja crteža; kolona **`effective_machine_code`** = `COALESCE(assigned_machine_code, original_machine_code)`. Od F.6 hardening-a, kolona **`shift_note`** je maskovana kao `NULL` za uloge bez `can_edit_plan_proizvodnje()` (viewer/hr/leadpm) — sprečava data-leak slobodnog teksta.
+
+### Sigurnost (F.6 + F.7 pilot hardening)
+
+Posle internog pentest review-a 23.04.2026, dodate su sledeće mere (DB live, klijent kompatibilan):
+
+- **H-2** (F.6): `loc_create_movement` RPC zahteva `loc_can_manage_locations()` (admin/leadpm/pm/menadzment). Viewer/hr dobijaju `{ok:false, error:'forbidden'}`.
+- **H-1** (F.6): `v_production_operations.shift_note` maskovan za uloge bez `can_edit_plan_proizvodnje()`.
+- **M-4** (F.6): trigger `pp_force_audit_columns()` na `production_overlays` i `production_drawings` forsira `created_by`/`updated_by` iz `auth.jwt()` — nema impersonacije u audit trail-u.
+- **L-1** (F.6): Cloudflare Pages `_headers` postavlja CSP, HSTS, X-Frame-Options, Permissions-Policy (kamera dozvoljena za skener u Lokacijama).
+- **L-2** (F.7): `audit_log_cleanup(integer)` revoked od anon/authenticated; samo postgres + service_role.
+- **M-1** (F.7): `production_overlays.assigned_machine_code` ima FK ka `bigtehn_machines_cache(rj_code)` (ON DELETE SET NULL) + CHECK regex `^[0-9]{1,3}(\.[0-9]{1,3}){1,2}$`.
+- **M-3** (F.7): `pd_storage_can_read(text)` SECURITY DEFINER helper omogućuje per-objekat scope u storage RLS politici. **Sama policy se primenjuje manuelno u Supabase Dashboard-u** (MCP nema permission za `storage.objects`); detalji u `add_pp_storage_per_wo_policy.sql`.
+- **H-3 Faza 1** (F.7, additive): `user_roles.user_id uuid` kolona + backfill iz email-a (9/10 korisnika resolved). Paralelne `current_user_role_v2()` i `can_edit_plan_proizvodnje_v2()` SECURITY DEFINER fn-ovi koje prefer-uju `auth.uid()` match sa fallback na email. **Faza 2 (sledeći PR)** cutover-uje sve RLS politike i klijent kod.
 
 Redosled migracija (tipično):
 
 ```text
-add_plan_proizvodnje.sql              # tabele + RLS + can_edit_plan_proizvodnje + bucket
-add_v_production_operations.sql       # view (zavisi od cache tabela + overlays + drawings)
-add_plan_proizvodnje_menadzment_edit.sql   # proširenje can_edit_plan_proizvodnje za menadzment
+add_plan_proizvodnje.sql                       # tabele + RLS + can_edit_plan_proizvodnje + bucket
+add_v_production_operations.sql                # view (zavisi od cache tabela + overlays + drawings)
+add_plan_proizvodnje_menadzment_edit.sql       # proširenje can_edit_plan_proizvodnje za menadzment
+add_loc_create_movement_role_guard.sql         # F.6 H-2: role guard na loc_create_movement
+add_pp_shift_note_masking.sql                  # F.6 H-1: shift_note masking u view-u
+add_pp_audit_columns_guard.sql                 # F.6 M-4: trigger forsira created_by/updated_by
+add_audit_log_cleanup_revoke.sql               # F.7 L-2: revoke audit_log_cleanup
+add_pp_assigned_machine_constraints.sql        # F.7 M-1: FK + CHECK na assigned_machine_code
+add_user_roles_user_id_additive.sql            # F.7 H-3 Faza 1: user_id kolona + v2 fn-ovi
+add_pp_storage_per_wo_policy.sql               # F.7 M-3: helper fn (policy je manuelna u Dashboard)
 ```
 
 BigTehn cache i bridge sync nisu u ovom fajlu — zavise od ostalih migracija/workera (`bigtehn_work_orders_cache`, `bigtehn_work_order_lines_cache`, …).
