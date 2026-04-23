@@ -25,6 +25,7 @@ import {
   renderPoMasiniTab,
   teardownPoMasiniTab,
 } from './poMasiniTab.js';
+import { findDeptForMachineCode } from './departments.js';
 import {
   renderZauzetostTab,
   teardownZauzetostTab,
@@ -35,6 +36,7 @@ import {
 } from './pregledTab.js';
 
 const STORAGE_KEY_LAST_MACHINE = 'plan-proizvodnje:last-machine';
+const STORAGE_KEY_LAST_DEPT    = 'plan-proizvodnje:last-department';
 
 const TABS = [
   {
@@ -141,6 +143,12 @@ function renderTabBody(host, { canEdit, mountEl, onBackToHub, onLogout }) {
   const jumpToPoMasini = (machineCode) => {
     if (machineCode) {
       localStorage.setItem(STORAGE_KEY_LAST_MACHINE, machineCode);
+      /* V2: postavi i odeljenje (tab) u kome ta mašina živi, da „Po mašini"
+         odmah otvori odgovarajući tab + drill-down (a ne 'sve' default). */
+      const deptSlug = findDeptForMachineCode(machineCode);
+      if (deptSlug) {
+        localStorage.setItem(STORAGE_KEY_LAST_DEPT, deptSlug);
+      }
     }
     if (activeTab !== 'po-masini') {
       teardownActiveTab();

@@ -5,6 +5,206 @@
  * status pill, drag-drop, REASSIGN dropdown.
  * ========================================================================= */
 
+/* ============================================================================
+ * V2: TABOVI ODELJENJA + LISTA MAŠINA + DRILL-DOWN
+ * Tab bar iznad toolbar-a; klik na machines tab → lista mašina; klik na
+ * mašinu → drill-down (toolbar dobija „← Nazad" + naziv mašine).
+ * ========================================================================= */
+
+.pp-dept-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px;
+  margin-bottom: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow-x: auto;
+}
+.pp-dept-tab {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text2);
+  padding: 8px 14px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 7px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 120ms, color 120ms, border-color 120ms;
+}
+.pp-dept-tab:hover {
+  background: var(--surface2);
+  color: var(--text);
+}
+.pp-dept-tab.is-active {
+  background: var(--blue-bar, #4f9bff);
+  color: #fff;
+  font-weight: 600;
+  border-color: var(--blue-bar, #4f9bff);
+}
+.pp-dept-tab:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--blue-bar, #4f9bff) 50%, transparent);
+  outline-offset: 1px;
+}
+
+/* Container za body — wrapper za dinamični sadržaj (lista mašina ili tabela) */
+.pp-body { display: block; }
+
+/* Lista mašina (mašinski tabovi bez drill-downa) */
+.pp-machine-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.pp-machine-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  background: var(--surface2);
+  font: inherit;
+  font-size: 14px;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  min-height: 56px;
+  transition: background 120ms, border-color 120ms, transform 80ms;
+}
+.pp-machine-row:hover {
+  background: var(--surface3);
+  border-color: var(--blue-bar, #4f9bff);
+}
+.pp-machine-row:active {
+  transform: translateY(1px);
+}
+.pp-machine-row:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--blue-bar, #4f9bff) 60%, transparent);
+  outline-offset: 1px;
+}
+.pp-machine-code {
+  flex: 0 0 auto;
+  min-width: 64px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--text);
+  font-size: 14px;
+}
+.pp-machine-name {
+  flex: 1 1 auto;
+  color: var(--text);
+  font-size: 14px;
+}
+.pp-machine-tag {
+  flex: 0 0 auto;
+  font-size: 13px;
+  opacity: 0.65;
+  cursor: help;
+}
+.pp-machine-chevron {
+  flex: 0 0 auto;
+  color: var(--text3, var(--text2));
+  font-size: 22px;
+  line-height: 1;
+}
+
+/* Toolbar — naslov (npr. „Glodanje" za listu, „Glodanje › 3.11 — naziv" za drill-down) */
+.pp-toolbar-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.pp-drilldown-title { font-size: 14px; }
+.pp-drilldown-dept { color: var(--text2); font-weight: 500; }
+.pp-drilldown-sep  { color: var(--text3, var(--text2)); font-weight: 400; }
+.pp-drilldown-machine {
+  color: var(--text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* „← Nazad na listu mašina" dugme (drill-down toolbar) */
+.pp-back-btn {
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  padding: 7px 12px;
+  font: inherit;
+  font-size: 13px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 120ms, border-color 120ms;
+}
+.pp-back-btn:hover {
+  background: var(--surface3);
+  border-color: var(--blue-bar, #4f9bff);
+}
+.pp-back-btn:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--blue-bar, #4f9bff) 50%, transparent);
+  outline-offset: 1px;
+}
+
+/* „Ostalo" view — sekcije „Mašine" / „Operacije" */
+.pp-ostalo-section {
+  margin-bottom: 14px;
+}
+.pp-ostalo-section:last-child { margin-bottom: 0; }
+.pp-ostalo-section-title {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text2);
+  font-weight: 600;
+  padding: 0 4px 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.pp-ostalo-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 18px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--surface3);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 700;
+}
+.pp-state.pp-state-mini {
+  padding: 18px 14px;
+  font-size: 12.5px;
+  background: var(--surface);
+  border: 1px dashed var(--border2);
+  border-radius: 10px;
+}
+
+@media (max-width: 640px) {
+  .pp-machine-row { min-height: 64px; font-size: 15px; padding: 16px; }
+  .pp-machine-code { min-width: 70px; font-size: 15px; }
+  .pp-machine-name { font-size: 15px; }
+  .pp-dept-tab { padding: 10px 14px; font-size: 14px; }
+  .pp-dept-tabs { padding: 8px; }
+  .pp-toolbar { gap: 8px; padding: 10px 12px; }
+  .pp-toolbar-title { font-size: 13px; }
+}
+
 /* Toolbar iznad tabele (selektor mašine + refresh + counter) */
 .pp-toolbar {
   display: flex;

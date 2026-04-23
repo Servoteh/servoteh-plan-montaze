@@ -88,6 +88,148 @@ export async function loadOperationsForMachine(machineCode) {
 }
 
 /**
+ * Vraća OTVORENE operacije za dato „odeljenje" (tab u „Po mašini").
+ *
+ * Filter zavisi od tipa odeljenja (vidi `src/ui/planProizvodnje/departments.js`):
+ *   - `operationExact`        → effective_machine_code IN (...)
+ *   - `operationPrefixes`     → effective_machine_code = X OR LIKE 'X.*'
+ *   - `operationNamePatterns` → opis_rada ILIKE '%pat%' (server-side, sa
+ *                               dodatnim client-side strip-dijakritike pasovima)
+ *   - `isFallback` ('ostalo') → SVE operacije, pa client-side filter na
+ *                               `operationFallsIntoOstalo(op)`
+ *
+ * Operacioni tabovi (Ažistiranje, Sečenje+savijanje, Bravarsko, Farbanje+PZ,
+ * CAM) prikazuju se direktno (bez izbora mašine) — jedan poziv ovde dovoljan.
+ *
+ * Skup zajedničkih „otvoreno" filtera identičan je `loadOperationsForMachine`:
+ * `is_done_in_bigtehn=false`, `rn_zavrsen=false`,
+ * `(local_status IS NULL OR local_status != 'completed')`,
+ * `overlay_archived_at IS NULL`.
+ *
+ * @param {object} dept — definicija iz `DEPARTMENTS` u departments.js
+ * @returns {Promise<object[]>}
+ */
+export async function loadOperationsForDept(dept) {
+  if (!getIsOnline() || !dept) return [];
+
+  /* Lazy import — izbegava ciklični import (services ↔ ui). */
+  const { operationFallsIntoOstalo } = await import('../ui/planProizvodnje/departments.js');
+
+  const baseParams = () => {
+    const p = new URLSearchParams();
+    p.set('select', '*');
+    p.set('is_done_in_bigtehn', 'eq.false');
+    p.set('rn_zavrsen', 'eq.false');
+    p.set('or', '(local_status.is.null,local_status.neq.completed)');
+    p.set('overlay_archived_at', 'is.null');
+    p.set(
+      'order',
+      'shift_sort_order.asc.nullslast,rok_izrade.asc.nullslast,prioritet_bigtehn.asc',
+    );
+    p.set('limit', '5000');
+    return p;
+  };
+
+  /* ─── 1) Fallback „Ostalo" — ne ide ni u jedan specifičan tab.
+   *     Strategija: učitaj SVE otvorene operacije (sa effective_machine_code
+   *     != NULL, da bismo izbacili tehnologe koji nisu dodelili mašinu —
+   *     iste konvencija kao `loadAllOpenOperations()`), pa client-side
+   *     filtriraj `operationFallsIntoOstalo`.
+   */
+  if (dept.isFallback) {
+    const p = baseParams();
+    /* Ostalo NE filtrira na effective_machine_code IS NOT NULL — operacije
+       bez mašine sigurno spadaju u „Ostalo". */
+    const data = await sbReq(`v_production_operations?${p.toString()}`);
+    const all = Array.isArray(data) ? data : [];
+    return all.filter(op => operationFallsIntoOstalo(op));
+  }
+
+  const orParts = [];
+
+  /* Exact: PostgREST `in.(...)` — vrednosti sa specijalnim karakterima
+     („.", „/" itd.) treba double-quote. */
+  if (Array.isArray(dept.operationExact) && dept.operationExact.length > 0) {
+    const list = dept.operationExact.map(s => `"${String(s).replace(/"/g, '""')}"`).join(',');
+    orParts.push(`effective_machine_code.in.(${list})`);
+  }
+
+  /* Prefix: za svaki prefiks „X" → match „X" exact ILI „X.*" like.
+     PostgREST `like` koristi `*` kao wildcard. */
+  if (Array.isArray(dept.operationPrefixes)) {
+    for (const raw of dept.operationPrefixes) {
+      const p = String(raw).trim();
+      if (!p) continue;
+      orParts.push(`effective_machine_code.eq.${p}`);
+      orParts.push(`effective_machine_code.like.${p}.*`);
+    }
+  }
+
+  /* Name patterns (server-side ILIKE). Nemamo `unaccent` ekstenziju,
+     pa ovo SAMO pokriva ASCII-bazične matchove; client-side dodatno
+     proverava sa strip-dijakritike (vidi dole). */
+  if (Array.isArray(dept.operationNamePatterns)) {
+    for (const raw of dept.operationNamePatterns) {
+      const pat = String(raw).trim();
+      if (!pat) continue;
+      orParts.push(`opis_rada.ilike.*${pat}*`);
+    }
+  }
+
+  if (orParts.length === 0) {
+    /* Defenzivno: ne učitavaj sve operacije ako tab nije dobro definisan. */
+    return [];
+  }
+
+  /* PostgREST nema „and + or" na top-level (nazivi parametara se gaze
+     ako se postave dvaput). Sve filtere kombinujemo u jedan
+     `and=(cond1,cond2,or(cond3,cond4),or(cond5))` izraz — `or(...)` unutar
+     `and(...)` je prefiksna notacija. */
+  const finalParams = new URLSearchParams();
+  finalParams.set('select', '*');
+  finalParams.set(
+    'and',
+    `(is_done_in_bigtehn.eq.false,rn_zavrsen.eq.false,overlay_archived_at.is.null,` +
+      `or(local_status.is.null,local_status.neq.completed),` +
+      `or(${orParts.join(',')}))`,
+  );
+  finalParams.set(
+    'order',
+    'shift_sort_order.asc.nullslast,rok_izrade.asc.nullslast,prioritet_bigtehn.asc',
+  );
+  finalParams.set('limit', '5000');
+
+  const data = await sbReq(`v_production_operations?${finalParams.toString()}`);
+  let rows = Array.isArray(data) ? data : [];
+
+  /* Client-side strip-dijakritika provera za name patterns — pokriva slučaj
+     kad je server ILIKE bez `unaccent` propustio nešto („bravarÍja" → server
+     vidi „bravarÍja" što ne sadrži „bravar" sa default collation u nekim
+     setup-ovima). Za EXACT/PREFIX tabove ovaj filter je no-op. */
+  if (Array.isArray(dept.operationNamePatterns) && dept.operationNamePatterns.length > 0) {
+    const strip = s =>
+      (s || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+    const patsStripped = dept.operationNamePatterns.map(strip);
+    /* Ako tab ima SAMO name-patterns (bez exact / prefix), dodatno propusti
+       SAMO redove čiji opis stvarno sadrži pattern (server ILIKE već je
+       filtirao, ali ovo je extra safety). */
+    const onlyName =
+      orParts.every(p => p.startsWith('opis_rada.ilike.'));
+    if (onlyName) {
+      rows = rows.filter(r => {
+        const name = strip(r?.opis_rada);
+        return patsStripped.some(p => name.includes(p));
+      });
+    }
+  }
+
+  return rows;
+}
+
+/**
  * Vraća SVE otvorene operacije (sve mašine), samo kolone potrebne za
  * agregirane prikaze (Zauzetost mašina, Pregled svih).
  *

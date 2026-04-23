@@ -1,19 +1,34 @@
 /**
- * Plan Proizvodnje — TAB "Po mašini".
+ * Plan Proizvodnje — TAB „Po mašini" (v2 — tabovi po odeljenju + drill-down).
  *
- * Šef bira mašinu, vidi sve OTVORENE operacije zadužene za nju (originalno
- * iz BigTehn-a + REASSIGNED IN, minus REASSIGNED OUT, minus ZAVRŠENE u
- * BigTehn-u, minus arhivirane overlay-e). Može da:
+ * Struktura (v2):
+ *   ┌─ Tabovi odeljenja: Sve | Glodanje | Struganje | Brušenje | Erodiranje |
+ *   │                    Ažistiranje | Sečenje+savijanje | Bravarsko |
+ *   │                    Farbanje+PZ | CAM | Ostalo
+ *   └─ Body (zavisi od tipa odeljenja, vidi `departments.js`):
+ *      • „Sve"  → dropdown mašine + operacije (legacy flow, regression-safe)
+ *      • „machines"-tab (Glodanje/Struganje/Brušenje/Erodiranje) bez izabrane
+ *         mašine → LISTA mašina (sortirano numerički po rj_code), klik =
+ *         drill-down. Drill-down ima dugme „← Nazad na listu mašina".
+ *      • „operations"-tab (Ažistiranje/Sečenje+savijanje/Bravarsko/Farbanje/
+ *         CAM) → odmah operacije bez izbora mašine.
+ *      • „Ostalo" → mašine koje ne upadaju ni u jedan mašinski tab + operacije
+ *         koje ne upadaju ni u jedan operacioni tab. Klik na mašinu → drill-down.
+ *
+ * U drill-down/„Sve" sa izabranom mašinom funkcioniše sve kao pre:
  *   - drag-drop reorder (postavlja shift_sort_order)
- *   - klik na status pill cycle: waiting → in_progress → blocked → waiting
+ *   - klik na status pill cycle
  *   - inline edit napomene (textarea, save na blur)
- *   - REASSIGN na drugu mašinu (dropdown u koloni "Mašina")
- *   - osvežavanje dugmetom (real-time je later, MVP koristi refresh)
+ *   - REASSIGN na drugu mašinu
+ *   - skice (📎), PDF crtež (📄), TP modal (📋)
  *
- * Read-only kada !canEditPlanProizvodnje() (npr. leadpm, hr, viewer).
+ * U operacionim tabovima drag-drop je DISABLED (sortiranje je per-mašina,
+ * mešanje raznih mašina nema smisla).
+ *
+ * Read-only kada `!canEdit` (leadpm, hr, viewer): edit dugmad disabled.
  *
  * Public API:
- *   renderPoMasiniTab(host, { canEdit, onMachineChange, lastMachine })
+ *   renderPoMasiniTab(host, { canEdit })
  *   teardownPoMasiniTab()
  */
 
@@ -22,6 +37,7 @@ import { formatDate } from '../../lib/date.js';
 import {
   loadMachines,
   loadOperationsForMachine,
+  loadOperationsForDept,
   upsertOverlay,
   reorderOverlays,
   STATUS_CYCLE_NEXT,
@@ -38,51 +54,61 @@ import {
 } from '../../services/drawings.js';
 import { openDrawingManager } from './drawingManager.js';
 import { openTechProcedureModal } from './techProcedureModal.js';
+import {
+  DEPARTMENTS,
+  getDepartment,
+  filterMachinesForDept,
+  findDeptForMachineCode,
+  machineMatchesDept,
+  machineFallsIntoOstalo,
+} from './departments.js';
+
+/* ── LocalStorage ključevi (UX) ── */
+const LS_LAST_MACHINE = 'plan-proizvodnje:last-machine';
+const LS_LAST_DEPT    = 'plan-proizvodnje:last-department';
 
 /* ── Local state (po instanci taba — postoji jedan u svakom trenutku) ── */
-const STORAGE_KEY_LAST_MACHINE = 'plan-proizvodnje:last-machine';
-
 const state = {
   host: null,
   canEdit: false,
-  machines: [],          /* [{rj_code, name, no_procedure, department_id}] */
-  selectedMachine: null, /* string rj_code */
-  rows: [],              /* trenutne operacije */
+
+  /* Tab state */
+  selectedDeptSlug: 'sve',     /* slug iz DEPARTMENTS */
+  selectedMachineCode: null,   /* string rj_code — drill-down ili 'sve' dropdown */
+
+  /* Podaci */
+  allMachines: [],     /* [{rj_code, name, no_procedure, department_id}] iz loadMachines() */
+  rows: [],            /* trenutne operacije (za izabranu mašinu ili dept) */
+
+  /* UI flags */
   loading: false,
   error: null,
-  /* drag-drop */
   dragRowKey: null,
 };
 
-/* ── Public ── */
+/* ────────────────────────────────────────────────────────────────────────
+ * PUBLIC
+ * ──────────────────────────────────────────────────────────────────────── */
 
 export async function renderPoMasiniTab(host, { canEdit }) {
   state.host = host;
   state.canEdit = !!canEdit;
 
-  state.selectedMachine =
-    state.selectedMachine
-    || localStorage.getItem(STORAGE_KEY_LAST_MACHINE)
-    || null;
+  /* Hidratacija iz localStorage (samo na prvi render — ne briše na tab switch). */
+  if (!state.selectedDeptSlug || !getDepartment(state.selectedDeptSlug)) {
+    state.selectedDeptSlug = localStorage.getItem(LS_LAST_DEPT) || 'sve';
+    if (!getDepartment(state.selectedDeptSlug)) state.selectedDeptSlug = 'sve';
+  }
 
-  /* Inicijalni HTML — mašine se učitavaju asinhrono */
+  /* Skeleton: tabovi + toolbar + body. Mašine se učitavaju asinhrono. */
   host.innerHTML = `
-    <div class="pp-toolbar">
-      <span class="pp-toolbar-label">Mašina:</span>
-      <select class="pp-machine-select" id="ppMachineSelect" disabled>
-        <option>Učitavanje…</option>
-      </select>
-      <button class="pp-refresh-btn" id="ppRefreshBtn" disabled title="Osvezi listu operacija">
-        <span aria-hidden="true">↻</span> Osveži
-      </button>
-      <div class="pp-toolbar-spacer"></div>
-      <span class="pp-counter" id="ppCounter">— operacija</span>
-      ${state.canEdit ? '' : '<span class="pp-readonly-badge">🔒 Read-only</span>'}
-    </div>
+    <nav class="pp-dept-tabs" id="ppDeptTabs" role="tablist" aria-label="Odeljenja"></nav>
+
+    <div class="pp-toolbar" id="ppToolbar"></div>
 
     <div id="ppErrorBox"></div>
 
-    <div class="pp-table-wrap" id="ppTableWrap">
+    <div class="pp-body" id="ppBody">
       <div class="pp-state">
         <div class="pp-state-icon">⏳</div>
         <div class="pp-state-title">Učitavanje mašina…</div>
@@ -90,62 +116,189 @@ export async function renderPoMasiniTab(host, { canEdit }) {
     </div>
   `;
 
-  /* Wire toolbar */
-  const machineSel = host.querySelector('#ppMachineSelect');
-  const refreshBtn = host.querySelector('#ppRefreshBtn');
-  machineSel.addEventListener('change', () => {
-    state.selectedMachine = machineSel.value || null;
-    if (state.selectedMachine) {
-      localStorage.setItem(STORAGE_KEY_LAST_MACHINE, state.selectedMachine);
-    }
-    refreshOperations();
-  });
-  refreshBtn.addEventListener('click', () => {
-    if (state.loading) return;
-    refreshOperations({ force: true });
-  });
+  renderDeptTabs();
+  wireDeptTabs();
 
-  /* Učitaj mašine */
-  await loadMachineSelect();
+  /* Fetch mašine jednom (per renderPoMasiniTab poziv). */
+  await loadMachinesAndRender();
 }
 
 export function teardownPoMasiniTab() {
   state.host = null;
-  state.machines = [];
+  state.allMachines = [];
   state.rows = [];
   state.dragRowKey = null;
   state.error = null;
+  /* Reset selectedDeptSlug / selectedMachineCode na null — sledeći render
+     re-čita izbor iz `localStorage` (`LS_LAST_DEPT` / `LS_LAST_MACHINE`).
+     Time se podržava „skok iz Zauzetosti / Pregleda svih" tok: index.js
+     prvo upiše LS_LAST_DEPT, pa pozove re-render — poMasiniTab pokupi
+     novu vrednost. Korisnikov tab choice unutar modula je već persistiran
+     u LS pri svakom kliku, pa se i lokalna navigacija očuva. */
+  state.selectedDeptSlug = null;
+  state.selectedMachineCode = null;
 }
 
-/* ── Mašine ── */
+/* ────────────────────────────────────────────────────────────────────────
+ * UČITAVANJE MAŠINA
+ * ──────────────────────────────────────────────────────────────────────── */
 
-async function loadMachineSelect() {
+async function loadMachinesAndRender() {
   try {
-    state.machines = await loadMachines();
+    state.allMachines = await loadMachines();
   } catch (e) {
     console.error('[pp] loadMachines failed', e);
-    state.machines = [];
+    state.allMachines = [];
     setError('Greška pri učitavanju mašina iz Supabase-a.');
+  }
+
+  /* Restore poslednje izabrane mašine iz LS — ali samo ako je validna
+     za trenutni odeljenje. Spreči nepoznat scenario tipa „LS_LAST_MACHINE
+     je 6.5 (Brušenje), a ja sam upravo otvorio Glodanje tab → ne želim
+     drill-down u 6.5". */
+  if (!state.selectedMachineCode) {
+    const lastMachine = localStorage.getItem(LS_LAST_MACHINE);
+    if (lastMachine && state.allMachines.some(m => m.rj_code === lastMachine)) {
+      const dept = getDepartment(state.selectedDeptSlug);
+      if (dept && machineFitsDept(lastMachine, dept)) {
+        state.selectedMachineCode = lastMachine;
+      }
+    }
+  }
+
+  await renderActiveView();
+}
+
+/**
+ * Da li mašina (po rj_code) „pripada" datom departmentu — koristi se za
+ * validaciju restore-a iz LS-a (vidi `loadMachinesAndRender`).
+ *
+ * - 'sve' → uvek true (dropdown ima sve mašine)
+ * - 'machines' tab → match po prefiksu rj_code-a
+ * - 'ostalo' → mašina koja ne upada ni u jedan mašinski tab
+ * - 'operations' → false (operacioni tabovi nemaju drill-down u mašinu)
+ */
+function machineFitsDept(rjCode, dept) {
+  if (!dept) return false;
+  if (dept.kind === 'all' && !dept.isFallback) return true;
+  if (dept.kind === 'machines') {
+    return machineMatchesDept({ rj_code: rjCode }, dept);
+  }
+  if (dept.isFallback) {
+    return machineFallsIntoOstalo({ rj_code: rjCode });
+  }
+  return false;
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+ * TABS (odeljenja)
+ * ──────────────────────────────────────────────────────────────────────── */
+
+function renderDeptTabs() {
+  const el = state.host?.querySelector('#ppDeptTabs');
+  if (!el) return;
+  el.innerHTML = DEPARTMENTS.map(d => `
+    <button
+      type="button" role="tab"
+      class="pp-dept-tab${d.slug === state.selectedDeptSlug ? ' is-active' : ''}"
+      data-slug="${escHtml(d.slug)}"
+      aria-selected="${d.slug === state.selectedDeptSlug ? 'true' : 'false'}">
+      ${escHtml(d.label)}
+    </button>
+  `).join('');
+}
+
+function wireDeptTabs() {
+  const el = state.host?.querySelector('#ppDeptTabs');
+  if (!el) return;
+  el.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.pp-dept-tab');
+    if (!btn) return;
+    const slug = btn.dataset.slug;
+    if (!slug || slug === state.selectedDeptSlug) return;
+    state.selectedDeptSlug = slug;
+    /* Promena taba → reset drill-down. Za 'sve' tab dropdown kasnije
+       restore-uje izabranu mašinu iz LS-a. */
+    state.selectedMachineCode = null;
+    state.rows = [];
+    localStorage.setItem(LS_LAST_DEPT, slug);
+    renderDeptTabs();
+    await renderActiveView();
+  });
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+ * RENDER: izbor stanja (sve / machines list / drill-down / operations / ostalo)
+ * ──────────────────────────────────────────────────────────────────────── */
+
+async function renderActiveView() {
+  const dept = getDepartment(state.selectedDeptSlug);
+  if (!dept) {
+    state.selectedDeptSlug = 'sve';
+    return renderActiveView();
+  }
+
+  /* 1) "Sve" → klasičan flow sa dropdown-om */
+  if (dept.kind === 'all' && !dept.isFallback) {
+    return renderSveView();
+  }
+
+  /* 2) "machines" tab */
+  if (dept.kind === 'machines') {
+    if (state.selectedMachineCode) {
+      return renderDrillDownView(dept);
+    }
+    return renderMachineListView(dept);
+  }
+
+  /* 3) "operations" tab — direktno operacije */
+  if (dept.kind === 'operations') {
+    return renderOperationsDeptView(dept);
+  }
+
+  /* 4) "Ostalo" — kombinacija: lista mašina iz ostalo + operacije iz ostalo
+     ILI drill-down ako je mašina izabrana. */
+  if (dept.kind === 'all' && dept.isFallback) {
+    if (state.selectedMachineCode) {
+      return renderDrillDownView(dept);
+    }
+    return renderOstaloView(dept);
+  }
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+ * VIEW: "Sve" (dropdown mašine + operacije — legacy flow)
+ * ──────────────────────────────────────────────────────────────────────── */
+
+async function renderSveView() {
+  renderToolbarSve();
+
+  /* 'Sve' tab dropdown pamti zadnju mašinu iz LS-a — čak i kad smo
+     upravo došli sa drugog taba (gde je selectedMachineCode resetovan na
+     null). Razlika u odnosu na machines tab: dropdown je glavni UI, ne
+     drill-down, pa ima smisla auto-selektovati. */
+  if (!state.selectedMachineCode) {
+    const lastMachine = localStorage.getItem(LS_LAST_MACHINE);
+    if (lastMachine && state.allMachines.some(m => m.rj_code === lastMachine)) {
+      state.selectedMachineCode = lastMachine;
+    }
   }
 
   const sel = state.host?.querySelector('#ppMachineSelect');
   const btn = state.host?.querySelector('#ppRefreshBtn');
   if (!sel) return;
 
-  if (state.machines.length === 0) {
+  if (state.allMachines.length === 0) {
     sel.innerHTML = '<option>Nema mašina (pokreni Bridge sync)</option>';
     sel.disabled = true;
     if (btn) btn.disabled = true;
-    renderEmptyTable('Nijedna mašina nije pronađena u <code>bigtehn_machines_cache</code>.');
+    renderEmptyBody('Nijedna mašina nije pronađena u <code>bigtehn_machines_cache</code>.');
     return;
   }
 
-  /* Filter (opciono): mašine koje su mašinske obrade — to znači NE no_procedure.
-     Ali REASSIGN dropdown treba SVE; zato ovde u glavnom selektoru dajemo
-     SVE, samo grupiše procedure mašine na vrh + non-procedure na dnu. */
-  const procedural = state.machines.filter(m => !m.no_procedure);
-  const nonProcedural = state.machines.filter(m => m.no_procedure);
-
+  /* Dropdown: procedural mašine na vrhu, non-procedural na dnu. */
+  const procedural = state.allMachines.filter(m => !m.no_procedure);
+  const nonProcedural = state.allMachines.filter(m => m.no_procedure);
   sel.innerHTML = `
     <option value="">— izaberi mašinu —</option>
     <optgroup label="Mašine">
@@ -162,22 +315,271 @@ async function loadMachineSelect() {
   sel.disabled = false;
   if (btn) btn.disabled = false;
 
-  /* Vrati prethodno izabranu mašinu ako još postoji u listi */
-  if (state.selectedMachine && state.machines.some(m => m.rj_code === state.selectedMachine)) {
-    sel.value = state.selectedMachine;
-    await refreshOperations();
+  /* Restore selection iz state-a (već hidriran iz LS-a). */
+  if (state.selectedMachineCode &&
+      state.allMachines.some(m => m.rj_code === state.selectedMachineCode)) {
+    sel.value = state.selectedMachineCode;
+    await refreshOperationsForMachine();
   } else {
-    state.selectedMachine = null;
-    renderEmptyTable('Izaberi mašinu iz dropdown-a iznad da vidiš njene otvorene operacije.');
+    state.selectedMachineCode = null;
+    renderEmptyBody('Izaberi mašinu iz dropdown-a iznad da vidiš njene otvorene operacije.');
     setCounter(null);
   }
 }
 
-/* ── Operacije ── */
+/* ────────────────────────────────────────────────────────────────────────
+ * VIEW: Lista mašina (machines tab bez izabrane mašine)
+ * ──────────────────────────────────────────────────────────────────────── */
 
-async function refreshOperations() {
-  if (!state.selectedMachine) {
-    renderEmptyTable('Izaberi mašinu da vidiš njene operacije.');
+function renderMachineListView(dept) {
+  renderToolbarMachineList(dept);
+
+  const list = filterMachinesForDept(state.allMachines, dept);
+  setCounter(list.length, { unit: 'machines' });
+
+  const body = state.host?.querySelector('#ppBody');
+  if (!body) return;
+
+  if (list.length === 0) {
+    body.innerHTML = `
+      <div class="pp-state">
+        <div class="pp-state-icon">🛠</div>
+        <div class="pp-state-title">Nema mašina u ovom odeljenju</div>
+        <div class="pp-state-hint">
+          Proveri da li su mašine sa prefiksom <code>${escHtml(
+            (dept.machinePrefixes || []).join(', '),
+          )}</code> sinhronizovane iz BigTehn-a.
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  body.innerHTML = `
+    <div class="pp-machine-list">
+      ${list.map(m => `
+        <button type="button" class="pp-machine-row" data-rj="${escHtml(m.rj_code)}">
+          <span class="pp-machine-code">${escHtml(m.rj_code)}</span>
+          <span class="pp-machine-name">${escHtml(m.name || '—')}</span>
+          ${m.no_procedure
+            ? '<span class="pp-machine-tag" title="Bez tehnološke procedure (kontrola, kooperacija…)">⚙</span>'
+            : ''}
+          <span class="pp-machine-chevron" aria-hidden="true">›</span>
+        </button>
+      `).join('')}
+    </div>
+  `;
+
+  body.querySelector('.pp-machine-list').addEventListener('click', async (e) => {
+    const row = e.target.closest('.pp-machine-row');
+    if (!row) return;
+    state.selectedMachineCode = row.dataset.rj;
+    localStorage.setItem(LS_LAST_MACHINE, state.selectedMachineCode);
+    await renderActiveView();
+  });
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+ * VIEW: Drill-down (machines tab sa izabranom mašinom, ili Ostalo + mašina)
+ * ──────────────────────────────────────────────────────────────────────── */
+
+async function renderDrillDownView(dept) {
+  renderToolbarDrillDown(dept);
+  await refreshOperationsForMachine();
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+ * VIEW: Operations dept (Ažistiranje, Sečenje+savijanje, Bravarsko, …)
+ * ──────────────────────────────────────────────────────────────────────── */
+
+async function renderOperationsDeptView(dept) {
+  renderToolbarOperations(dept);
+  await refreshOperationsForDept(dept);
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+ * VIEW: Ostalo (mašine bez kategorije + operacije bez kategorije)
+ * ──────────────────────────────────────────────────────────────────────── */
+
+async function renderOstaloView(dept) {
+  renderToolbarOperations(dept, { isOstalo: true });
+
+  const body = state.host?.querySelector('#ppBody');
+  if (!body) return;
+
+  /* Renderuj layout: prvo lista mašina (klik → drill-down), pa ispod operacije. */
+  const machines = filterMachinesForDept(state.allMachines, dept);
+  body.innerHTML = `
+    <div class="pp-ostalo-section">
+      <div class="pp-ostalo-section-title">
+        Mašine bez kategorije
+        <span class="pp-ostalo-count">${machines.length}</span>
+      </div>
+      ${machines.length === 0
+        ? '<div class="pp-state pp-state-mini">Sve mašine pripadaju nekom mašinskom tabu.</div>'
+        : `<div class="pp-machine-list">
+            ${machines.map(m => `
+              <button type="button" class="pp-machine-row" data-rj="${escHtml(m.rj_code)}">
+                <span class="pp-machine-code">${escHtml(m.rj_code)}</span>
+                <span class="pp-machine-name">${escHtml(m.name || '—')}</span>
+                <span class="pp-machine-chevron" aria-hidden="true">›</span>
+              </button>
+            `).join('')}
+          </div>`}
+    </div>
+    <div class="pp-ostalo-section">
+      <div class="pp-ostalo-section-title">Operacije bez kategorije</div>
+      <div class="pp-table-wrap" id="ppTableWrap">
+        <div class="pp-state">
+          <div class="pp-state-icon">⏳</div>
+          <div class="pp-state-title">Učitavanje operacija…</div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  /* Click handler za mašine u Ostalo */
+  const ml = body.querySelector('.pp-machine-list');
+  if (ml) {
+    ml.addEventListener('click', async (e) => {
+      const row = e.target.closest('.pp-machine-row');
+      if (!row) return;
+      state.selectedMachineCode = row.dataset.rj;
+      localStorage.setItem(LS_LAST_MACHINE, state.selectedMachineCode);
+      await renderActiveView();
+    });
+  }
+
+  /* Asinhrono učitaj operacije „Ostalo" — koristi `loadOperationsForDept`
+     sa `isFallback=true`. */
+  await refreshOperationsForDept(dept, { keepBodyShell: true });
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+ * TOOLBAR variante
+ * ──────────────────────────────────────────────────────────────────────── */
+
+function renderToolbarSve() {
+  const tb = state.host?.querySelector('#ppToolbar');
+  if (!tb) return;
+  tb.innerHTML = `
+    <span class="pp-toolbar-label">Mašina:</span>
+    <select class="pp-machine-select" id="ppMachineSelect" disabled>
+      <option>Učitavanje…</option>
+    </select>
+    <button class="pp-refresh-btn" id="ppRefreshBtn" disabled title="Osvezi listu operacija">
+      <span aria-hidden="true">↻</span> Osveži
+    </button>
+    <div class="pp-toolbar-spacer"></div>
+    <span class="pp-counter" id="ppCounter">— operacija</span>
+    ${state.canEdit ? '' : '<span class="pp-readonly-badge">🔒 Read-only</span>'}
+  `;
+  wireSveToolbar();
+}
+
+function wireSveToolbar() {
+  const sel = state.host?.querySelector('#ppMachineSelect');
+  const btn = state.host?.querySelector('#ppRefreshBtn');
+  if (sel) {
+    sel.addEventListener('change', async () => {
+      state.selectedMachineCode = sel.value || null;
+      if (state.selectedMachineCode) {
+        localStorage.setItem(LS_LAST_MACHINE, state.selectedMachineCode);
+      }
+      await refreshOperationsForMachine();
+    });
+  }
+  if (btn) {
+    btn.addEventListener('click', async () => {
+      if (state.loading) return;
+      const dept = getDepartment(state.selectedDeptSlug);
+      if (state.selectedMachineCode) {
+        await refreshOperationsForMachine({ force: true });
+      } else if (dept?.kind === 'operations' || dept?.isFallback) {
+        await refreshOperationsForDept(dept, { force: true });
+      }
+    });
+  }
+}
+
+function renderToolbarMachineList(dept) {
+  const tb = state.host?.querySelector('#ppToolbar');
+  if (!tb) return;
+  tb.innerHTML = `
+    <span class="pp-toolbar-label">Odeljenje:</span>
+    <span class="pp-toolbar-title">${escHtml(dept.label)}</span>
+    <div class="pp-toolbar-spacer"></div>
+    <span class="pp-counter" id="ppCounter">— mašina</span>
+    ${state.canEdit ? '' : '<span class="pp-readonly-badge">🔒 Read-only</span>'}
+  `;
+}
+
+function renderToolbarDrillDown(dept) {
+  const tb = state.host?.querySelector('#ppToolbar');
+  if (!tb) return;
+  const machine = state.allMachines.find(m => m.rj_code === state.selectedMachineCode);
+  const machineName = machine?.name || '';
+  tb.innerHTML = `
+    <button type="button" class="pp-back-btn" id="ppBackBtn"
+            title="Nazad na listu mašina">← Nazad</button>
+    <span class="pp-toolbar-title pp-drilldown-title">
+      <span class="pp-drilldown-dept">${escHtml(dept.label)}</span>
+      <span class="pp-drilldown-sep">›</span>
+      <span class="pp-drilldown-machine">
+        ${escHtml(state.selectedMachineCode)}
+        ${machineName ? ` — ${escHtml(machineName)}` : ''}
+      </span>
+    </span>
+    <button class="pp-refresh-btn" id="ppRefreshBtn" title="Osvezi listu operacija">
+      <span aria-hidden="true">↻</span> Osveži
+    </button>
+    <div class="pp-toolbar-spacer"></div>
+    <span class="pp-counter" id="ppCounter">— operacija</span>
+    ${state.canEdit ? '' : '<span class="pp-readonly-badge">🔒 Read-only</span>'}
+  `;
+  const back = tb.querySelector('#ppBackBtn');
+  if (back) back.addEventListener('click', async () => {
+    /* Vrati na listu mašina istog taba; ne briše LS_LAST_MACHINE
+       (sledeća poseta tabu pamti zadnju, ali korisnik je sada eksplicitno
+       izašao iz drill-down-a, pa lokalno čistimo selectedMachineCode). */
+    state.selectedMachineCode = null;
+    state.rows = [];
+    await renderActiveView();
+  });
+  const refresh = tb.querySelector('#ppRefreshBtn');
+  if (refresh) refresh.addEventListener('click', async () => {
+    if (state.loading) return;
+    await refreshOperationsForMachine({ force: true });
+  });
+}
+
+function renderToolbarOperations(dept, opts = {}) {
+  const tb = state.host?.querySelector('#ppToolbar');
+  if (!tb) return;
+  tb.innerHTML = `
+    <span class="pp-toolbar-label">${opts.isOstalo ? 'Ostalo:' : 'Operacije:'}</span>
+    <span class="pp-toolbar-title">${escHtml(dept.label)}</span>
+    <button class="pp-refresh-btn" id="ppRefreshBtn" title="Osvezi listu operacija">
+      <span aria-hidden="true">↻</span> Osveži
+    </button>
+    <div class="pp-toolbar-spacer"></div>
+    <span class="pp-counter" id="ppCounter">— operacija</span>
+    ${state.canEdit ? '' : '<span class="pp-readonly-badge">🔒 Read-only</span>'}
+  `;
+  const refresh = tb.querySelector('#ppRefreshBtn');
+  if (refresh) refresh.addEventListener('click', async () => {
+    if (state.loading) return;
+    await refreshOperationsForDept(dept, { force: true });
+  });
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+ * REFRESH OPERATIONS — dva izvora podataka
+ * ──────────────────────────────────────────────────────────────────────── */
+
+async function refreshOperationsForMachine() {
+  if (!state.selectedMachineCode) {
+    renderEmptyBody('Izaberi mašinu da vidiš njene operacije.');
     setCounter(null);
     return;
   }
@@ -185,12 +587,7 @@ async function refreshOperations() {
   setError(null);
   setRefreshSpinner(true);
   try {
-    state.rows = await loadOperationsForMachine(state.selectedMachine);
-    /* Pre-resolve: koji crteži REALNO imaju PDF u Bridge keš-u (exact match
-       ili neka revizija). Ovo je jedan batch query (~50 brojeva po požaru),
-       i mark-uje svaki red sa `_hasPdf` da UI zna da li uopšte renderuje
-       📄 PDF dugme. Ako request padne, fail-safe je `_hasPdf=true` (ostavi
-       dugme — bolje je dati korisniku opciju nego sakriti). */
+    state.rows = await loadOperationsForMachine(state.selectedMachineCode);
     await annotateRowsWithPdfAvailability(state.rows);
   } catch (e) {
     console.error('[pp] loadOperationsForMachine failed', e);
@@ -200,8 +597,46 @@ async function refreshOperations() {
     state.loading = false;
     setRefreshSpinner(false);
   }
+  renderTable({ allowDragDrop: true });
+  setCounter(state.rows.length);
+}
 
-  renderTable();
+async function refreshOperationsForDept(dept, opts = {}) {
+  state.loading = true;
+  setError(null);
+  setRefreshSpinner(true);
+
+  /* Pripremi body shell ako još nije renderovan (npr. direktan ulazak u
+     operacioni tab). U Ostalo view shell već postoji (`keepBodyShell:true`). */
+  if (!opts.keepBodyShell) {
+    const body = state.host?.querySelector('#ppBody');
+    if (body) {
+      body.innerHTML = `
+        <div class="pp-table-wrap" id="ppTableWrap">
+          <div class="pp-state">
+            <div class="pp-state-icon">⏳</div>
+            <div class="pp-state-title">Učitavanje operacija…</div>
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  try {
+    state.rows = await loadOperationsForDept(dept);
+    await annotateRowsWithPdfAvailability(state.rows);
+  } catch (e) {
+    console.error('[pp] loadOperationsForDept failed', e);
+    state.rows = [];
+    setError('Greška pri učitavanju operacija. Pogledaj konzolu (DevTools) za detalje.');
+  } finally {
+    state.loading = false;
+    setRefreshSpinner(false);
+  }
+
+  /* Drag-drop reorder NIJE dozvoljen u operacionim tabovima — sortiranje
+     je per-mašina, mešanje raznih mašina nema smisla. */
+  renderTable({ allowDragDrop: false });
   setCounter(state.rows.length);
 }
 
@@ -230,26 +665,55 @@ async function annotateRowsWithPdfAvailability(rows) {
   }
 }
 
-function renderEmptyTable(htmlMsg) {
-  const wrap = state.host?.querySelector('#ppTableWrap');
-  if (!wrap) return;
-  wrap.innerHTML = `
-    <div class="pp-state">
-      <div class="pp-state-icon">🛠</div>
-      <div class="pp-state-title">Nema operacija za prikaz</div>
-      <div class="pp-state-hint">${htmlMsg}</div>
+/* ────────────────────────────────────────────────────────────────────────
+ * BODY HELPERS
+ * ──────────────────────────────────────────────────────────────────────── */
+
+function renderEmptyBody(htmlMsg) {
+  const body = state.host?.querySelector('#ppBody');
+  if (!body) return;
+  body.innerHTML = `
+    <div class="pp-table-wrap">
+      <div class="pp-state">
+        <div class="pp-state-icon">🛠</div>
+        <div class="pp-state-title">Nema operacija za prikaz</div>
+        <div class="pp-state-hint">${htmlMsg}</div>
+      </div>
     </div>
   `;
 }
 
-function renderTable() {
-  const wrap = state.host?.querySelector('#ppTableWrap');
+function renderTable({ allowDragDrop }) {
+  /* Tabela renderuje se u `#ppTableWrap` ako postoji (Ostalo view ima ga
+     pre-renderovanog ispod liste mašina). Inače popunjava `#ppBody`. */
+  const wrap =
+    state.host?.querySelector('#ppTableWrap') ||
+    (() => {
+      const body = state.host?.querySelector('#ppBody');
+      if (!body) return null;
+      body.innerHTML = '<div class="pp-table-wrap" id="ppTableWrap"></div>';
+      return body.querySelector('#ppTableWrap');
+    })();
   if (!wrap) return;
 
   if (state.rows.length === 0) {
-    renderEmptyTable(
-      'Sve operacije za ovu mašinu su završene ili nisu još kreirane u BigTehn-u.<br>Pokušaj <strong>Osveži</strong> ili izaberi drugu mašinu.',
-    );
+    const dept = getDepartment(state.selectedDeptSlug);
+    let hint = 'Sve operacije su završene ili nisu još kreirane u BigTehn-u.';
+    if (dept?.kind === 'machines' && state.selectedMachineCode) {
+      hint = 'Sve operacije za ovu mašinu su završene ili nisu još kreirane u BigTehn-u.<br>'
+        + 'Pokušaj <strong>Osveži</strong> ili izaberi drugu mašinu.';
+    } else if (dept?.kind === 'operations') {
+      hint = 'Nema otvorenih operacija u ovom odeljenju.';
+    } else if (dept?.isFallback) {
+      hint = 'Nema operacija koje ne pripadaju nekom drugom tabu — sve je kategorisano. 👍';
+    }
+    wrap.innerHTML = `
+      <div class="pp-state">
+        <div class="pp-state-icon">🛠</div>
+        <div class="pp-state-title">Nema operacija za prikaz</div>
+        <div class="pp-state-hint">${hint}</div>
+      </div>
+    `;
     return;
   }
 
@@ -281,19 +745,19 @@ function renderTable() {
         </tr>
       </thead>
       <tbody>
-        ${state.rows.map(rowHtml).join('')}
+        ${state.rows.map(r => rowHtml(r, { allowDragDrop })).join('')}
       </tbody>
     </table>
   `;
 
-  wireRows(wrap);
+  wireRows(wrap, { allowDragDrop });
 }
 
 function rowKey(r) {
   return `${r.work_order_id}-${r.line_id}`;
 }
 
-function rowHtml(r) {
+function rowHtml(r, { allowDragDrop }) {
   const urgency = rokUrgencyClass(r.rok_izrade);
   const rokLabel = r.rok_izrade ? formatDate(r.rok_izrade) : '—';
   const status = r.local_status || 'waiting';
@@ -341,14 +805,20 @@ function rowHtml(r) {
     ? `<span class="pp-urgent-badge ${urgency === 'overdue' ? 'pp-urgent-overdue' : 'pp-urgent-today'}" title="${escHtml(urgentTitle)}" aria-label="${escHtml(urgentTitle)}">⚠</span>`
     : '';
 
+  const draggable = allowDragDrop && state.canEdit;
+
   return `
     <tr
       data-key="${escHtml(rowKey(r))}"
       data-wo="${r.work_order_id}"
       data-line="${r.line_id}"
       class="${r.is_non_machining ? 'is-non-machining' : ''}${isReassigned ? ' is-reassigned' : ''}${urgentClass}"
-      ${state.canEdit ? 'draggable="true"' : ''}>
-      <td class="pp-drag-handle" title="${state.canEdit ? 'Prevuci za prioritet' : 'Drag dostupan samo za pm/admin'}">⠿</td>
+      ${draggable ? 'draggable="true"' : ''}>
+      <td class="pp-drag-handle" title="${draggable
+        ? 'Prevuci za prioritet'
+        : (state.canEdit
+            ? 'Drag dostupan u prikazu jedne mašine (Sve / drill-down)'
+            : 'Drag dostupan samo za pm/admin')}">⠿</td>
       <td class="pp-cell-center">${urgentBadgeHtml}${priCell}</td>
       <td class="pp-cell-strong" title="RN ${escHtml(r.rn_ident_broj || '')}">
         ${escHtml(r.rn_ident_broj || '—')}
@@ -450,43 +920,38 @@ function statusLabel(s) {
   }
 }
 
-/* ── Wire događaji u tabeli ── */
+/* ────────────────────────────────────────────────────────────────────────
+ * WIRE: događaji u tabeli (status, napomena, REASSIGN, drawings, drag-drop)
+ * ──────────────────────────────────────────────────────────────────────── */
 
-function wireRows(wrap) {
-  /* Status cycle */
+function wireRows(wrap, { allowDragDrop }) {
   wrap.querySelectorAll('button[data-action="cycle-status"]').forEach(btn => {
     btn.addEventListener('click', () => onCycleStatus(btn));
   });
 
-  /* Note save na blur */
   wrap.querySelectorAll('textarea[data-action="edit-note"]').forEach(ta => {
     let originalVal = ta.value;
     ta.addEventListener('focus', () => { originalVal = ta.value; });
     ta.addEventListener('blur',  () => onSaveNote(ta, originalVal));
   });
 
-  /* REASSIGN */
   wrap.querySelectorAll('button[data-action="reassign-open"]').forEach(btn => {
     btn.addEventListener('click', () => onReassign(btn));
   });
 
-  /* Drawings (📎) */
   wrap.querySelectorAll('button[data-action="open-drawings"]').forEach(btn => {
     btn.addEventListener('click', () => onOpenDrawings(btn));
   });
 
-  /* BigTehn PDF crtež (📄) — otvori u novom tab-u */
   wrap.querySelectorAll('button[data-action="open-bigtehn-drawing"]').forEach(btn => {
     btn.addEventListener('click', () => onOpenBigtehnDrawing(btn));
   });
 
-  /* Tehnološki postupak (📋) — otvori modal sa svim operacijama */
   wrap.querySelectorAll('button[data-action="open-tech-procedure"]').forEach(btn => {
     btn.addEventListener('click', () => onOpenTechProcedure(btn));
   });
 
-  /* Drag-drop */
-  if (state.canEdit) {
+  if (allowDragDrop && state.canEdit) {
     wireDragDrop(wrap);
   }
 }
@@ -508,7 +973,6 @@ async function onOpenDrawings(btn) {
     opTitle,
     canEdit:       state.canEdit,
     onChange:      (newCount) => {
-      /* Optimistic UI ažuriranje brojača bez full reload-a */
       row.drawings_count = newCount;
       const numEl = btn.querySelector('.pp-drawings-num');
       if (numEl) numEl.textContent = String(newCount);
@@ -611,7 +1075,6 @@ async function onCycleStatus(btn) {
   });
 
   if (res === null) {
-    /* Revert na grešci */
     btn.className = prevClass;
     btn.textContent = statusLabel(cur);
     btn.disabled = false;
@@ -628,7 +1091,7 @@ async function onCycleStatus(btn) {
 async function onSaveNote(ta, originalVal) {
   if (!state.canEdit) return;
   const newVal = ta.value;
-  if (newVal === originalVal) return; /* nije izmenjeno */
+  if (newVal === originalVal) return;
   const tr = ta.closest('tr');
   const woId = Number(tr?.dataset.wo);
   const lineId = Number(tr?.dataset.line);
@@ -650,7 +1113,6 @@ async function onSaveNote(ta, originalVal) {
   }
   row.shift_note = newVal;
 
-  /* Mali "✓ sačuvano" indikator pored polja */
   const indicator = ta.parentElement.querySelector('.pp-note-saved');
   if (indicator) {
     indicator.classList.add('is-visible');
@@ -685,7 +1147,7 @@ async function onReassign(btn) {
     }
     showToast('✓ Vraćeno na originalnu mašinu — operacija će nestati iz ove liste');
     /* Operacija sada ne pripada izabranoj mašini → refresh */
-    refreshOperations();
+    await refreshAfterReassign();
     return;
   }
 
@@ -698,7 +1160,7 @@ async function onReassign(btn) {
   select.className = 'pp-reassign-select';
   select.innerHTML = `
     <option value="">— izaberi mašinu —</option>
-    ${state.machines
+    ${state.allMachines
       .filter(m => m.rj_code !== row.original_machine_code)
       .map(m => `<option value="${escHtml(m.rj_code)}">${escHtml(m.name)} (${escHtml(m.rj_code)})</option>`)
       .join('')}
@@ -725,14 +1187,25 @@ async function onReassign(btn) {
       return;
     }
     showToast(`✓ Operacija premeštena na ${newMachine}`);
-    /* Operacija sada pripada drugoj mašini → nestaje iz trenutne liste */
-    refreshOperations();
+    await refreshAfterReassign();
   });
   /* Click anywhere else cancels */
   select.addEventListener('blur', () => {
-    /* Mali timeout da change uhvati prvi */
     setTimeout(() => select.parentElement && select.remove(), 150);
   });
+}
+
+/**
+ * Posle REASSIGN-a (ili „vrati na original") osveži aktuelni view.
+ * Operacija je možda nestala iz trenutne mašine ili dept-a.
+ */
+async function refreshAfterReassign() {
+  const dept = getDepartment(state.selectedDeptSlug);
+  if (state.selectedMachineCode) {
+    await refreshOperationsForMachine();
+  } else if (dept?.kind === 'operations' || dept?.isFallback) {
+    await refreshOperationsForDept(dept);
+  }
 }
 
 /* ── Drag-drop reorder ── */
@@ -747,7 +1220,6 @@ function wireDragDrop(wrap) {
     state.dragRowKey = tr.dataset.key;
     tr.classList.add('is-dragging');
     e.dataTransfer.effectAllowed = 'move';
-    /* Firefox kompat: postaviti dataTransfer */
     e.dataTransfer.setData('text/plain', state.dragRowKey);
   });
 
@@ -764,7 +1236,6 @@ function wireDragDrop(wrap) {
     const tr = e.target.closest('tr');
     if (!tr || tr.dataset.key === state.dragRowKey) return;
     e.preventDefault();
-    /* Markiraj iznad ili ispod (zavisno od kursora) */
     tbody.querySelectorAll('.drop-target-above,.drop-target-below').forEach(t => {
       t.classList.remove('drop-target-above', 'drop-target-below');
     });
@@ -791,12 +1262,10 @@ function wireDragDrop(wrap) {
       t.classList.remove('drop-target-above', 'drop-target-below');
     });
 
-    /* Promeni state.rows i pošalji bulk update */
     const fromIdx = state.rows.findIndex(r => rowKey(r) === draggedKey);
     let toIdx = state.rows.findIndex(r => rowKey(r) === targetTr.dataset.key);
     if (fromIdx === -1 || toIdx === -1) return;
     if (!before) toIdx += 1;
-    /* Ako pomeramo dole, indeks se pomera za 1 jer je pomeren element izvađen */
     if (fromIdx < toIdx) toIdx -= 1;
 
     const arr = state.rows.slice();
@@ -805,30 +1274,37 @@ function wireDragDrop(wrap) {
     state.rows = arr;
 
     /* Optimistic re-render */
-    renderTable();
+    renderTable({ allowDragDrop: true });
 
-    /* Pošalji bulk reorder */
     const res = await reorderOverlays(
       state.rows.map(r => ({ work_order_id: r.work_order_id, line_id: r.line_id })),
     );
     if (res === null) {
       showToast('⚠ Redosled nije sačuvan — osvežavam');
-      refreshOperations();
+      await refreshOperationsForMachine();
       return;
     }
-    /* Sinhronizuj sort vrednosti u state-u */
     state.rows.forEach((r, i) => { r.shift_sort_order = i + 1; });
-    renderTable();
+    renderTable({ allowDragDrop: true });
   });
 }
 
-/* ── Toolbar helpers ── */
+/* ────────────────────────────────────────────────────────────────────────
+ * TOOLBAR HELPERS
+ * ──────────────────────────────────────────────────────────────────────── */
 
-function setCounter(n) {
+function setCounter(n, opts = {}) {
   const el = state.host?.querySelector('#ppCounter');
   if (!el) return;
-  if (n == null) el.textContent = '— operacija';
-  else el.textContent = `${n} ${plural(n, 'operacija', 'operacije', 'operacija')}`;
+  if (n == null) {
+    el.textContent = opts.unit === 'machines' ? '— mašina' : '— operacija';
+    return;
+  }
+  if (opts.unit === 'machines') {
+    el.textContent = `${n} ${plural(n, 'mašina', 'mašine', 'mašina')}`;
+  } else {
+    el.textContent = `${n} ${plural(n, 'operacija', 'operacije', 'operacija')}`;
+  }
 }
 
 function plural(n, one, two, more) {
@@ -850,7 +1326,15 @@ function setRefreshSpinner(on) {
   const btn = state.host?.querySelector('#ppRefreshBtn');
   if (!btn) return;
   btn.disabled = !!on;
-  btn.querySelector('span').textContent = on ? '↻' : '↻';
-  if (on) btn.querySelector('span').classList.add('pp-spin');
-  else    btn.querySelector('span').classList.remove('pp-spin');
+  const span = btn.querySelector('span');
+  if (!span) return;
+  if (on) span.classList.add('pp-spin');
+  else    span.classList.remove('pp-spin');
 }
+
+/* ────────────────────────────────────────────────────────────────────────
+ * Re-export findDeptForMachineCode — `index.js` ga koristi za jump iz
+ * Zauzetost / Pregled svih (postavlja LS_LAST_DEPT pre nego što renderuje
+ * Po mašini tab).
+ * ──────────────────────────────────────────────────────────────────────── */
+export { findDeptForMachineCode };
