@@ -8,7 +8,7 @@
 
 - **Tabela sa RLS politikama:** 31
 - **Ukupno efektivnih politika:** 90
-- **SECURITY DEFINER funkcija:** 50
+- **SECURITY DEFINER funkcija:** 51
 - **Objekata sa anon grant-om:** 2
 
 ## 2. Anon (javni) pristup
@@ -36,6 +36,7 @@ eskalacija ako search_path nije postavljen ili ako logika ne proverava ulogu.
 | `current_user_is_admin` | `sql/migrations/fix_user_roles_rls_recursion.sql` |
 | `current_user_is_hr_or_admin` | `sql/migrations/add_menadzment_full_edit_kadrovska.sql` |
 | `current_user_is_management` | `sql/migrations/harden_sastanci_rls_phase2.sql` |
+| `current_user_managed_departments` | `sql/migrations/add_rbac_managed_departments.sql` |
 | `get_my_user_roles` | `sql/migrations/enable_user_roles_rls_proper.sql` |
 | `has_edit_role` | `sql/migrations/add_menadzment_full_edit_kadrovska.sql` |
 | `is_sastanak_ucesnik` | `sql/migrations/harden_sastanci_rls_phase2.sql` |

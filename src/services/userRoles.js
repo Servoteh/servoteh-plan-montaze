@@ -18,6 +18,7 @@ import {
   getCurrentUser,
   setLastUserRolesQueryFailed,
   setRole,
+  setManagedDepartments,
 } from '../state/auth.js';
 
 export async function loadUserRoleMatchesFromDb() {
@@ -46,7 +47,7 @@ export async function loadUserRoleMatchesFromDb() {
   let anyQuerySucceeded = false;
 
   for (let fi = 0; fi < filters.length; fi++) {
-    const path = 'user_roles?is_active=eq.true&' + filters[fi] + '&select=email,role,project_id';
+    const path = 'user_roles?is_active=eq.true&' + filters[fi] + '&select=email,role,project_id,managed_departments';
     const data = await sbReq(path);
     if (data === null) {
       console.error('[user_roles] Filter ' + fi + ' failed (HTTP/parse error). Trying next filter.', { path });
@@ -87,7 +88,7 @@ export async function loadUserRoleMatchesFromDb() {
   return unique.filter(r => r.email === emailNorm);
 }
 
-/** Prioritet: admin > leadpm > pm > menadzment > hr > viewer. */
+/** Prioritet: admin > leadpm > pm > menadzment > hr > cnc_operater > magacioner > viewer. */
 export function effectiveRoleFromMatches(matches) {
   if (!matches || matches.length === 0) return 'viewer';
   const norm = matches.map(r => String(r.role || '').trim().toLowerCase());
@@ -96,15 +97,19 @@ export function effectiveRoleFromMatches(matches) {
   if (norm.includes('pm')) return 'pm';
   if (norm.includes('menadzment')) return 'menadzment';
   if (norm.includes('hr')) return 'hr';
+  if (norm.includes('cnc_operater')) return 'cnc_operater';
+  if (norm.includes('magacioner')) return 'magacioner';
   if (norm.includes('viewer')) return 'viewer';
   console.warn('Unknown roles found in user_roles:', matches);
   return 'viewer';
 }
 
-/** Convenience: učita matches i postavi rolu u state. */
+/** Convenience: učita matches i postavi rolu + managed_departments u state. */
 export async function loadAndApplyUserRole() {
   const matches = await loadUserRoleMatchesFromDb();
   const role = effectiveRoleFromMatches(matches);
   setRole(role);
+  const primary = matches.find(r => String(r.role || '').toLowerCase() === role);
+  setManagedDepartments(primary?.managed_departments ?? null);
   return { role, matches };
 }

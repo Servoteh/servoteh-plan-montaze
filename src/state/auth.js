@@ -94,6 +94,12 @@ export function canEdit() {
      sve authenticated. */
   return ['admin', 'leadpm', 'pm', 'menadzment'].includes(state.role);
 }
+export function isMagacioner() {
+  return state.role === 'magacioner';
+}
+export function isCncOperater() {
+  return state.role === 'cnc_operater';
+}
 export function isLeadPM() {
   return state.role === 'leadpm';
 }
@@ -184,8 +190,8 @@ export function canAccessSalary() {
  * (`canEditPlanProizvodnje`). Read-only: leadpm, hr, viewer.
  */
 export function canAccessPlanProizvodnje() {
-  /* Svi koji su ulogovani vide modul (read-only za viewer/leadpm/hr). */
-  return ['admin', 'leadpm', 'pm', 'menadzment', 'hr', 'viewer'].includes(state.role);
+  /* Svi koji su ulogovani vide modul (read-only za viewer/leadpm/hr/cnc_operater). */
+  return ['admin', 'leadpm', 'pm', 'menadzment', 'hr', 'viewer', 'cnc_operater'].includes(state.role);
 }
 export function canEditPlanProizvodnje() {
   /* Menadžment sme da menja operacije / crteže — mora biti sinhronizovano
@@ -201,6 +207,19 @@ export function canEditPlanProizvodnje() {
  */
 export function canAccessSastanci() {
   return ['admin', 'leadpm', 'pm', 'menadzment', 'hr', 'viewer'].includes(state.role);
+}
+
+/**
+ * Odeljenja nad kojima trenutni korisnik ima scope (odobravanje odmora itd.).
+ * NULL / undefined = neograničen pristup (admin, COO, HR).
+ * Popunjen niz = filtrira samo ta odeljenja.
+ * Popunjava se iz user_roles.managed_departments prilikom login-a.
+ */
+export function getManagedDepartments() {
+  return state.managedDepartments ?? null;
+}
+export function setManagedDepartments(depts) {
+  state.managedDepartments = Array.isArray(depts) ? depts : null;
 }
 export function canEditSastanci() {
   return ['admin', 'leadpm', 'pm', 'menadzment'].includes(state.role);
@@ -219,6 +238,7 @@ export function canPrioritizeTeme() {
  * preko RPC; master lokacije: admin/leadpm/pm u RLS-u).
  */
 export function canAccessLokacije() {
+  /* Svi ulogovani korisnici uključujući magacioner i cnc_operater. */
   return !!state.user;
 }
 
