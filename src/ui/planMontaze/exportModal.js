@@ -40,6 +40,16 @@ import { queueCurrentWpSync } from '../../services/plan.js';
 let _overlayEl = null;
 let _onAfterImport = null;
 
+/* SVG hatch pattern (data URI) za elektro trake u PDF-u.
+   Identican onome u `legacy.css` (body.pdf-export blok), ali ga
+   ovde drzimo kao konstantu zbog defenzivnog inline-a u onclone i
+   crtanja legende u PDF header-u. */
+const PDF_ELEC_HATCH_SVG =
+  "<svg xmlns='http://www.w3.org/2000/svg' width='6' height='6'>" +
+  "<path d='M-1 1 L1 -1 M0 6 L6 0 M5 7 L7 5' stroke='%23000' stroke-width='1.6' stroke-opacity='0.6'/>" +
+  '</svg>';
+const PDF_ELEC_HATCH_BG = `url("data:image/svg+xml;utf8,${PDF_ELEC_HATCH_SVG}")`;
+
 /* ── PUBLIC ──────────────────────────────────────────────────────────── */
 
 export function openExportDialog(opts = {}) {
@@ -305,6 +315,18 @@ export async function exportGanttAsPDF(which) {
             bodyEl.classList.add('pdf-export');
             bodyEl.classList.add(which === 'gantt' ? 'pdf-export-gantt' : 'pdf-export-total');
           }
+          /* Defenzivno: html2canvas 1.4.1 ume da preskoci `background-image`
+             postavljen samo preko CSS pravila (narocito kada je `background-color`
+             postavljen inline sa !important). Eksplicitno injektujemo SVG hatch
+             pattern direktno na svaku elektro celiju u klonu kako bi se sigurno
+             pojavio u PDF-u. */
+          const elecCells = clonedDoc.querySelectorAll(
+            '.gantt-cell.bar-elec.bar-phase, .gantt-cell.bar-elec.bar-phase-start, .gantt-cell.bar-elec.bar-phase-end'
+          );
+          elecCells.forEach(c => {
+            c.style.setProperty('background-image', PDF_ELEC_HATCH_BG, 'important');
+            c.style.setProperty('background-repeat', 'repeat', 'important');
+          });
         } catch (err) {
           console.warn('[export] onclone theme-force failed', err);
         }
@@ -327,6 +349,7 @@ export async function exportGanttAsPDF(which) {
       pdf.text(title, 10, 10);
       pdf.setFontSize(9);
       pdf.text('Datum: ' + date, pageW - 45, 10);
+      _drawTypeLegend(pdf, pageW, 10);
     };
 
     drawHeader();
@@ -366,6 +389,90 @@ export async function exportGanttAsPDF(which) {
     console.error(e);
     showToast('❌ Greška pri PDF-u');
   }
+}
+
+/* Crta mini legendu (Masinska solid / Elektro hatched) u PDF header-u.
+   Pozicionira se levo od datuma kako bi izbegla preklapanje. Crta direktno
+   preko jsPDF API-ja (vector) tako da je ostro citljiva u svakom zoom-u.
+   `topMm` je y koordinata reda u kome je vec ispisan title. */
+function _drawTypeLegend(pdf, pageW, topMm) {
+  const swW = 8;
+  const swH = 3.6;
+  const yLine = topMm - 1.5;
+  const ySwatch = topMm - 4.4;
+
+  const labelMech = 'Masinska';
+  const labelElec = 'Elektro';
+
+  pdf.setFontSize(8);
+  pdf.setTextColor(20, 20, 20);
+
+  const wMech = pdf.getTextWidth(labelMech);
+  const wElec = pdf.getTextWidth(labelElec);
+
+  const gap = 3;
+  const blockMechW = swW + 1.6 + wMech;
+  const blockElecW = swW + 1.6 + wElec;
+  const totalW = blockMechW + gap + blockElecW;
+
+  /* Datum se ispisuje kod (pageW - 45). Pomeramo legendu jos vise levo. */
+  const xRight = pageW - 50;
+  let x = xRight - totalW;
+
+  /* Masinska — solid plava (ista paleta kao .leg-mech swatch). */
+  pdf.setFillColor(77, 163, 255);
+  pdf.rect(x, ySwatch, swW, swH, 'F');
+  pdf.setDrawColor(120, 120, 120);
+  pdf.rect(x, ySwatch, swW, swH, 'S');
+  pdf.text(labelMech, x + swW + 1.2, yLine);
+
+  x += blockMechW + gap;
+
+  /* Elektro — solid plava + nacrtane tanke dijagonalne linije (vector).
+     Linije crtamo unutar clip-ovanog pravougaonika tako da nema overflow-a. */
+  pdf.setFillColor(77, 163, 255);
+  pdf.rect(x, ySwatch, swW, swH, 'F');
+
+  const hasClipApi = typeof pdf.saveGraphicsState === 'function'
+    && typeof pdf.restoreGraphicsState === 'function'
+    && typeof pdf.clip === 'function';
+
+  if (hasClipApi) {
+    pdf.saveGraphicsState();
+    pdf.rect(x, ySwatch, swW, swH);
+    pdf.clip();
+    if (typeof pdf.discardPath === 'function') pdf.discardPath();
+  }
+
+  pdf.setDrawColor(0, 0, 0);
+  pdf.setLineWidth(0.18);
+  const step = 1.4;
+  for (let t = -swH; t <= swW + swH; t += step) {
+    /* Linija od (x+t, ySwatch) do (x+t+swH, ySwatch+swH) (45deg dole-desno). */
+    const x1 = x + t;
+    const y1 = ySwatch;
+    const x2 = x + t + swH;
+    const y2 = ySwatch + swH;
+    if (hasClipApi) {
+      pdf.line(x1, y1, x2, y2);
+    } else {
+      /* Manuelni clip ako nemamo saveGraphicsState. */
+      const cx1 = Math.max(x, x1);
+      const cy1 = y1 + (cx1 - x1);
+      const cx2 = Math.min(x + swW, x2);
+      const cy2 = y1 + (cx2 - x1);
+      if (cx2 > cx1 && cy2 > cy1 && cy1 <= ySwatch + swH) {
+        pdf.line(cx1, cy1, cx2, Math.min(cy2, ySwatch + swH));
+      }
+    }
+  }
+
+  if (hasClipApi) pdf.restoreGraphicsState();
+
+  pdf.setDrawColor(120, 120, 120);
+  pdf.setLineWidth(0.2);
+  pdf.rect(x, ySwatch, swW, swH, 'S');
+  pdf.text(labelElec, x + swW + 1.2, yLine);
 }
 
 /* ── IMPORT: JSON ────────────────────────────────────────────────────── */

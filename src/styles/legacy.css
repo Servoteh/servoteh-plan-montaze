@@ -378,9 +378,9 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); font
 .gantt-legend .leg-swatch { width: 16px; height: 10px; border-radius: 2px; display: inline-block; border: 1px solid var(--border2); }
 .gantt-legend .leg-swatch.leg-mech { background: linear-gradient(rgba(0,0,0,0.18), rgba(0,0,0,0.18)), #4da3ff; }
 .gantt-legend .leg-swatch.leg-elec {
-  background-image:
-    linear-gradient(rgba(255,255,255,0.22), rgba(255,255,255,0.22)),
-    repeating-linear-gradient(135deg, rgba(255,255,255,0.35) 0 2px, transparent 2px 6px);
+  /* Inline SVG hatch — pouzdanije se renderuje u html2canvas (PDF export)
+     od CSS repeating-linear-gradient. Jednako se vidi i u app i u PDF. */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='6' height='6'><path d='M-1 1 L1 -1 M0 6 L6 0 M5 7 L7 5' stroke='%23000' stroke-width='1.4' stroke-opacity='0.55'/></svg>");
   background-color: #4da3ff;
 }
 
@@ -587,9 +587,11 @@ textarea.note-area:focus { border-color: var(--accent); box-shadow: 0 0 0 2px va
   background-image: linear-gradient(rgba(0,0,0,0.18), rgba(0,0,0,0.18));
 }
 .gantt-cell.bar-phase.bar-elec, .gantt-cell.bar-phase-start.bar-elec, .gantt-cell.bar-phase-end.bar-elec {
-  background-image:
-    linear-gradient(rgba(255,255,255,0.22), rgba(255,255,255,0.22)),
-    repeating-linear-gradient(135deg, rgba(255,255,255,0.28) 0 2px, transparent 2px 6px);
+  /* Inline SVG hatch (tamne dijagonalne pruge) preko boje lokacije.
+     Vidi se i na svetlim i na tamnim bojama; html2canvas renderuje
+     SVG tile pouzdano (CSS repeating-linear-gradient je znao da se
+     izgubi pri PDF exportu). */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='6' height='6'><path d='M-1 1 L1 -1 M0 6 L6 0 M5 7 L7 5' stroke='%23000' stroke-width='1.4' stroke-opacity='0.45'/></svg>");
 }
 .gantt-row:hover .bar-phase,.gantt-row:hover .bar-phase-start,.gantt-row:hover .bar-phase-end { filter: brightness(1.12); }
 .gantt-row:hover td { background: var(--row-hover); }
@@ -2138,9 +2140,10 @@ td.col-day.cell-error .grid-cell { color:var(--red); font-weight:600; }
     border-color: rgba(0,0,0,0.25) !important;
   }
   /* Pattern fallback: guarantees Ma?inska vs Elektro is distinguishable even in B/W prints.
-     Electrical bars get diagonal stripes, mechanical stays solid. */
+     Electrical bars get diagonal stripes, mechanical stays solid. SVG tile (umesto
+     CSS gradient-a) jer ga browseri pri @media print pouzdanije iscrtavaju. */
   .gantt-cell.bar-elec.bar-phase, .gantt-cell.bar-elec.bar-phase-start, .gantt-cell.bar-elec.bar-phase-end {
-    background-image: repeating-linear-gradient(135deg, rgba(255,255,255,0.55) 0 2px, transparent 2px 6px) !important;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='6' height='6'><path d='M-1 1 L1 -1 M0 6 L6 0 M5 7 L7 5' stroke='%23000' stroke-width='1.6' stroke-opacity='0.6'/></svg>") !important;
   }
   .gantt-cell.bar-mech.bar-phase, .gantt-cell.bar-mech.bar-phase-start, .gantt-cell.bar-mech.bar-phase-end {
     /* mechanical: slightly darker overlay (solid) */
@@ -3546,7 +3549,11 @@ body.pdf-export .gantt-cell.bar-mech.bar-phase-end {
 body.pdf-export .gantt-cell.bar-elec.bar-phase,
 body.pdf-export .gantt-cell.bar-elec.bar-phase-start,
 body.pdf-export .gantt-cell.bar-elec.bar-phase-end {
-  background-image: repeating-linear-gradient(135deg, rgba(255,255,255,0.55) 0 2px, transparent 2px 6px) !important;
+  /* SVG hatch sa ja?im kontrastom za PDF (preziveva downscale na A4).
+     Note: `exportModal.js` u `onclone` callback-u jos jednom eksplicitno
+     postavlja isti background-image inline kao defenzivnu meru protiv
+     html2canvas bug-ova sa data-URI background-image-em. */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='6' height='6'><path d='M-1 1 L1 -1 M0 6 L6 0 M5 7 L7 5' stroke='%23000' stroke-width='1.6' stroke-opacity='0.6'/></svg>") !important;
 }
 body.pdf-export .gantt-drag-handle-l,
 body.pdf-export .gantt-drag-handle-r,
