@@ -26,6 +26,9 @@ pnpm-debug.log*
 *.log
 *.tmp
 
+# Lokalni screenshot-ovi (radni materijal, ne ide u repo)
+/screenshots/
+
 # Local Supabase MCP / ad-hoc SQL chunks (not sql/migrations)
 /_mcp_*.json
 /_mcp_*.sql
