@@ -73,6 +73,26 @@ const COLUMNS = [
     html: (r) => `<span class="zm-num">${r.drawingsCount}</span>`,
   },
   {
+    key: 'readyOps',
+    label: 'Spremno',
+    sortable: true,
+    align: 'right',
+    accessor: (r) => r.readyOps,
+    html: (r) => r.readyOps > 0
+      ? `<span class="zm-pill zm-pill-ready" title="Spremno za obradu">${r.readyOps}</span>`
+      : '<span class="zm-muted">–</span>',
+  },
+  {
+    key: 'urgentOps',
+    label: 'HITNO',
+    sortable: true,
+    align: 'right',
+    accessor: (r) => r.urgentOps,
+    html: (r) => r.urgentOps > 0
+      ? `<span class="zm-pill zm-pill-hitno" title="Ručno označeno HITNO">${r.urgentOps}</span>`
+      : '<span class="zm-muted">–</span>',
+  },
+  {
     key: 'camReadyOps',
     label: 'CAM',
     sortable: true,

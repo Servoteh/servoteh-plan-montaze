@@ -67,6 +67,7 @@ Drag-drop reorder (`shift_sort_order`) dostupan je SAMO u single-machine konteks
 
 - **Čitanje:** `loadMachines()`, `loadOperationsForMachine(machineCode)`, `loadOperationsForDept(dept)` (v2 — operacije po odeljenju za operacione tabove i „Ostalo"), `loadAllOpenOperations()` — iz `bigtehn_*_cache` i view-a **`v_production_operations`**.
 - **Pisanje overlay-a:** `upsertOverlay()`, `reorderOverlays()` — `production_overlays` (PostgREST UPSERT po `(work_order_id, line_id)`).
+- **G2 prioritet:** `setUrgent()`, `clearUrgent()`, `pinToTop()`, `unpin()` i `sortProductionOperations()` — lokalni HITNO po RN-u, spremnost operacije i dvonivoski sort.
 - **Crteži:** upload preko Storage API + metapodaci u `production_drawings`; signed URL za prikaz (bucket nije javan).
 - **Pomoćno:** `fetchBigtehnOpSnapshotByRnAndTp`, `fetchBigtehnWorkOrdersByIds` — za nalepnice / Lokacije integraciju; `rokUrgencyClass`, `plannedSeconds`, itd.
 
@@ -79,11 +80,12 @@ Lokalni statusi u UI konstantama: `LOCAL_STATUSES`, ciklus `STATUS_CYCLE_NEXT` (
 ### Tabele (Sprint F.1)
 
 - **`production_overlays`** — po jedan red po paru `(work_order_id, line_id)`: `shift_sort_order`, `local_status`, `shift_note`, `assigned_machine_code` (REASSIGN), `archived_at` / razlog arhive kada RN završi.
+- **`production_urgency_overrides`** — lokalni MES HITNO status po RN-u (`work_order_id`), nezavisan od BigTehn statusa.
 - **`production_drawings`** — metapodaci fajlova vezana za operaciju.
 
 ### View
 
-- **`v_production_operations`** — denormalizovan spoj linija RN-a, RN headera, kupca, mašine, overlay-a, tech routing agregata, broja crteža; kolona **`effective_machine_code`** = `COALESCE(assigned_machine_code, original_machine_code)`.
+- **`v_production_operations`** — denormalizovan spoj linija RN-a, RN headera, kupca, mašine, overlay-a, tech routing agregata, broja crteža; kolona **`effective_machine_code`** = `COALESCE(assigned_machine_code, original_machine_code)`. G2 dodaje `is_ready_for_processing`, podatke o prethodnoj operaciji, `is_urgent`, `urgency_reason` i `auto_sort_bucket`.
 
 Redosled migracija (tipično):
 

@@ -41,6 +41,55 @@ export const STATUS_CYCLE_NEXT = {
   blocked:     'waiting',
 };
 
+function numOrNull(v) {
+  if (v == null || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function cmpNullableAsc(a, b) {
+  if (a == null && b == null) return 0;
+  if (a == null) return 1;
+  if (b == null) return -1;
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+function cmpTextAsc(a, b) {
+  return String(a ?? '').localeCompare(String(b ?? ''), 'sr', { numeric: true, sensitivity: 'base' });
+}
+
+/**
+ * G2 dvonivoski sort:
+ * 1) ručni redosled/pin (`shift_sort_order`) uvek ide pre auto-sorta,
+ * 2) zatim DB bucket spremnosti/hitnosti,
+ * 3) rok, BigTehn prioritet i stabilni RN/op tie-breakeri.
+ */
+export function sortProductionOperations(rows) {
+  if (!Array.isArray(rows)) return [];
+  return rows.slice().sort((a, b) => {
+    const aManual = numOrNull(a?.shift_sort_order);
+    const bManual = numOrNull(b?.shift_sort_order);
+    const manualCmp = cmpNullableAsc(aManual, bManual);
+    if (manualCmp !== 0) return manualCmp;
+
+    const bucketCmp = cmpNullableAsc(numOrNull(a?.auto_sort_bucket), numOrNull(b?.auto_sort_bucket));
+    if (bucketCmp !== 0) return bucketCmp;
+
+    const dateCmp = cmpNullableAsc(
+      a?.rok_izrade ? Date.parse(a.rok_izrade) : null,
+      b?.rok_izrade ? Date.parse(b.rok_izrade) : null,
+    );
+    if (dateCmp !== 0) return dateCmp;
+
+    const priCmp = cmpNullableAsc(numOrNull(a?.prioritet_bigtehn), numOrNull(b?.prioritet_bigtehn));
+    if (priCmp !== 0) return priCmp;
+
+    const rnCmp = cmpTextAsc(a?.rn_ident_broj, b?.rn_ident_broj);
+    if (rnCmp !== 0) return rnCmp;
+    return cmpNullableAsc(numOrNull(a?.operacija), numOrNull(b?.operacija));
+  });
+}
+
 /* ── Reads ── */
 
 /**
@@ -78,14 +127,14 @@ export async function loadOperationsForMachine(machineCode) {
   params.set('overlay_archived_at', 'is.null');
   params.set(
     'order',
-    'shift_sort_order.asc.nullslast,rok_izrade.asc.nullslast,prioritet_bigtehn.asc',
+    'shift_sort_order.asc.nullslast,auto_sort_bucket.asc,rok_izrade.asc.nullslast,prioritet_bigtehn.asc',
   );
   /* Sigurnosni limit. Realno najopterećenija mašina ima ~1000 otvorenih
      operacija; 2500 daje 2.5× headroom. Ako nekada bude veće, dodaj paging. */
   params.set('limit', '2500');
 
   const data = await sbReq(`v_production_operations?${params.toString()}`);
-  return Array.isArray(data) ? data : [];
+  return sortProductionOperations(Array.isArray(data) ? data : []);
 }
 
 /**
@@ -126,7 +175,7 @@ export async function loadOperationsForDept(dept) {
     p.set('overlay_archived_at', 'is.null');
     p.set(
       'order',
-      'shift_sort_order.asc.nullslast,rok_izrade.asc.nullslast,prioritet_bigtehn.asc',
+      'shift_sort_order.asc.nullslast,auto_sort_bucket.asc,rok_izrade.asc.nullslast,prioritet_bigtehn.asc',
     );
     p.set('limit', '5000');
     return p;
@@ -144,7 +193,7 @@ export async function loadOperationsForDept(dept) {
        bez mašine sigurno spadaju u „Ostalo". */
     const data = await sbReq(`v_production_operations?${p.toString()}`);
     const all = Array.isArray(data) ? data : [];
-    return all.filter(op => operationFallsIntoOstalo(op));
+    return sortProductionOperations(all.filter(op => operationFallsIntoOstalo(op)));
   }
 
   const orParts = [];
@@ -198,7 +247,7 @@ export async function loadOperationsForDept(dept) {
   );
   finalParams.set(
     'order',
-    'shift_sort_order.asc.nullslast,rok_izrade.asc.nullslast,prioritet_bigtehn.asc',
+    'shift_sort_order.asc.nullslast,auto_sort_bucket.asc,rok_izrade.asc.nullslast,prioritet_bigtehn.asc',
   );
   finalParams.set('limit', '5000');
 
@@ -229,7 +278,7 @@ export async function loadOperationsForDept(dept) {
     }
   }
 
-  return rows;
+  return sortProductionOperations(rows);
 }
 
 /**
@@ -263,6 +312,9 @@ export async function loadAllOpenOperations() {
     'opis_rada',
     'operacija',
     'cam_ready',
+    'is_ready_for_processing',
+    'is_urgent',
+    'auto_sort_bucket',
   ].join(',');
   const params = new URLSearchParams();
   params.set('select', cols);
@@ -279,7 +331,7 @@ export async function loadAllOpenOperations() {
   params.set('limit', '10000');
 
   const data = await sbReq(`v_production_operations?${params.toString()}`);
-  return Array.isArray(data) ? data : [];
+  return sortProductionOperations(Array.isArray(data) ? data : []);
 }
 
 /**
@@ -575,6 +627,73 @@ export async function clearCooperationManual({ workOrderId, lineId }) {
       cooperation_set_by: null,
       cooperation_set_at: null,
     },
+  });
+}
+
+export async function setUrgent(workOrderId, reason = '') {
+  if (!getIsOnline() || !canEditPlanProizvodnje()) return null;
+  const id = Number(workOrderId);
+  if (!Number.isFinite(id) || id <= 0) return null;
+
+  const user = getCurrentUser();
+  const email = user?.email || null;
+  const payload = {
+    work_order_id: id,
+    is_urgent: true,
+    reason: String(reason || '').trim() || null,
+    set_by: email,
+    set_at: new Date().toISOString(),
+    cleared_at: null,
+    cleared_by: null,
+  };
+
+  return await sbReq(
+    'production_urgency_overrides?on_conflict=work_order_id',
+    'POST',
+    payload,
+  );
+}
+
+export async function clearUrgent(workOrderId) {
+  if (!getIsOnline() || !canEditPlanProizvodnje()) return null;
+  const id = Number(workOrderId);
+  if (!Number.isFinite(id) || id <= 0) return null;
+
+  const user = getCurrentUser();
+  const email = user?.email || null;
+  const payload = {
+    work_order_id: id,
+    is_urgent: false,
+    cleared_at: new Date().toISOString(),
+    cleared_by: email,
+  };
+
+  return await sbReq(
+    'production_urgency_overrides?on_conflict=work_order_id',
+    'POST',
+    payload,
+  );
+}
+
+export async function pinToTop(row, currentRows = []) {
+  if (!row?.work_order_id || !row?.line_id) return null;
+  const manualOrders = Array.isArray(currentRows)
+    ? currentRows.map(r => numOrNull(r?.shift_sort_order)).filter(n => n != null)
+    : [];
+  const nextOrder = manualOrders.length > 0 ? Math.min(...manualOrders) - 1 : 1;
+  return await upsertOverlay({
+    work_order_id: row.work_order_id,
+    line_id: row.line_id,
+    patch: { shift_sort_order: nextOrder },
+  });
+}
+
+export async function unpin(row) {
+  if (!row?.work_order_id || !row?.line_id) return null;
+  return await upsertOverlay({
+    work_order_id: row.work_order_id,
+    line_id: row.line_id,
+    patch: { shift_sort_order: null },
   });
 }
 
@@ -997,12 +1116,16 @@ export function summarizeByMachine(rows) {
         nonMachiningOps: 0,
         reassignedInOps: 0,
         camReadyOps: 0,
+        readyOps: 0,
+        urgentOps: 0,
       };
       byMachine.set(mc, s);
     }
     s.totalOps += 1;
     if (r.broj_crteza) s.drawingsSet.add(String(r.broj_crteza));
     if (r.cam_ready) s.camReadyOps += 1;
+    if (r.is_ready_for_processing) s.readyOps += 1;
+    if (r.is_urgent) s.urgentOps += 1;
     if (r.is_non_machining) s.nonMachiningOps += 1;
     if (r.assigned_machine_code) s.reassignedInOps += 1;
     s.plannedSec += plannedSeconds(r);
@@ -1093,7 +1216,7 @@ export function buildDeadlineMatrix(rows, numWorkingDays = 5) {
     if (!mc) continue;
     let m = byMachine.get(mc);
     if (!m) {
-      m = { machineCode: mc, totalOps: 0, camReadyOps: 0, buckets: {
+      m = { machineCode: mc, totalOps: 0, camReadyOps: 0, readyOps: 0, urgentOps: 0, buckets: {
         overdue: 0, future: 0, noDeadline: 0,
       } };
       for (const d of days) m.buckets[d.date] = 0;
@@ -1101,6 +1224,8 @@ export function buildDeadlineMatrix(rows, numWorkingDays = 5) {
     }
     m.totalOps += 1;
     if (r.cam_ready) m.camReadyOps += 1;
+    if (r.is_ready_for_processing) m.readyOps += 1;
+    if (r.is_urgent) m.urgentOps += 1;
     const rok = r.rok_izrade ? isoDay(new Date(r.rok_izrade)) : null;
     if (!rok) {
       m.buckets.noDeadline += 1;

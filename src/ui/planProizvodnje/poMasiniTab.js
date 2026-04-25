@@ -41,6 +41,10 @@ import {
   upsertOverlay,
   setCamReady,
   setCooperationManual,
+  setUrgent,
+  clearUrgent,
+  pinToTop,
+  unpin,
   reorderOverlays,
   STATUS_CYCLE_NEXT,
   rokUrgencyClass,
@@ -794,12 +798,14 @@ function renderTable({ allowDragDrop }) {
           <th>Deo</th>
           <th class="pp-col-customer">Kupac</th>
           <th>Rok</th>
+          <th>Spremnost</th>
           <th class="pp-cell-center" title="CAM program spreman">CAM</th>
           <th class="pp-cell-num" title="Urađeno / Ukupno komada">Done / Plan</th>
           <th class="pp-cell-num" title="Tehnološko / Stvarno vreme">T / R</th>
           <th>Status</th>
           <th title="Skice / slike">📎</th>
           <th>Mašina</th>
+          <th>Akcije</th>
           <th class="pp-note-col">Napomena</th>
         </tr>
       </thead>
@@ -845,13 +851,24 @@ function rowHtml(r, { allowDragDrop, rowNo }) {
 
   const rowNoLabel = String(Number(rowNo) || 0).padStart(2, '0');
   const priCell = `<span class="pp-pri" title="Redni broj u trenutnoj listi">${escHtml(rowNoLabel)}</span>`;
+  const isManualPinned = r.shift_sort_order != null && r.shift_sort_order !== '';
+  const isReady = !!r.is_ready_for_processing;
+  const prevOpLabel = r.previous_operation_operacija != null
+    ? String(r.previous_operation_operacija).padStart(2, '0')
+    : '?';
+  const readinessHtml = isReady
+    ? `<span class="pp-readiness is-ready" title="Sve prethodne operacije su završene">Spremno</span>`
+    : `<span class="pp-readiness is-waiting" title="Čeka prethodnu operaciju ${escHtml(prevOpLabel)}">Čeka prethodnu (op. ${escHtml(prevOpLabel)})</span>`;
+  const hitnoHtml = r.is_urgent
+    ? `<span class="pp-hitno-badge" title="${escHtml(r.urgency_reason || 'RN je ručno označen kao HITNO')}">HITNO</span>`
+    : '';
 
   /* F.5c: HITNE pozicije — overdue (kasni) i today (rok je danas) dobijaju
      crveni leftborder, suptilno crveni background i ⚠ ikonu pre prioriteta.
      ⚠ je pravi DOM <span> sa title/aria-label (ranije je bio CSS ::before
      pseudo-element, koji ne prima tooltip — bug fix). */
-  const isUrgent = (urgency === 'overdue' || urgency === 'today');
-  const urgentClass = isUrgent
+  const isDeadlineUrgent = (urgency === 'overdue' || urgency === 'today');
+  const urgentClass = isDeadlineUrgent
     ? (urgency === 'overdue' ? ' is-urgent is-urgent-overdue' : ' is-urgent is-urgent-today')
     : '';
   const urgentTitle = urgency === 'overdue'
@@ -859,7 +876,7 @@ function rowHtml(r, { allowDragDrop, rowNo }) {
     : urgency === 'today'
       ? `Rok je danas (${rokLabel})!`
       : '';
-  const urgentBadgeHtml = isUrgent
+  const urgentBadgeHtml = isDeadlineUrgent
     ? `<span class="pp-urgent-badge ${urgency === 'overdue' ? 'pp-urgent-overdue' : 'pp-urgent-today'}" title="${escHtml(urgentTitle)}" aria-label="${escHtml(urgentTitle)}">⚠</span>`
     : '';
 
@@ -870,7 +887,7 @@ function rowHtml(r, { allowDragDrop, rowNo }) {
       data-key="${escHtml(rowKey(r))}"
       data-wo="${r.work_order_id}"
       data-line="${r.line_id}"
-      class="${r.is_non_machining ? 'is-non-machining' : ''}${isReassigned ? ' is-reassigned' : ''}${urgentClass}"
+      class="${r.is_non_machining ? 'is-non-machining' : ''}${isReassigned ? ' is-reassigned' : ''}${urgentClass}${r.is_urgent ? ' is-g2-urgent' : ''}${isManualPinned ? ' is-manual-pinned' : ''}"
       ${draggable ? 'draggable="true"' : ''}>
       <td class="pp-drag-handle" title="${draggable
         ? 'Prevuci za prioritet'
@@ -906,6 +923,13 @@ function rowHtml(r, { allowDragDrop, rowNo }) {
         <span class="pp-rok urgency-${urgency || 'none'}" title="${rokLabel}">
           ${escHtml(rokLabel)}
         </span>
+      </td>
+      <td>
+        <div class="pp-readiness-stack">
+          ${readinessHtml}
+          ${hitnoHtml}
+          ${isManualPinned ? '<span class="pp-pin-badge" title="Ručni prioritet">PIN</span>' : ''}
+        </div>
       </td>
       <td class="pp-cell-center">
         <label class="pp-cam-ready" title="${r.cam_ready ? 'CAM program je spreman' : 'Označi da je CAM program spreman'}">
@@ -970,6 +994,24 @@ function rowHtml(r, { allowDragDrop, rowNo }) {
           </button>
         </div>
       </td>
+      <td>
+        <div class="pp-row-actions">
+          <button type="button"
+                  class="pp-mini-action ${r.is_urgent ? 'is-danger' : ''}"
+                  data-action="toggle-urgent"
+                  ${state.canEdit ? '' : 'disabled'}
+                  title="${r.is_urgent ? 'Skini HITNO sa celog RN-a' : 'Označi ceo RN kao HITNO'}">
+            ${r.is_urgent ? 'Skini hitno' : 'Hitno'}
+          </button>
+          <button type="button"
+                  class="pp-mini-action ${isManualPinned ? 'is-pinned' : ''}"
+                  data-action="toggle-pin"
+                  ${state.canEdit ? '' : 'disabled'}
+                  title="${isManualPinned ? 'Skini ručni prioritet' : 'Pinuj operaciju na vrh'}">
+            ${isManualPinned ? 'Otpinuj' : 'Pin'}
+          </button>
+        </div>
+      </td>
       <td class="pp-note-col">
         <textarea
           id="${noteId}"
@@ -995,7 +1037,7 @@ function renderPlanFooter(rows) {
   return `
     <tfoot>
       <tr class="pp-total-row">
-        <td colspan="14">
+        <td colspan="16">
           <strong>Σ planirano vreme:</strong>
           <span class="pp-total-value">${escHtml(label)}</span>
           <span class="pp-total-hint">za trenutno prikazane redove</span>
@@ -1040,6 +1082,14 @@ function wireRows(wrap, { allowDragDrop }) {
 
   wrap.querySelectorAll('button[data-action="send-cooperation"]').forEach(btn => {
     btn.addEventListener('click', () => onSendCooperation(btn));
+  });
+
+  wrap.querySelectorAll('button[data-action="toggle-urgent"]').forEach(btn => {
+    btn.addEventListener('click', () => onToggleUrgent(btn));
+  });
+
+  wrap.querySelectorAll('button[data-action="toggle-pin"]').forEach(btn => {
+    btn.addEventListener('click', () => onTogglePin(btn));
   });
 
   wrap.querySelectorAll('button[data-action="open-drawings"]').forEach(btn => {
@@ -1111,6 +1161,51 @@ async function onSendCooperation(btn) {
   state.rows = state.rows.filter(r => !(r.work_order_id === woId && r.line_id === lineId));
   showToast('✓ Operacija je poslata u Kooperaciju');
   renderTable({ allowDragDrop: canDragInCurrentView() });
+}
+
+async function onToggleUrgent(btn) {
+  if (!state.canEdit) return;
+  const tr = btn.closest('tr');
+  const woId = Number(tr?.dataset.wo);
+  const lineId = Number(tr?.dataset.line);
+  const row = state.rows.find(r => r.work_order_id === woId && r.line_id === lineId);
+  if (!row) return;
+
+  btn.disabled = true;
+  const res = row.is_urgent
+    ? await clearUrgent(woId)
+    : await setUrgent(woId, '');
+  if (res === null) {
+    btn.disabled = false;
+    showToast(row.is_urgent ? '⚠ HITNO nije skinuto' : '⚠ HITNO nije sačuvano');
+    return;
+  }
+
+  showToast(row.is_urgent ? '✓ HITNO skinuto sa RN-a' : '✓ RN označen kao HITNO');
+  await refreshCurrentOperations();
+}
+
+async function onTogglePin(btn) {
+  if (!state.canEdit) return;
+  const tr = btn.closest('tr');
+  const woId = Number(tr?.dataset.wo);
+  const lineId = Number(tr?.dataset.line);
+  const row = state.rows.find(r => r.work_order_id === woId && r.line_id === lineId);
+  if (!row) return;
+
+  const isPinned = row.shift_sort_order != null && row.shift_sort_order !== '';
+  btn.disabled = true;
+  const res = isPinned
+    ? await unpin(row)
+    : await pinToTop(row, state.rows);
+  if (res === null) {
+    btn.disabled = false;
+    showToast(isPinned ? '⚠ Pin nije skinut' : '⚠ Pin nije sačuvan');
+    return;
+  }
+
+  showToast(isPinned ? '✓ Operacija je otpinovana' : '✓ Operacija je pinovana na vrh');
+  await refreshCurrentOperations();
 }
 
 async function onOpenDrawings(btn) {
@@ -1358,6 +1453,10 @@ async function onReassign(btn) {
  * Operacija je možda nestala iz trenutne mašine ili dept-a.
  */
 async function refreshAfterReassign() {
+  await refreshCurrentOperations();
+}
+
+async function refreshCurrentOperations() {
   const dept = getDepartment(state.selectedDeptSlug);
   if (state.selectedMachineCode) {
     await refreshOperationsForMachine();

@@ -228,6 +228,14 @@ function renderMatrix() {
         <td class="pm-td-machine">
           <div class="zm-machine-code">${escHtml(m.machineCode)}</div>
           <div class="zm-machine-name">${escHtml(m.machineName || '')}</div>
+          <div class="pm-machine-badges">
+            ${m.readyOps > 0
+              ? `<span class="zm-pill zm-pill-ready" title="Spremno za obradu">${m.readyOps} spremno</span>`
+              : ''}
+            ${m.urgentOps > 0
+              ? `<span class="zm-pill zm-pill-hitno" title="Ručno označeno HITNO">${m.urgentOps} HITNO</span>`
+              : ''}
+          </div>
           ${m.camReadyOps > 0
             ? `<span class="zm-pill zm-pill-cam" title="CAM spremno">${m.camReadyOps} CAM</span>`
             : ''}
