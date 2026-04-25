@@ -34,6 +34,10 @@ import {
   renderPregledTab,
   teardownPregledTab,
 } from './pregledTab.js';
+import {
+  renderKooperacijaTab,
+  teardownKooperacijaTab,
+} from './kooperacijaTab.js';
 
 const STORAGE_KEY_LAST_MACHINE = 'plan-proizvodnje:last-machine';
 const STORAGE_KEY_LAST_DEPT    = 'plan-proizvodnje:last-department';
@@ -56,6 +60,12 @@ const TABS = [
     label: 'Pregled svih',
     icon: '🗂',
     desc: 'Matrica svih mašina × narednih 5 dana.',
+  },
+  {
+    id: 'kooperacija',
+    label: 'Kooperacija',
+    icon: '↗',
+    desc: 'Auto i ručno poslate operacije za eksternu obradu.',
   },
 ];
 
@@ -177,6 +187,11 @@ function renderTabBody(host, { canEdit, mountEl, onBackToHub, onLogout }) {
     return;
   }
 
+  if (activeTab === 'kooperacija') {
+    renderKooperacijaTab(host, { canEdit });
+    return;
+  }
+
   /* Fallback (ne bi trebalo da se desi) */
   const tab = TABS.find(t => t.id === activeTab) || TABS[0];
   host.innerHTML = `<div class="pp-state"><div class="pp-state-title">${escHtml(tab.label)}</div></div>`;
@@ -186,6 +201,7 @@ function teardownActiveTab() {
   if (activeTab === 'po-masini') teardownPoMasiniTab();
   if (activeTab === 'zauzetost') teardownZauzetostTab();
   if (activeTab === 'pregled')   teardownPregledTab();
+  if (activeTab === 'kooperacija') teardownKooperacijaTab();
 }
 
 export function teardownPlanProizvodnjeModule() {

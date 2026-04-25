@@ -40,6 +40,7 @@ import {
   loadOperationsForDept,
   upsertOverlay,
   setCamReady,
+  setCooperationManual,
   reorderOverlays,
   STATUS_CYCLE_NEXT,
   rokUrgencyClass,
@@ -960,6 +961,13 @@ function rowHtml(r, { allowDragDrop, rowNo }) {
                   ${state.canEdit ? '' : 'disabled'}>
             ${isReassigned ? '↩ Vrati na original' : '⇄ Premesti'}
           </button>
+          <button type="button"
+                  class="pp-reassign-btn pp-coop-send-btn"
+                  data-action="send-cooperation"
+                  ${state.canEdit ? '' : 'disabled'}
+                  title="Ručno pošalji ovu operaciju u tab Kooperacija">
+            → Kooperacija
+          </button>
         </div>
       </td>
       <td class="pp-note-col">
@@ -1030,6 +1038,10 @@ function wireRows(wrap, { allowDragDrop }) {
     btn.addEventListener('click', () => onReassign(btn));
   });
 
+  wrap.querySelectorAll('button[data-action="send-cooperation"]').forEach(btn => {
+    btn.addEventListener('click', () => onSendCooperation(btn));
+  });
+
   wrap.querySelectorAll('button[data-action="open-drawings"]').forEach(btn => {
     btn.addEventListener('click', () => onOpenDrawings(btn));
   });
@@ -1069,6 +1081,36 @@ async function onToggleCamReady(input) {
   row.cam_ready_at = next ? new Date().toISOString() : null;
   input.disabled = false;
   showToast(next ? '✓ CAM označen kao spreman' : '✓ CAM status skinut');
+}
+
+async function onSendCooperation(btn) {
+  if (!state.canEdit) return;
+  const tr = btn.closest('tr');
+  const woId = Number(tr?.dataset.wo);
+  const lineId = Number(tr?.dataset.line);
+  const row = state.rows.find(r => r.work_order_id === woId && r.line_id === lineId);
+  if (!row) return;
+
+  const ok = window.confirm(
+    `Pošalji operaciju RN ${row.rn_ident_broj || '?'} / op. ${row.operacija || '?'} u Kooperaciju?`,
+  );
+  if (!ok) return;
+
+  btn.disabled = true;
+  const res = await setCooperationManual({
+    workOrderId: woId,
+    lineId,
+    status: 'external',
+  });
+  if (res === null) {
+    btn.disabled = false;
+    showToast('⚠ Kooperacija nije sačuvana');
+    return;
+  }
+
+  state.rows = state.rows.filter(r => !(r.work_order_id === woId && r.line_id === lineId));
+  showToast('✓ Operacija je poslata u Kooperaciju');
+  renderTable({ allowDragDrop: canDragInCurrentView() });
 }
 
 async function onOpenDrawings(btn) {

@@ -72,6 +72,7 @@ export async function loadOperationsForMachine(machineCode) {
   params.set('effective_machine_code', `eq.${machineCode}`);
   params.set('is_done_in_bigtehn', 'eq.false');
   params.set('rn_zavrsen', 'eq.false');
+  params.set('is_cooperation_effective', 'eq.false');
   /* PostgREST OR: (local_status.is.null,local_status.neq.completed) */
   params.set('or', '(local_status.is.null,local_status.neq.completed)');
   params.set('overlay_archived_at', 'is.null');
@@ -120,6 +121,7 @@ export async function loadOperationsForDept(dept) {
     p.set('select', '*');
     p.set('is_done_in_bigtehn', 'eq.false');
     p.set('rn_zavrsen', 'eq.false');
+    p.set('is_cooperation_effective', 'eq.false');
     p.set('or', '(local_status.is.null,local_status.neq.completed)');
     p.set('overlay_archived_at', 'is.null');
     p.set(
@@ -190,6 +192,7 @@ export async function loadOperationsForDept(dept) {
   finalParams.set(
     'and',
     `(is_done_in_bigtehn.eq.false,rn_zavrsen.eq.false,overlay_archived_at.is.null,` +
+      `is_cooperation_effective.eq.false,` +
       `or(local_status.is.null,local_status.neq.completed),` +
       `or(${orParts.join(',')}))`,
   );
@@ -259,11 +262,13 @@ export async function loadAllOpenOperations() {
     'local_status',
     'opis_rada',
     'operacija',
+    'cam_ready',
   ].join(',');
   const params = new URLSearchParams();
   params.set('select', cols);
   params.set('is_done_in_bigtehn', 'eq.false');
   params.set('rn_zavrsen', 'eq.false');
+  params.set('is_cooperation_effective', 'eq.false');
   params.set('or', '(local_status.is.null,local_status.neq.completed)');
   params.set('overlay_archived_at', 'is.null');
   /* Effective machine code mora postojati da bi se prikazalo u zbirnom
@@ -274,6 +279,35 @@ export async function loadAllOpenOperations() {
   params.set('limit', '10000');
 
   const data = await sbReq(`v_production_operations?${params.toString()}`);
+  return Array.isArray(data) ? data : [];
+}
+
+/**
+ * Vrati sve otvorene operacije koje su efektivno u kooperaciji
+ * (auto grupa ili ručni overlay flag).
+ */
+export async function listForCooperation(searchText = '') {
+  if (!getIsOnline()) return [];
+  const params = new URLSearchParams();
+  params.set('select', '*');
+  params.set('is_done_in_bigtehn', 'eq.false');
+  params.set('rn_zavrsen', 'eq.false');
+  params.set('is_cooperation_effective', 'eq.true');
+  params.set('or', '(local_status.is.null,local_status.neq.completed)');
+  params.set('overlay_archived_at', 'is.null');
+  params.set('order', 'rok_izrade.asc.nullslast,rn_ident_broj.asc,operacija.asc');
+  params.set('limit', '5000');
+
+  const data = await sbReq(`v_production_operations?${params.toString()}`);
+  const rows = Array.isArray(data) ? data : [];
+  return filterOperationsByRnOrDrawing(rows, searchText);
+}
+
+export async function listAutoCooperationGroups() {
+  if (!getIsOnline()) return [];
+  const data = await sbReq(
+    'production_auto_cooperation_groups?select=rj_group_code,group_label,added_at,added_by,removed_at,removed_by,notes&order=rj_group_code.asc',
+  );
   return Array.isArray(data) ? data : [];
 }
 
@@ -504,6 +538,42 @@ export async function setCamReady(work_order_id, line_id, ready) {
       cam_ready: !!ready,
       cam_ready_at: ready ? new Date().toISOString() : null,
       cam_ready_by: ready ? email : null,
+    },
+  });
+}
+
+export async function setCooperationManual({
+  workOrderId,
+  lineId,
+  status = 'external',
+  partner = null,
+  expectedReturn = null,
+}) {
+  const user = getCurrentUser();
+  const email = user?.email || null;
+  return await upsertOverlay({
+    work_order_id: workOrderId,
+    line_id: lineId,
+    patch: {
+      cooperation_status: status,
+      cooperation_partner: partner || null,
+      cooperation_expected_return: expectedReturn || null,
+      cooperation_set_by: email,
+      cooperation_set_at: new Date().toISOString(),
+    },
+  });
+}
+
+export async function clearCooperationManual({ workOrderId, lineId }) {
+  return await upsertOverlay({
+    work_order_id: workOrderId,
+    line_id: lineId,
+    patch: {
+      cooperation_status: 'none',
+      cooperation_partner: null,
+      cooperation_expected_return: null,
+      cooperation_set_by: null,
+      cooperation_set_at: null,
     },
   });
 }

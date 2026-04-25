@@ -15,6 +15,14 @@ Pilot hardening patch za online Supabase test.
 
 Spremno za pilot Supabase test i GitHub verzionisanje.
 
+## Supabase Auth — obaveza
+
+- Security Advisor DB nalazi su rešeni migracijom
+  `sql/migrations/fix_supabase_security_advisor_findings.sql`.
+- Preostaje ručna Dashboard obaveza: uključiti **Leaked Password Protection**
+  u Supabase Auth podešavanjima (`Authentication` → `Providers` → `Email` →
+  `Password security`). Ovo je Supabase Auth setting, nije SQL migracija.
+
 ## Održavanje mašina — notifikacije (plan)
 
 - Telegram integracija je PAUZIRANA odlukom korisnika (25.04.2026).
