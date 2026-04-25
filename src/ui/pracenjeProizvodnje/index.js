@@ -99,7 +99,7 @@ function renderShell() {
         </button>
         <div class="hub-user">
           <span class="hub-user-email">${escHtml(auth.user?.email || '—')}</span>
-          <span class="hub-user-role">${escHtml(auth.role)}${state.canEdit ? '' : ' · read-only'}</span>
+          <span class="hub-user-role">${escHtml(auth.role)}${state.rnId && !state.canEdit ? ' · read-only' : ''}</span>
         </div>
         <button class="hub-logout" id="pracenjeLogoutBtn">Odjavi se</button>
       </div>

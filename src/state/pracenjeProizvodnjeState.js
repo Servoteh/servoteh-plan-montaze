@@ -20,7 +20,13 @@ import {
   upsertOperativnaAktivnost,
   zatvoriAktivnost,
 } from '../services/pracenjeProizvodnje.js';
+import { canEdit as authCanEditApp } from '../state/auth.js';
 import { showToast } from '../lib/dom.js';
+
+/** UI edit: RPC can_edit_pracenje + fallback na app ulogu (isti pattern kao Plan Montaže). */
+function effectiveCanEditPracenje(rpcAllowed) {
+  return !!rpcAllowed || authCanEditApp();
+}
 
 export const PRACENJE_TABS = ['po_pozicijama', 'operativni_plan'];
 
@@ -136,7 +142,7 @@ export async function loadPracenje(rnId) {
     const rawActivities = await fetchOperativneAktivnostiRaw(resolvedRnId);
     const activities = mergeActivityDetails(tab2?.activities || [], rawActivities);
     const header = { ...(tab1?.header || {}), ...(tab2?.header || {}) };
-    const canEdit = await canEditPracenje(header.projekat_id || null, resolvedRnId);
+    const rpcCanEdit = await canEditPracenje(header.projekat_id || null, resolvedRnId);
 
     pracenjeState.header = header;
     pracenjeState.tab1Data = tab1 || { positions: [], summary: {} };
@@ -144,7 +150,7 @@ export async function loadPracenje(rnId) {
     pracenjeState.dashboard = tab2?.dashboard || null;
     pracenjeState.departments = departments;
     pracenjeState.radnici = radnici;
-    pracenjeState.canEdit = canEdit;
+    pracenjeState.canEdit = effectiveCanEditPracenje(rpcCanEdit);
     pracenjeState.loading = false;
     pracenjeState.error = null;
     emit();
@@ -214,10 +220,13 @@ export async function silentRefreshPracenje() {
     ]);
     const rawActivities = await fetchOperativneAktivnostiRaw(pracenjeState.rnId);
     const activities = mergeActivityDetails(tab2?.activities || [], rawActivities);
-    pracenjeState.header = { ...(tab1?.header || {}), ...(tab2?.header || {}) };
+    const header = { ...(tab1?.header || {}), ...(tab2?.header || {}) };
+    pracenjeState.header = header;
     pracenjeState.tab1Data = tab1 || pracenjeState.tab1Data;
     pracenjeState.tab2Data = { ...(tab2 || {}), activities };
     pracenjeState.dashboard = tab2?.dashboard || null;
+    const rpcCanEdit = await canEditPracenje(header.projekat_id || null, pracenjeState.rnId);
+    pracenjeState.canEdit = effectiveCanEditPracenje(rpcCanEdit);
     pracenjeState.error = null;
     emit();
     return true;
