@@ -278,9 +278,9 @@ export async function loadAllOpenOperations() {
 }
 
 /**
- * BigTehn snapshot za par (broj naloga, broj TP) iz RN cache-a u Supabase-u.
+ * BigTehn snapshot za par (broj naloga, broj TP) iz aktivnih RN-ova u Supabase-u.
  *
- * Čita prvo iz `bigtehn_work_orders_cache` (po `ident_broj`) — tu su
+ * Čita prvo iz `v_active_bigtehn_work_orders` (po `ident_broj`) — tu su
  * **broj crteža** i **ukupna količina**, i radi i za RN-ove koji nisu u
  * view-u otvorenih operacija (v_production_operations je filtriran na
  * is_done_in_bigtehn=false i rn_zavrsen=false). Zatim, ako postoji
@@ -310,7 +310,8 @@ export async function fetchBigtehnOpSnapshotByRnAndTp(rnIdentBroj, operacija) {
     operacija == null || operacija === '' ? null : parseInt(String(operacija).trim(), 10);
   const opFinite = Number.isFinite(opNum);
 
-  /* 1) Direktno iz RN cache-a — radi bez obzira da li je RN otvoren ili zatvoren.
+  /* 1) Direktno iz aktivnog RN view-a — nezavisno od BigTehn open/closed statusa,
+   * ali poštuje ručnu MES listu aktivnih naloga.
    *
    * BigTehn `tRN.IdentBroj` je u formatu `"nalog/broj_tp"` (npr. `"9000/568"`),
    * TJ. već kombinuje broj naloga i broj TP u jedan string. Zato kod RNZ
@@ -336,7 +337,7 @@ export async function fetchBigtehnOpSnapshotByRnAndTp(rnIdentBroj, operacija) {
     p.set('select', woCols);
     p.set('ident_broj', `eq.${idCandidate}`);
     p.set('limit', '4');
-    const data = await sbReq(`bigtehn_work_orders_cache?${p.toString()}`);
+    const data = await sbReq(`v_active_bigtehn_work_orders?${p.toString()}`);
     return Array.isArray(data) ? data : [];
   };
 
@@ -438,7 +439,7 @@ export async function fetchBigtehnWorkOrdersByIds(ids) {
   const uniq = [...new Set(ids.map(n => Number(n)).filter(Number.isFinite))];
   if (!uniq.length) return [];
   const rows = await sbReq(
-    `bigtehn_work_orders_cache?id=in.(${uniq.join(',')})&select=id,ident_broj,broj_crteza,naziv_dela,komada`,
+    `v_active_bigtehn_work_orders?id=in.(${uniq.join(',')})&select=id,ident_broj,broj_crteza,naziv_dela,komada,is_mes_active`,
   );
   return Array.isArray(rows) ? rows : [];
 }
