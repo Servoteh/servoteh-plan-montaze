@@ -1,5 +1,6 @@
 import { escHtml } from '../../lib/dom.js';
 import { statusBadgeHtml } from './statusBadge.js';
+import { openOperacijaSidePanel } from './tab1OperacijaSidePanel.js';
 
 export function tab1PozicijeHtml(state) {
   const positions = state.tab1Data?.positions || [];
@@ -9,6 +10,12 @@ export function tab1PozicijeHtml(state) {
   }
   const tree = buildTree(positions);
   return `
+    <section class="form-card" style="margin-bottom:14px">
+      <div class="pp-toolbar" style="margin:0">
+        <div class="pp-toolbar-spacer"></div>
+        <button type="button" class="pp-refresh-btn" id="exportTab1Btn">Excel export</button>
+      </div>
+    </section>
     <section class="pp-table-wrap">
       <table class="pp-table">
         <thead>
@@ -26,6 +33,17 @@ export function tab1PozicijeHtml(state) {
       </table>
     </section>
   `;
+}
+
+export function wireTab1Pozicije(root, state) {
+  root.querySelectorAll('[data-op-id]').forEach(row => {
+    row.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const pos = findPosition(state.tab1Data?.positions || [], row.dataset.posId);
+      const op = (pos?.operations || []).find(o => String(o.tp_operacija_id) === row.dataset.opId);
+      if (pos && op) openOperacijaSidePanel({ position: pos, operation: op });
+    });
+  });
 }
 
 function positionRowHtml(node, depth) {
@@ -46,7 +64,7 @@ function positionRowHtml(node, depth) {
             <span class="pp-cell-num">${escHtml(p.kolicina_plan ?? '—')}</span>
             ${progressHtml(p.progress_pct)}
           </summary>
-          ${operations.length ? operationsHtml(operations) : ''}
+          ${operations.length ? operationsHtml(operations, p.id) : ''}
           ${children.length ? children.map(ch => positionRowHtml(ch, depth + 1)).join('') : ''}
         </details>
       </td>
@@ -54,7 +72,7 @@ function positionRowHtml(node, depth) {
   `;
 }
 
-function operationsHtml(operations) {
+function operationsHtml(operations, positionId) {
   return `
     <div style="padding:0 12px 12px 34px">
       <table class="pp-table" style="background:var(--surface2)">
@@ -71,7 +89,7 @@ function operationsHtml(operations) {
         </thead>
         <tbody>
           ${operations.map(op => `
-            <tr>
+            <tr data-pos-id="${escHtml(positionId || '')}" data-op-id="${escHtml(op.tp_operacija_id || '')}" style="cursor:pointer" title="Otvori istoriju prijava">
               <td class="pp-cell-strong">${escHtml(op.operacija_kod || '—')}</td>
               <td>${escHtml(op.naziv || '—')}</td>
               <td>${escHtml(op.work_center || '—')}</td>
@@ -109,6 +127,10 @@ function buildTree(positions) {
     else roots.push(node);
   });
   return roots;
+}
+
+function findPosition(positions, id) {
+  return positions.find(p => String(p.id) === String(id));
 }
 
 function skeletonHtml(text) {

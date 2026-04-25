@@ -11,10 +11,12 @@ import {
   loadPracenje,
   resetPracenjeState,
   setActiveTab,
+  startRealtime,
+  stopRealtime,
   subscribePracenje,
 } from '../../state/pracenjeProizvodnjeState.js';
 import { pageHeaderHtml } from './pageHeader.js';
-import { tab1PozicijeHtml } from './tab1Pozicije.js';
+import { tab1PozicijeHtml, wireTab1Pozicije } from './tab1Pozicije.js';
 import {
   tabFromHash,
   tabSwitcherHtml,
@@ -24,6 +26,7 @@ import {
   tab2OperativniPlanHtml,
   wireTab2OperativniPlan,
 } from './tab2OperativniPlan.js';
+import { exportTab1ToExcel } from '../../services/pracenjeExport.js';
 
 const TEST_RN_ID = '55555555-5555-5555-5555-555555555501';
 
@@ -53,13 +56,15 @@ export function renderPracenjeProizvodnjeModule(mountEl, options = {}) {
 
   const rnId = new URLSearchParams(window.location.search).get('rn');
   if (rnId && rnId !== getPracenjeSnapshot().rnId) {
-    void loadPracenje(rnId);
+    void loadPracenje(rnId).then(ok => { if (ok) startRealtime(); });
   } else {
     renderShell();
+    if (rnId) startRealtime();
   }
 }
 
 export function teardownPracenjeProizvodnjeModule() {
+  stopRealtime();
   if (_unsubscribe) { _unsubscribe(); _unsubscribe = null; }
   if (_hashHandler) { window.removeEventListener('hashchange', _hashHandler); _hashHandler = null; }
   resetPracenjeState();
@@ -122,6 +127,7 @@ function rnLoaderHtml(state) {
         <button type="button" class="pp-refresh-btn" id="pracenjeLoadBtn">${state.loading ? 'Učitavanje…' : 'Učitaj RN'}</button>
         <button type="button" class="pp-refresh-btn" id="pracenjeSeedBtn" title="Test RN iz Inkrementa 1">Test RN</button>
         <div class="pp-toolbar-spacer"></div>
+        ${state.live?.active ? `<span class="pp-counter">Live: ${escHtml(state.live.mode || 'polling')}</span>` : ''}
         ${state.saving ? '<span class="pp-counter">Snimanje u toku…</span>' : ''}
       </div>
     </section>
@@ -163,6 +169,11 @@ function wireShell(container, state) {
   wireTabSwitcher(container, renderShell);
   if (state.activeTab === 'operativni_plan') {
     wireTab2OperativniPlan(container, state, renderShell);
+  } else {
+    wireTab1Pozicije(container, state);
+    container.querySelector('#exportTab1Btn')?.addEventListener('click', () => {
+      void exportTab1ToExcel(state.rnId, state.tab1Data || {});
+    });
   }
   container.querySelector('#pracenjeRetryBtn')?.addEventListener('click', () => {
     if (state.rnId) void loadPracenje(state.rnId);
@@ -175,7 +186,7 @@ function loadFromInput(rnId) {
   params.set('rn', rnId);
   const hash = window.location.hash || '#tab=po_pozicijama';
   history.replaceState(null, '', `${window.location.pathname}?${params.toString()}${hash}`);
-  void loadPracenje(rnId);
+  void loadPracenje(rnId).then(ok => { if (ok) startRealtime(); });
 }
 
 function errorHtml(message) {

@@ -6,7 +6,7 @@
  */
 
 import { sbReq } from './supabase.js';
-import { getIsOnline } from '../state/auth.js';
+import { getCurrentUser, getIsOnline } from '../state/auth.js';
 
 function assertOnline() {
   if (!getIsOnline()) {
@@ -63,6 +63,17 @@ export async function skiniBlokadu(id, napomena = '') {
   return rpc('skini_blokadu', { p_id: id, p_napomena: napomena || '' });
 }
 
+export async function promovisiAkcionuTacku(akcioniPlanId, odeljenjeId, rnId) {
+  if (!akcioniPlanId || !odeljenjeId || !rnId) {
+    throw new Error('Akciona tačka, odeljenje i RN su obavezni');
+  }
+  return rpc('promovisi_akcionu_tacku', {
+    p_akcioni_plan_id: akcioniPlanId,
+    p_odeljenje_id: odeljenjeId,
+    p_rn_id: rnId,
+  });
+}
+
 export async function canEditPracenje(projectId, rnId) {
   if (!projectId && !rnId) return false;
   try {
@@ -93,6 +104,117 @@ export async function fetchOperativneAktivnostiRaw(rnId) {
   return select(
     `v_operativna_aktivnost?select=*&radni_nalog_id=eq.${encodeURIComponent(rnId)}&order=rb.asc`,
   );
+}
+
+export async function listAkcioneTackeZaProjekat(projekatId) {
+  if (!projekatId) return [];
+  const rows = await select(
+    `v_akcioni_plan?select=*&projekat_id=eq.${encodeURIComponent(projekatId)}&effective_status=in.(otvoren,u_toku,kasni)&order=rok.asc.nullslast,prioritet.asc,created_at.desc`,
+  );
+  const sastanakIds = [...new Set(rows.map(r => r.sastanak_id).filter(Boolean))];
+  const sastanci = sastanakIds.length ? await select(
+    `sastanci?select=id,naziv,datum,tip&id=in.(${sastanakIds.map(id => `"${String(id).replace(/"/g, '""')}"`).join(',')})`,
+  ) : [];
+  const sastanciById = new Map(sastanci.map(s => [s.id, s]));
+  return rows.map(r => ({
+    id: r.id,
+    sastanakId: r.sastanak_id || null,
+    temaId: r.tema_id || null,
+    projekatId: r.projekat_id || null,
+    rb: r.rb || null,
+    naslov: r.naslov || '',
+    opis: r.opis || '',
+    odgovoranEmail: r.odgovoran_email || '',
+    odgovoranLabel: r.odgovoran_label || r.odgovoran_text || r.odgovoran_email || '',
+    rok: r.rok || null,
+    status: r.effective_status || r.status || 'otvoren',
+    prioritet: r.prioritet || 2,
+    sastanak: sastanciById.get(r.sastanak_id) || null,
+  }));
+}
+
+export async function fetchPrijaveZaOperaciju(pozicijaId, tpOperacijaId) {
+  if (!pozicijaId || !tpOperacijaId) return [];
+  const rows = await select(
+    `prijava_rada?select=*,radnik:radnik_id(id,ime,puno_ime,email)&radni_nalog_pozicija_id=eq.${encodeURIComponent(pozicijaId)}&tp_operacija_id=eq.${encodeURIComponent(tpOperacijaId)}&order=finished_at.desc.nullslast,created_at.desc`,
+  );
+  return rows.map(r => ({
+    id: r.id,
+    datum: r.finished_at || r.started_at || r.created_at,
+    radnik: r.radnik?.puno_ime || r.radnik?.ime || r.radnik_id || '',
+    kolicina: r.kolicina,
+    smena: r.smena || r.shift || '',
+    napomena: r.napomena || '',
+    dokumenti: [],
+    raw: r,
+  }));
+}
+
+export async function fetchActivityHistory(activityId) {
+  if (!activityId) return { blokade: [], audit: [] };
+  const [blokade, audit] = await Promise.all([
+    select(
+      `operativna_aktivnost_blok_istorija?select=*&aktivnost_id=eq.${encodeURIComponent(activityId)}&order=created_at.desc`,
+    ),
+    select(
+      `audit_log?select=*&table_name=eq.operativna_aktivnost&record_id=eq.${encodeURIComponent(activityId)}&order=changed_at.desc`,
+    ),
+  ]);
+  return { blokade, audit };
+}
+
+export async function logPracenjeExport({ rnId, tab, rnBroj }) {
+  if (!getIsOnline()) return false;
+  const user = getCurrentUser();
+  const payload = {
+    table_name: 'pracenje_proizvodnje_export',
+    record_id: rnId || null,
+    action: 'INSERT',
+    actor_email: user?.email || null,
+    actor_uid: user?.id || null,
+    new_data: {
+      rn_id: rnId || null,
+      rn_broj: rnBroj || null,
+      tab,
+      exported_at: new Date().toISOString(),
+    },
+  };
+  try {
+    const res = await sbReq('audit_log', 'POST', payload, { upsert: false });
+    return res != null;
+  } catch {
+    return false;
+  }
+}
+
+export function subscribePracenjeRn(rnId, onChange, opts = {}) {
+  let stopped = false;
+  let timer = null;
+  let lastSig = '';
+  const intervalMs = opts.intervalMs || 30000;
+  const tick = async () => {
+    if (stopped || !rnId || !getIsOnline()) return schedule();
+    try {
+      const rows = await select(
+        `v_operativna_aktivnost?select=id,updated_at,efektivni_status,blokirano_razlog&radni_nalog_id=eq.${encodeURIComponent(rnId)}&order=updated_at.desc`,
+      );
+      const sig = JSON.stringify(rows.map(r => [r.id, r.updated_at, r.efektivni_status, r.blokirano_razlog]));
+      if (lastSig && sig !== lastSig) onChange?.({ mode: 'polling' });
+      lastSig = sig;
+    } catch (e) {
+      console.warn('[pracenje] polling refresh check failed', e);
+    } finally {
+      schedule();
+    }
+  };
+  const schedule = () => {
+    if (!stopped) timer = setTimeout(tick, intervalMs);
+  };
+  timer = setTimeout(tick, 1500);
+  return () => {
+    stopped = true;
+    if (timer) clearTimeout(timer);
+  };
 }
 
 function normalizeAktivnostPayload(payload) {

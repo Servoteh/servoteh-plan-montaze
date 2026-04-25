@@ -12,11 +12,14 @@ import {
   fetchPracenjeRn,
   listOdeljenja,
   listRadnici,
+  promovisiAkcionuTacku,
   setBlokirano,
   skiniBlokadu,
+  subscribePracenjeRn,
   upsertOperativnaAktivnost,
   zatvoriAktivnost,
 } from '../services/pracenjeProizvodnje.js';
+import { showToast } from '../lib/dom.js';
 
 export const PRACENJE_TABS = ['po_pozicijama', 'operativni_plan'];
 
@@ -35,12 +38,28 @@ export const pracenjeState = {
   radnici: [],
   filters: {
     search: '',
-    odeljenje: '',
-    status: '',
+    odeljenja: [],
+    statusi: [],
+    prioriteti: [],
+    odgovoran: '',
+    dateFrom: '',
+    dateTo: '',
+    onlyLate: false,
+    onlyBlocked: false,
+    hideClosed: false,
+    quick: '',
   },
+  live: {
+    active: false,
+    mode: 'off',
+    reconnecting: false,
+  },
+  highlightedActivityId: null,
 };
 
 const listeners = new Set();
+let realtimeUnsubscribe = null;
+let silentRefreshTimer = null;
 
 export function subscribePracenje(callback) {
   listeners.add(callback);
@@ -53,6 +72,7 @@ export function getPracenjeSnapshot() {
 }
 
 export function resetPracenjeState() {
+  stopRealtime();
   pracenjeState.rnId = null;
   pracenjeState.header = null;
   pracenjeState.tab1Data = null;
@@ -62,6 +82,7 @@ export function resetPracenjeState() {
   pracenjeState.loading = false;
   pracenjeState.saving = false;
   pracenjeState.error = null;
+  pracenjeState.highlightedActivityId = null;
   emit();
 }
 
@@ -73,7 +94,16 @@ export function setActiveTab(tab) {
 
 export function setOperativniFilter(name, value) {
   if (!Object.prototype.hasOwnProperty.call(pracenjeState.filters, name)) return;
-  pracenjeState.filters[name] = value || '';
+  pracenjeState.filters[name] = normalizeFilterValue(name, value);
+  persistFilters();
+  syncFiltersToUrl();
+  emit();
+}
+
+export function resetOperativniFilters() {
+  pracenjeState.filters = defaultFilters();
+  persistFilters();
+  syncFiltersToUrl();
   emit();
 }
 
@@ -84,6 +114,7 @@ export async function loadPracenje(rnId) {
     return false;
   }
   pracenjeState.rnId = rnId;
+  hydrateFilters(rnId);
   pracenjeState.loading = true;
   pracenjeState.error = null;
   emit();
@@ -115,6 +146,76 @@ export async function loadPracenje(rnId) {
     pracenjeState.loading = false;
     pracenjeState.error = e?.message || String(e);
     emit();
+    return false;
+  }
+}
+
+export async function promoteAkcionaTacka(akcioniPlanId, odeljenjeId) {
+  const before = cloneState();
+  pracenjeState.saving = true;
+  emit();
+  try {
+    const newId = await promovisiAkcionuTacku(akcioniPlanId, odeljenjeId, pracenjeState.rnId);
+    await loadPracenje(pracenjeState.rnId);
+    pracenjeState.highlightedActivityId = newId;
+    emit();
+    setTimeout(() => {
+      if (pracenjeState.highlightedActivityId === newId) {
+        pracenjeState.highlightedActivityId = null;
+        emit();
+      }
+    }, 2000);
+    return newId;
+  } catch (e) {
+    restoreState(before, e);
+    return null;
+  }
+}
+
+export function startRealtime() {
+  stopRealtime();
+  if (!pracenjeState.rnId) return;
+  pracenjeState.live = { active: true, mode: 'polling', reconnecting: false };
+  realtimeUnsubscribe = subscribePracenjeRn(pracenjeState.rnId, () => {
+    if (silentRefreshTimer) clearTimeout(silentRefreshTimer);
+    silentRefreshTimer = setTimeout(async () => {
+      const ok = await silentRefreshPracenje();
+      if (ok) showToast('Podaci ažurirani');
+    }, 1500);
+  });
+  emit();
+}
+
+export function stopRealtime() {
+  if (realtimeUnsubscribe) {
+    realtimeUnsubscribe();
+    realtimeUnsubscribe = null;
+  }
+  if (silentRefreshTimer) {
+    clearTimeout(silentRefreshTimer);
+    silentRefreshTimer = null;
+  }
+  pracenjeState.live = { active: false, mode: 'off', reconnecting: false };
+}
+
+export async function silentRefreshPracenje() {
+  if (!pracenjeState.rnId) return false;
+  try {
+    const [tab1, tab2] = await Promise.all([
+      fetchPracenjeRn(pracenjeState.rnId),
+      fetchOperativniPlan({ rnId: pracenjeState.rnId }),
+    ]);
+    const rawActivities = await fetchOperativneAktivnostiRaw(pracenjeState.rnId);
+    const activities = mergeActivityDetails(tab2?.activities || [], rawActivities);
+    pracenjeState.header = { ...(tab1?.header || {}), ...(tab2?.header || {}) };
+    pracenjeState.tab1Data = tab1 || pracenjeState.tab1Data;
+    pracenjeState.tab2Data = { ...(tab2 || {}), activities };
+    pracenjeState.dashboard = tab2?.dashboard || null;
+    pracenjeState.error = null;
+    emit();
+    return true;
+  } catch (e) {
+    console.warn('[pracenje] silent refresh failed', e);
     return false;
   }
 }
@@ -215,11 +316,109 @@ export function getFilteredActivities() {
         ].join(' ').toLowerCase();
         if (!hay.includes(search)) return false;
       }
-      if (f.odeljenje && String(a.odeljenje || a.odeljenje_naziv || '') !== f.odeljenje) return false;
-      if (f.status && String(a.efektivni_status || a.status || '') !== f.status) return false;
+      if (f.odeljenja.length && !f.odeljenja.includes(String(a.odeljenje || a.odeljenje_naziv || ''))) return false;
+      if (f.statusi.length && !f.statusi.includes(String(a.efektivni_status || a.status || ''))) return false;
+      if (f.prioriteti.length && !f.prioriteti.includes(String(a.prioritet || ''))) return false;
+      if (f.odgovoran) {
+        const who = String(a.odgovoran || a.odgovoran_label || a.odgovoran_radnik_id || a.odgovoran_user_id || '').toLowerCase();
+        if (!who.includes(String(f.odgovoran).toLowerCase())) return false;
+      }
+      if (f.dateFrom && (!a.planirani_zavrsetak || a.planirani_zavrsetak < f.dateFrom)) return false;
+      if (f.dateTo && (!a.planirani_zavrsetak || a.planirani_zavrsetak > f.dateTo)) return false;
+      if (f.onlyLate && !a.kasni) return false;
+      if (f.onlyBlocked && String(a.efektivni_status || a.status || '') !== 'blokirano') return false;
+      if (f.hideClosed && String(a.efektivni_status || a.status || '') === 'zavrseno') return false;
+      if (f.quick === 'visok' && String(a.prioritet || '') !== 'visok') return false;
+      if (f.quick === 'kasni7' && !(a.kasni && Number(a.rezerva_dani) < -7)) return false;
+      if (f.quick === 'bez_odgovornog' && (a.odgovoran || a.odgovoran_label || a.odgovoran_radnik_id || a.odgovoran_user_id)) return false;
       return true;
     })
     .sort((a, b) => Number(a.rb || 0) - Number(b.rb || 0));
+}
+
+function defaultFilters() {
+  return {
+    search: '',
+    odeljenja: [],
+    statusi: [],
+    prioriteti: [],
+    odgovoran: '',
+    dateFrom: '',
+    dateTo: '',
+    onlyLate: false,
+    onlyBlocked: false,
+    hideClosed: false,
+    quick: '',
+  };
+}
+
+function normalizeFilterValue(name, value) {
+  if (['odeljenja', 'statusi', 'prioriteti'].includes(name)) {
+    if (Array.isArray(value)) return value.filter(Boolean);
+    return String(value || '').split(',').map(x => x.trim()).filter(Boolean);
+  }
+  if (['onlyLate', 'onlyBlocked', 'hideClosed'].includes(name)) return !!value;
+  return value || '';
+}
+
+function hydrateFilters(rnId) {
+  const defaults = defaultFilters();
+  let stored = {};
+  try {
+    stored = JSON.parse(localStorage.getItem(`pracenje:${rnId}:filters`) || '{}') || {};
+  } catch {
+    stored = {};
+  }
+  const url = new URLSearchParams(window.location.search);
+  pracenjeState.filters = {
+    ...defaults,
+    ...stored,
+    odeljenja: splitParam(url.get('dept')) || stored.odeljenja || [],
+    statusi: splitParam(url.get('status')) || stored.statusi || [],
+    prioriteti: splitParam(url.get('prioritet')) || stored.prioriteti || [],
+    onlyLate: url.get('kasni') === '1' || !!stored.onlyLate,
+    onlyBlocked: url.get('blokirano') === '1' || !!stored.onlyBlocked,
+    hideClosed: url.get('hideClosed') === '1' || !!stored.hideClosed,
+    search: url.get('q') ?? stored.search ?? '',
+    odgovoran: url.get('odgovoran') ?? stored.odgovoran ?? '',
+    dateFrom: url.get('od') ?? stored.dateFrom ?? '',
+    dateTo: url.get('do') ?? stored.dateTo ?? '',
+    quick: url.get('quick') ?? stored.quick ?? '',
+  };
+}
+
+function splitParam(value) {
+  if (value == null) return null;
+  return value.split(',').map(x => x.trim()).filter(Boolean);
+}
+
+function persistFilters() {
+  if (!pracenjeState.rnId) return;
+  localStorage.setItem(`pracenje:${pracenjeState.rnId}:filters`, JSON.stringify(pracenjeState.filters));
+}
+
+function syncFiltersToUrl() {
+  if (!pracenjeState.rnId || typeof window === 'undefined') return;
+  const f = pracenjeState.filters;
+  const params = new URLSearchParams(window.location.search);
+  params.set('rn', pracenjeState.rnId);
+  setOrDelete(params, 'q', f.search);
+  setOrDelete(params, 'dept', f.odeljenja.join(','));
+  setOrDelete(params, 'status', f.statusi.join(','));
+  setOrDelete(params, 'prioritet', f.prioriteti.join(','));
+  setOrDelete(params, 'odgovoran', f.odgovoran);
+  setOrDelete(params, 'od', f.dateFrom);
+  setOrDelete(params, 'do', f.dateTo);
+  setOrDelete(params, 'quick', f.quick);
+  setOrDelete(params, 'kasni', f.onlyLate ? '1' : '');
+  setOrDelete(params, 'blokirano', f.onlyBlocked ? '1' : '');
+  setOrDelete(params, 'hideClosed', f.hideClosed ? '1' : '');
+  history.replaceState(null, '', `${window.location.pathname}?${params.toString()}${window.location.hash || ''}`);
+}
+
+function setOrDelete(params, key, value) {
+  if (value) params.set(key, value);
+  else params.delete(key);
 }
 
 function mergeActivityDetails(rpcActivities, rawActivities) {
@@ -281,6 +480,7 @@ function snapshot() {
   return {
     ...pracenjeState,
     filters: { ...pracenjeState.filters },
+    live: { ...pracenjeState.live },
     departments: [...pracenjeState.departments],
     radnici: [...pracenjeState.radnici],
     tab2Data: {
