@@ -2,6 +2,8 @@
 
 ## Otvaranje modula
 
+Bez `?rn=` u URL-u modul prvo učitava **tabelu aktivnih MES radnih naloga** (isti izvor kao Lokacije/Plan: `v_active_bigtehn_work_orders` = ručna lista `production_active_work_orders` + `bigtehn_work_orders_cache`). Tabela: redni broj, **Broj predmeta** (iz `bigtehn_items_cache`), **Naziv** (`naziv_dela` sa RN), **Komitent**. Klik na red poziva učitavanje RN-a (mapiranje preko `production.radni_nalog.legacy_idrn` = BigTehn `id`, inače `ident_broj` kroz `resolveRnId`).
+
 Ruta modula:
 
 ```text

@@ -7,6 +7,7 @@
 
 import {
   canEditPracenje,
+  fetchAktivniNaloziZaPracenje,
   fetchOperativneAktivnostiRaw,
   fetchOperativniPlan,
   fetchPracenjeRn,
@@ -62,6 +63,11 @@ export const pracenjeState = {
     reconnecting: false,
   },
   highlightedActivityId: null,
+  /** MES aktivni RN-ovi (BigTehn) za picker na prvoj strani */
+  aktivniNalozi: [],
+  aktivniNaloziLoading: false,
+  aktivniNaloziError: null,
+  aktivniNaloziLoaded: false,
 };
 
 const listeners = new Set();
@@ -90,6 +96,10 @@ export function resetPracenjeState() {
   pracenjeState.saving = false;
   pracenjeState.error = null;
   pracenjeState.highlightedActivityId = null;
+  pracenjeState.aktivniNalozi = [];
+  pracenjeState.aktivniNaloziLoading = false;
+  pracenjeState.aktivniNaloziError = null;
+  pracenjeState.aktivniNaloziLoaded = false;
   emit();
 }
 
@@ -112,6 +122,27 @@ export function resetOperativniFilters() {
   persistFilters();
   syncFiltersToUrl();
   emit();
+}
+
+/**
+ * Učitava MES listu aktivnih BigTehn RN-ova (v_active_bigtehn_work_orders) za tabelu izbora.
+ */
+export async function loadAktivniNaloziList() {
+  if (pracenjeState.aktivniNaloziLoaded || pracenjeState.aktivniNaloziLoading) return;
+  pracenjeState.aktivniNaloziLoading = true;
+  pracenjeState.aktivniNaloziError = null;
+  emit();
+  try {
+    pracenjeState.aktivniNalozi = await fetchAktivniNaloziZaPracenje();
+    pracenjeState.aktivniNaloziError = null;
+  } catch (e) {
+    pracenjeState.aktivniNalozi = [];
+    pracenjeState.aktivniNaloziError = e?.message || String(e);
+  } finally {
+    pracenjeState.aktivniNaloziLoading = false;
+    pracenjeState.aktivniNaloziLoaded = true;
+    emit();
+  }
 }
 
 export async function loadPracenje(rnId) {
@@ -499,6 +530,7 @@ function snapshot() {
     live: { ...pracenjeState.live },
     departments: [...pracenjeState.departments],
     radnici: [...pracenjeState.radnici],
+    aktivniNalozi: [...(pracenjeState.aktivniNalozi || [])],
     tab2Data: {
       ...pracenjeState.tab2Data,
       activities: [...(pracenjeState.tab2Data?.activities || [])],

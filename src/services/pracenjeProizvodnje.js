@@ -29,6 +29,78 @@ async function select(path, fallback = []) {
   return Array.isArray(res) ? res : fallback;
 }
 
+function chunkIds(ids, size = 100) {
+  const u = [...new Set(ids.filter(v => v != null))];
+  const out = [];
+  for (let i = 0; i < u.length; i += size) out.push(u.slice(i, i + size));
+  return out;
+}
+
+/**
+ * MES lista aktivnih RN-ova (v_active_bigtehn_work_orders) + broj predmeta, komitent,
+ * i mapa na Faza 2 `public.radni_nalog` (legacy_idrn = BigTehn id / IDRN).
+ */
+export async function fetchAktivniNaloziZaPracenje() {
+  if (!getIsOnline()) return [];
+  const sel = 'id,ident_broj,naziv_dela,item_id,customer_id';
+  const wos = await select(
+    `v_active_bigtehn_work_orders?select=${sel}&order=ident_broj.asc&limit=8000`,
+  );
+  if (!wos.length) return [];
+
+  const itemIds = wos.map(w => w.item_id);
+  const custIds = wos.map(w => w.customer_id);
+  const itemMap = new Map();
+  for (const part of chunkIds(itemIds, 100)) {
+    if (!part.length) continue;
+    const rows = await select(
+      `bigtehn_items_cache?select=id,broj_predmeta,naziv_predmeta&id=in.(${part.join(',')})`,
+    );
+    for (const r of rows) itemMap.set(r.id, r);
+  }
+  const custMap = new Map();
+  for (const part of chunkIds(custIds, 100)) {
+    if (!part.length) continue;
+    const rows = await select(
+      `bigtehn_customers_cache?select=id,name,short_name&id=in.(${part.join(',')})`,
+    );
+    for (const r of rows) custMap.set(r.id, r);
+  }
+
+  const woNumIds = wos.map(w => w.id);
+  const legacyToRn = new Map();
+  for (const part of chunkIds(woNumIds, 100)) {
+    if (!part.length) continue;
+    const rows = await select(
+      `radni_nalog?select=id,legacy_idrn,rn_broj&legacy_idrn=in.(${part.join(',')})`,
+    );
+    for (const r of rows) {
+      if (r.legacy_idrn != null) legacyToRn.set(Number(r.legacy_idrn), r);
+    }
+  }
+
+  return wos.map((w, i) => {
+    const it = w.item_id != null ? itemMap.get(w.item_id) : null;
+    const c = w.customer_id != null ? custMap.get(w.customer_id) : null;
+    const komitent = c ? (c.name || c.short_name || '—') : '—';
+    const brojPredmeta = (it && it.broj_predmeta) ? String(it.broj_predmeta) : '—';
+    const naziv = String(w.naziv_dela || it?.naziv_predmeta || '—').trim() || '—';
+    const rnRow = w.id != null ? legacyToRn.get(Number(w.id)) : null;
+    const pracenjeRnId = rnRow?.id || null;
+    const ident = String(w.ident_broj || '').trim();
+    return {
+      redBr: i + 1,
+      bigtehnId: w.id,
+      identBroj: ident,
+      brojPredmeta,
+      naziv,
+      komitent,
+      pracenjeRnId,
+      loadQuery: pracenjeRnId || ident,
+    };
+  });
+}
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export async function resolveRnId(value) {

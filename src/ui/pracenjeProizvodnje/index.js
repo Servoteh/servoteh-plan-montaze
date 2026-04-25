@@ -8,6 +8,7 @@ import { logout } from '../../services/auth.js';
 import { getAuth } from '../../state/auth.js';
 import {
   getPracenjeSnapshot,
+  loadAktivniNaloziList,
   loadPracenje,
   resetPracenjeState,
   setActiveTab,
@@ -60,6 +61,7 @@ export function renderPracenjeProizvodnjeModule(mountEl, options = {}) {
   } else {
     renderShell();
     if (rnId) startRealtime();
+    if (!rnId) void loadAktivniNaloziList();
   }
 }
 
@@ -105,6 +107,7 @@ function renderShell() {
       </div>
     </header>
     <main class="kadrovska-tabpanel" style="padding:24px;max-width:1680px;margin:0 auto">
+      ${aktivniNaloziTableHtml(state)}
       ${rnLoaderHtml(state)}
       ${state.rnId ? pageHeaderHtml(state) : ''}
       ${state.rnId ? tabSwitcherHtml(state.activeTab) : ''}
@@ -114,6 +117,64 @@ function renderShell() {
   `;
   _mountEl.appendChild(container);
   wireShell(container, state);
+}
+
+function aktivniNaloziTableHtml(state) {
+  if (state.rnId) return '';
+  if (state.aktivniNaloziLoading) {
+    return `
+      <section class="form-card" style="margin-bottom:14px" aria-busy="true">
+        <h2 class="form-section-title" style="margin:0 0 10px">Aktivni radni nalozi (MES)</h2>
+        <p class="form-hint">Učitavanje liste iz <code>v_active_bigtehn_work_orders</code>…</p>
+      </section>
+    `;
+  }
+  if (state.aktivniNaloziError) {
+    return `
+      <section class="form-card" style="margin-bottom:14px">
+        <h2 class="form-section-title" style="margin:0 0 10px">Aktivni radni nalozi (MES)</h2>
+        <p class="pp-error">Lista nije učitana: ${escHtml(state.aktivniNaloziError)}</p>
+      </section>
+    `;
+  }
+  const rows = state.aktivniNalozi || [];
+  if (!rows.length && state.aktivniNaloziLoaded) {
+    return `
+      <section class="form-card" style="margin-bottom:14px">
+        <h2 class="form-section-title" style="margin:0 0 10px">Aktivni radni nalozi (MES)</h2>
+        <p class="form-hint">Nema aktivnih RN-ova u MES listi. Proveri <code>production_active_work_orders</code> / seed.</p>
+      </section>
+    `;
+  }
+  if (!rows.length) return '';
+  return `
+    <section class="form-card" style="margin-bottom:14px">
+      <h2 class="form-section-title" style="margin:0 0 10px">Aktivni radni nalozi (MES)</h2>
+      <p class="form-hint" style="margin:0 0 12px">Klik na red učitava taj nalog. Lista = ručno održavani MES aktivni nalozi (iste kao u Lokacijama / planiranju).</p>
+      <div class="pp-table-wrap" style="max-height:min(60vh,520px);overflow:auto">
+        <table class="pp-table" id="ppAktivniNaloziTable">
+          <thead>
+            <tr>
+              <th class="pp-cell-num">Red</th>
+              <th>Broj predmeta</th>
+              <th>Naziv</th>
+              <th>Komitent</th>
+            </tr>
+          </thead>
+          <tbody id="ppAktivniTbody">
+            ${rows.map((r) => `
+              <tr class="pp-pickable-rn" data-pracenje-rn="${escHtml(r.loadQuery)}" style="cursor:pointer" title="Učitaj u praćenje proizvodnje">
+                <td class="pp-cell-num">${r.redBr}</td>
+                <td>${escHtml(r.brojPredmeta)}</td>
+                <td>${escHtml(r.naziv)}</td>
+                <td>${escHtml(r.komitent)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  `;
 }
 
 function rnLoaderHtml(state) {
@@ -140,7 +201,7 @@ function bodyHtml(state) {
       <div class="pp-state">
         <div class="pp-state-icon">...</div>
         <div class="pp-state-title">Izaberi radni nalog</div>
-        <div class="pp-state-desc">Otvori modul sa <code>?rn=&lt;uuid&gt;</code> ili unesi RN broj/UUID u polje iznad.</div>
+        <div class="pp-state-desc">Klik na red u tabeli iznad, unos u polju ispod, ili <code>?rn=&lt;uuid|broj&gt;</code> u URL-u.</div>
       </div>
     `;
   }
@@ -161,6 +222,12 @@ function wireShell(container, state) {
   container.querySelector('#pracenjeLoadBtn')?.addEventListener('click', () => {
     const rnId = container.querySelector('#pracenjeRnInput')?.value?.trim();
     loadFromInput(rnId);
+  });
+  container.querySelector('#ppAktivniTbody')?.addEventListener('click', (ev) => {
+    const tr = ev.target.closest('tr[data-pracenje-rn]');
+    if (!tr) return;
+    const q = tr.getAttribute('data-pracenje-rn');
+    if (q) loadFromInput(q);
   });
   container.querySelector('#pracenjeRnInput')?.addEventListener('keydown', (ev) => {
     if (ev.key === 'Enter') loadFromInput(ev.target.value?.trim());
