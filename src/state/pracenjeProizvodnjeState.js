@@ -13,6 +13,7 @@ import {
   listOdeljenja,
   listRadnici,
   promovisiAkcionuTacku,
+  resolveRnId,
   setBlokirano,
   skiniBlokadu,
   subscribePracenjeRn,
@@ -108,28 +109,34 @@ export function resetOperativniFilters() {
 }
 
 export async function loadPracenje(rnId) {
-  if (!rnId) {
-    pracenjeState.error = 'Unesi RN ID za učitavanje.';
+  const rnQuery = String(rnId || '').trim();
+  if (!rnQuery) {
+    pracenjeState.error = 'Unesi RN broj ili RN UUID za učitavanje.';
     emit();
     return false;
   }
-  pracenjeState.rnId = rnId;
-  hydrateFilters(rnId);
+  pracenjeState.rnId = rnQuery;
+  hydrateFilters(rnQuery);
   pracenjeState.loading = true;
   pracenjeState.error = null;
   emit();
 
   try {
+    const resolvedRnId = await resolveRnId(rnQuery);
+    if (resolvedRnId !== rnQuery) {
+      pracenjeState.rnId = resolvedRnId;
+      hydrateFilters(resolvedRnId);
+    }
     const [tab1, tab2, departments, radnici] = await Promise.all([
-      fetchPracenjeRn(rnId),
-      fetchOperativniPlan({ rnId }),
+      fetchPracenjeRn(resolvedRnId),
+      fetchOperativniPlan({ rnId: resolvedRnId }),
       listOdeljenja(),
       listRadnici(),
     ]);
-    const rawActivities = await fetchOperativneAktivnostiRaw(rnId);
+    const rawActivities = await fetchOperativneAktivnostiRaw(resolvedRnId);
     const activities = mergeActivityDetails(tab2?.activities || [], rawActivities);
     const header = { ...(tab1?.header || {}), ...(tab2?.header || {}) };
-    const canEdit = await canEditPracenje(header.projekat_id || null, rnId);
+    const canEdit = await canEditPracenje(header.projekat_id || null, resolvedRnId);
 
     pracenjeState.header = header;
     pracenjeState.tab1Data = tab1 || { positions: [], summary: {} };

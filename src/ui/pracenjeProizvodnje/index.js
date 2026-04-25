@@ -121,8 +121,8 @@ function rnLoaderHtml(state) {
     <section class="form-card" style="margin-bottom:14px">
       <div class="pp-toolbar" style="margin:0">
         <label class="pp-rn-filter">
-          <span>RN ID</span>
-          <input type="text" id="pracenjeRnInput" value="${escHtml(state.rnId || '')}" placeholder="${TEST_RN_ID}">
+          <span>RN broj ili UUID</span>
+          <input type="text" id="pracenjeRnInput" value="${escHtml(state.rnId || '')}" placeholder="npr. RN-PRAC-TEST-001 ili ${TEST_RN_ID}">
         </label>
         <button type="button" class="pp-refresh-btn" id="pracenjeLoadBtn">${state.loading ? 'Učitavanje…' : 'Učitaj RN'}</button>
         <button type="button" class="pp-refresh-btn" id="pracenjeSeedBtn" title="Test RN iz Inkrementa 1">Test RN</button>
@@ -140,7 +140,7 @@ function bodyHtml(state) {
       <div class="pp-state">
         <div class="pp-state-icon">...</div>
         <div class="pp-state-title">Izaberi radni nalog</div>
-        <div class="pp-state-desc">Otvori modul sa <code>?rn=&lt;uuid&gt;</code> ili unesi RN ID u polje iznad.</div>
+        <div class="pp-state-desc">Otvori modul sa <code>?rn=&lt;uuid&gt;</code> ili unesi RN broj/UUID u polje iznad.</div>
       </div>
     `;
   }

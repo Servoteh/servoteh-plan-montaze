@@ -29,6 +29,25 @@ async function select(path, fallback = []) {
   return Array.isArray(res) ? res : fallback;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export async function resolveRnId(value) {
+  const q = String(value || '').trim();
+  if (!q) throw new Error('Unesi RN broj ili RN UUID.');
+  if (UUID_RE.test(q)) return q;
+
+  const encoded = encodeURIComponent(q);
+  const numericFilter = /^\d+$/.test(q) ? `,legacy_idrn.eq.${encoded}` : '';
+  const rows = await select(
+    `radni_nalog?select=id,rn_broj,naziv,legacy_idrn&or=(rn_broj.eq.${encoded},rn_broj.ilike.*${encoded}*${numericFilter})&order=rn_broj.asc&limit=5`,
+  );
+  if (rows.length === 1) return rows[0].id;
+  if (rows.length > 1) {
+    throw new Error(`Nađeno je više RN-ova za "${q}". Unesi tačan RN broj ili UUID.`);
+  }
+  throw new Error(`RN "${q}" nije pronađen u proizvodnji. Proveri RN broj ili prvo importuj/lansiraj RN.`);
+}
+
 export async function fetchPracenjeRn(rnId) {
   if (!rnId) throw new Error('RN ID je obavezan');
   return rpc('get_pracenje_rn', { p_rn_id: rnId });
@@ -75,20 +94,14 @@ export async function promovisiAkcionuTacku(akcioniPlanId, odeljenjeId, rnId) {
 }
 
 export async function canEditPracenje(projectId, rnId) {
-  if (!projectId && !rnId) {
-    console.warn('[pracenje] canEditPracenje skipped: missing both projectId and rnId');
-    return false;
-  }
+  if (!projectId && !rnId) return false;
   try {
-    const raw = await rpc('can_edit_pracenje', {
+    return !!await rpc('can_edit_pracenje', {
       p_project_id: projectId || null,
       p_rn_id: rnId || null,
     });
-    const result = !!raw;
-    console.info('[pracenje] canEditPracenje', { projectId, rnId, raw, result });
-    return result;
   } catch (e) {
-    console.warn('[pracenje] canEditPracenje failed', { projectId, rnId, error: e });
+    console.warn('[pracenje] canEditPracenje failed', e);
     return false;
   }
 }

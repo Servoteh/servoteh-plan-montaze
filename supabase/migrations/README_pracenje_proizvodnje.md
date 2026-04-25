@@ -6,7 +6,7 @@ Ovaj folder sadrži draft backend osnov za modul **Praćenje proizvodnje**. SQL 
 
 - `20260425124400__pracenje_proizvodnje_init.sql` — up migracija: šeme, enumi, core/pdm/production tabele, indeksi, view-ovi, RPC funkcije, helperi, audit triggeri, RLS politike, seed odeljenja i komentari.
 - `20260425124400__pracenje_proizvodnje_init.down.sql` — rollback migracija u obrnutom redosledu.
-- `20260425143000__pracenje_proizvodnje_public_wrappers.sql` — hotfix: `public.*` SQL wrapperi za 8 RPC-a iz `production` šeme + `public` view-ovi za `core.odeljenje`, `core.radnik`, `production.v_operativna_aktivnost`, `production.prijava_rada`, `production.operativna_aktivnost_blok_istorija`. Bez ovih objekata Supabase PostgREST (koji izlaže samo `public`) nije mogao da pronađe RPC/tabele, pa je `canEditPracenje()` u UI-u tiho vraćao `false` i admin-i su dobijali read-only iako im je RLS dozvoljavao izmene.
+- `20260425143000__pracenje_proizvodnje_public_wrappers.sql` — hotfix: `public.*` SQL wrapperi za 8 RPC-a iz `production` šeme + `public` view-ovi za `production.radni_nalog`, `core.odeljenje`, `core.radnik`, `production.v_operativna_aktivnost`, `production.prijava_rada`, `production.operativna_aktivnost_blok_istorija`. Bez ovih objekata Supabase PostgREST (koji izlaže samo `public`) nije mogao da pronađe RPC/tabele, pa je `canEditPracenje()` u UI-u tiho vraćao `false` i admin-i su dobijali read-only iako im je RLS dozvoljavao izmene.
 - `20260425143000__pracenje_proizvodnje_public_wrappers.down.sql` — rollback hotfix-a.
 - `../seeds/pracenje_proizvodnje_test.sql` — minimalni test fixture za jedan RN.
 

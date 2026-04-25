@@ -12,7 +12,7 @@
 --
 --   Ova migracija dodaje:
 --     1) public SQL wrapper funkcije za 8 RPC-a iz `production` šeme,
---     2) public read-only view-ove sa `security_invoker = true` za 5 tabela
+--     2) public read-only view-ove sa `security_invoker = true` za 6 tabela
 --        koje UI traži preko PostgREST-a.
 --
 --   RLS i security definer logika ostaju netaknuti — wrapper-i samo prosleđuju
@@ -193,6 +193,10 @@ COMMENT ON FUNCTION public.promovisi_akcionu_tacku(uuid, uuid, uuid)
 
 -- ===== SEKCIJA 2 — View-ovi za PostgREST =====================================
 
+CREATE OR REPLACE VIEW public.radni_nalog
+  WITH (security_invoker = true) AS
+  SELECT * FROM production.radni_nalog;
+
 CREATE OR REPLACE VIEW public.odeljenje
   WITH (security_invoker = true) AS
   SELECT * FROM core.odeljenje;
@@ -213,12 +217,15 @@ CREATE OR REPLACE VIEW public.operativna_aktivnost_blok_istorija
   WITH (security_invoker = true) AS
   SELECT * FROM production.operativna_aktivnost_blok_istorija;
 
+GRANT SELECT ON public.radni_nalog TO authenticated;
 GRANT SELECT ON public.odeljenje TO authenticated;
 GRANT SELECT ON public.radnik TO authenticated;
 GRANT SELECT ON public.v_operativna_aktivnost TO authenticated;
 GRANT SELECT ON public.prijava_rada TO authenticated;
 GRANT SELECT ON public.operativna_aktivnost_blok_istorija TO authenticated;
 
+COMMENT ON VIEW public.radni_nalog
+  IS 'PostgREST proxy za production.radni_nalog (security_invoker=true). Sluzi za picker u UI-u za izbor RN-a.';
 COMMENT ON VIEW public.odeljenje
   IS 'PostgREST proxy za core.odeljenje (security_invoker=true). RLS se ocenjuje na underlying tabeli.';
 COMMENT ON VIEW public.radnik

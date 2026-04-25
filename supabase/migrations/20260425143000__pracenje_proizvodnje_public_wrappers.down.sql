@@ -14,6 +14,7 @@ DROP VIEW IF EXISTS public.prijava_rada;
 DROP VIEW IF EXISTS public.v_operativna_aktivnost;
 DROP VIEW IF EXISTS public.radnik;
 DROP VIEW IF EXISTS public.odeljenje;
+DROP VIEW IF EXISTS public.radni_nalog;
 
 -- Wrapper funkcije
 DROP FUNCTION IF EXISTS public.promovisi_akcionu_tacku(uuid, uuid, uuid);
