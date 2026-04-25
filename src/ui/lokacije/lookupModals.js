@@ -3,7 +3,7 @@
  *
  * Read-only pregled poslednjeg sinhronizovanog snimka iz Supabase
  * cache tabela koje BRIDGE puni iz MSSQL-a (svakih ~15 min):
- *   - `bigtehn_work_orders_cache` — pretraga po crtežu / RN-u / nazivu dela
+ *   - `v_active_bigtehn_work_orders` — pretraga po crtežu / RN-u / nazivu dela
  *   - `bigtehn_items_cache` — pretraga po broju predmeta / nazivu / ugovoru
  *
  * Klik na red u RN listi otvara postojeći Plan Proizvodnje
@@ -108,7 +108,7 @@ function renderItemRows(rows) {
 }
 
 /**
- * Lookup po radnim nalozima iz `bigtehn_work_orders_cache`.
+ * Lookup po ručno aktivnim radnim nalozima iz `v_active_bigtehn_work_orders`.
  * Modal ima jedan input (debounced 300ms) i listu rezultata; klik na red
  * otvara `openTechProcedureModal({ work_order_id })`.
  *

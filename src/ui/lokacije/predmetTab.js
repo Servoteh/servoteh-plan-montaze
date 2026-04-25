@@ -6,7 +6,7 @@
  *      Korisnik klikne red → state.predmetSelected se postavi i tab se
  *      re-render-uje sa drugim layout-om.
  *   2. Ako je predmet izabran → vidljiv header sa ID/naziv/komitent + filteri
- *      (TP, Crtež, Sa/Bez lokacije, Ugrađeni, Otvoreni RN) + tabela
+ *      (TP, Crtež, Sa/Bez lokacije, Ugrađeni) + tabela
  *      tehnoloških postupaka iz `loc_tps_for_predmet` (v3 — server-side
  *      PREFIX match na TP/crtež + has_pdf flag iz bigtehn_drawings_cache)
  *      + Print/Export PDF/Export CSV/Promeni-predmet dugmad.
@@ -171,9 +171,9 @@ async function renderDataView(host, refresh) {
       ${renderFiltersHtml(f)}
       <div class="loc-predmet-actions" style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0">
         <button type="button" class="btn btn-xs" id="lpApply"
-          title="Primeni unete filtere (Broj TP, Crtež, Lokacija, Ugrađeni, Otvoreni RN) i ponovo učitaj listu sa servera">Primeni filtere</button>
+          title="Primeni unete filtere (Broj TP, Crtež, Lokacija, Ugrađeni) i ponovo učitaj listu aktivnih RN-ova sa servera">Primeni filtere</button>
         <button type="button" class="btn btn-xs" id="lpReset"
-          title="Vrati sve filtere na podrazumevane vrednosti (prazan TP/crtež, sve lokacije, samo otvoreni RN, bez ugrađenih)">Resetuj filtere</button>
+          title="Vrati sve filtere na podrazumevane vrednosti (prazan TP/crtež, sve lokacije, bez ugrađenih)">Resetuj filtere</button>
         <span style="flex:1"></span>
         <button type="button" class="btn btn-xs" id="lpPrint"
           title="Otvori novi prozor sa formatiranom tabelom svih trenutno filtriranih redova i automatski pokreni dijalog štampe">🖨 Štampa</button>
@@ -207,7 +207,7 @@ async function renderDataView(host, refresh) {
   let res;
   try {
     res = await fetchTpsForPredmet(sel.id, {
-      onlyOpen: f.onlyOpen,
+      onlyOpen: true,
       includeAssembled: f.includeAssembled,
       tpNo: f.tpNo,
       drawingNo: f.drawingNo,
@@ -283,10 +283,7 @@ function renderFiltersHtml(f) {
         <input type="checkbox" id="lpFiltAssembled" ${f.includeAssembled ? 'checked' : ''}>
         <span>Prikaži i ugrađene / otpisane</span>
       </label>
-      <label class="loc-inline-check" title="Po default-u prikazuje samo otvorene radne naloge. Otkači da uključiš i zatvorene RN-ove.">
-        <input type="checkbox" id="lpFiltOnlyOpen" ${f.onlyOpen ? 'checked' : ''}>
-        <span>Samo otvoreni RN</span>
-      </label>
+      <span class="loc-muted" title="Pregled uvek koristi ručnu MES listu aktivnih RN-ova. BigTehn status otvoren/zatvoren ostaje samo informativan u exportu.">Samo aktivni RN</span>
     </div>`;
 }
 
@@ -306,7 +303,7 @@ function attachFilterHandlers(host, refresh) {
       drawingNo: host.querySelector('#lpFiltDr')?.value || '',
       locationFilter: host.querySelector('#lpFiltLoc')?.value || 'all',
       includeAssembled: !!host.querySelector('#lpFiltAssembled')?.checked,
-      onlyOpen: !!host.querySelector('#lpFiltOnlyOpen')?.checked,
+      onlyOpen: true,
     });
     void refresh();
   };
@@ -323,7 +320,6 @@ function attachFilterHandlers(host, refresh) {
   /* Dropdown i checkbox su jeftini — odmah primeni. */
   host.querySelector('#lpFiltLoc')?.addEventListener('change', apply);
   host.querySelector('#lpFiltAssembled')?.addEventListener('change', apply);
-  host.querySelector('#lpFiltOnlyOpen')?.addEventListener('change', apply);
 }
 
 function renderTpRowsHtml(rows) {
@@ -387,7 +383,7 @@ function renderSummaryHtml({ sel, total, page, pageSize, rowsLen, filters }) {
   if (filters.drawingNo) filtSummary.push(`crtež <strong>${escHtml(filters.drawingNo)}</strong>`);
   if (filters.locationFilter === 'with') filtSummary.push('samo sa lokacijom');
   if (filters.locationFilter === 'without') filtSummary.push('samo BEZ lokacije');
-  if (!filters.onlyOpen) filtSummary.push('+ zatvoreni RN');
+  filtSummary.push('samo aktivni RN');
   if (filters.includeAssembled) filtSummary.push('+ ugrađeni / otpisani');
   const filtStr = filtSummary.length ? ` · filteri: ${filtSummary.join(', ')}` : '';
   return `
@@ -522,7 +518,7 @@ async function fetchAllFiltered(sel, filters, onProgress) {
   let total = null;
   while (true) {
     const res = await fetchTpsForPredmet(sel.id, {
-      onlyOpen: filters.onlyOpen,
+      onlyOpen: true,
       includeAssembled: filters.includeAssembled,
       tpNo: filters.tpNo,
       drawingNo: filters.drawingNo,
@@ -634,7 +630,7 @@ function openPrintWindow({ rows, total, sel, filters, mode }) {
   if (filters.drawingNo) filtChips.push(`Crtež: ${escHtml(filters.drawingNo)}`);
   if (filters.locationFilter === 'with') filtChips.push('Samo sa lokacijom');
   else if (filters.locationFilter === 'without') filtChips.push('Samo BEZ lokacije');
-  if (!filters.onlyOpen) filtChips.push('Uključeni zatvoreni RN');
+  filtChips.push('Samo aktivni RN');
   if (filters.includeAssembled) filtChips.push('Uključeni ugrađeni/otpisani');
   const filtHtml = filtChips.length
     ? `<div class="filt"><strong>Filteri:</strong> ${filtChips.join(' · ')}</div>`

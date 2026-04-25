@@ -610,7 +610,7 @@ function todayStrDDMMYY() {
  * Tok (refaktor 2026-04 — Task 3a):
  *
  *   1. Predmet picker — pretraga BigTehn `bigtehn_items_cache` (samo aktuelni).
- *   2. Po izboru Predmeta → učita se lista TP-ova (otvoreni RN-ovi).
+ *   2. Po izboru Predmeta → učita se lista TP-ova (ručno aktivni RN-ovi).
  *   3. Po izboru TP-a iz liste → **lista se sklopi**, prikaže se „selected
  *      panel" sa Predmetom + TP brojem + nazivom dela. Operater jasno vidi
  *      šta će biti odštampano.
@@ -779,7 +779,7 @@ export async function openTechProcessLabelPrintModal() {
             String(x.naziv_dela || '').toLowerCase().includes(f),
         );
     if (!list.length) {
-      tpListEl.innerHTML = '<p class="loc-muted" style="padding:10px">Nema otvorenih tehnoloških postupaka za ovaj predmet (ili filter).</p>';
+      tpListEl.innerHTML = '<p class="loc-muted" style="padding:10px">Nema aktivnih tehnoloških postupaka za ovaj predmet (ili filter).</p>';
       return;
     }
     tpListEl.innerHTML = list

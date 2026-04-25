@@ -40,7 +40,7 @@ import { printTechProcessLabelsBatch } from './labelsPrint.js';
 /**
  * @typedef {object} QueueEntry
  * @property {object} predmet   Snapshot bigtehn_items_cache row (id, broj_predmeta, naziv_predmeta, customer_name)
- * @property {object} tp        Snapshot bigtehn_work_orders_cache row (id, ident_broj, broj_crteza, naziv_dela, materijal, komada)
+ * @property {object} tp        Snapshot aktivnog RN-a (id, ident_broj, broj_crteza, naziv_dela, materijal, komada)
  * @property {number} qty       Količina nalepnica za štampu (>=1)
  */
 
@@ -272,7 +272,7 @@ async function renderTpsBlock(host, refresh) {
   const tps = _state.tpsByItem.get(itemId) || [];
   if (!tps.length) {
     hostEl.innerHTML = `<p class="loc-muted" style="padding:14px;border:1px dashed var(--border2,#ccc);border-radius:6px">
-      Predmet <strong>${escHtml(item.broj_predmeta || '')}</strong> nema otvorenih radnih naloga („U TOKU").
+      Predmet <strong>${escHtml(item.broj_predmeta || '')}</strong> nema aktivnih radnih naloga u MES listi.
     </p>`;
     return;
   }

@@ -98,8 +98,9 @@ BEGIN
       LEFT JOIN public.loc_location_movements lm ON lm.id = pl.last_movement_id
       LEFT JOIN LATERAL (
         SELECT w.*
-        FROM public.bigtehn_work_orders_cache w
+        FROM public.v_active_bigtehn_work_orders w
         WHERE trim(COALESCE(pl.order_no, '')) <> ''
+          AND w.is_mes_active IS TRUE
           AND (
             w.ident_broj = trim(pl.order_no) || '/' || trim(COALESCE(pl.item_ref_id, ''))
             OR w.ident_broj = trim(pl.order_no)
@@ -121,6 +122,7 @@ BEGIN
       WHERE ($1 IS NULL OR trim($1) = '' OR COALESCE(p.drawing_no::text, '') ILIKE '%%' || trim($1) || '%%'
             OR p.item_ref_id ILIKE '%%' || trim($1) || '%%'
             OR COALESCE(p.wo_broj_crteza, '') ILIKE '%%' || trim($1) || '%%')
+        AND (trim(COALESCE(p.order_no, '')) = '' OR p.work_order_id IS NOT NULL)
         AND ($2 IS NULL OR trim($2) = '' OR trim(COALESCE(p.order_no, '')) = trim($2)
             OR COALESCE(p.wo_ident_broj, '') ILIKE '%%' || trim($2) || '%%')
         AND ($3 IS NULL OR trim($3) = '' OR trim(COALESCE(p.item_ref_id, '')) = trim($3))
@@ -163,7 +165,7 @@ $fn$;
 COMMENT ON FUNCTION public.loc_report_parts_by_locations IS
   'Lokacije v2: tabelarni pregled placement-a sa BigTehn meta-podacima '
   '(materijal, dimenzija, težina, rok, status_rn, revizija) iz '
-  'bigtehn_work_orders_cache. SECURITY INVOKER + auth.uid() + loc_auth_roles().';
+  'v_active_bigtehn_work_orders. SECURITY INVOKER + auth.uid() + loc_auth_roles().';
 
 REVOKE ALL ON FUNCTION public.loc_report_parts_by_locations(
   text, text, text, text, uuid, text, text, boolean, int, int

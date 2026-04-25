@@ -121,3 +121,37 @@ npm run backfill:work-orders:full
 Svi flag-ovi: `node scripts/backfill-bigtehn-work-orders.js --help`.
 
 **Bezbednost:** skripta koristi `SUPABASE_SERVICE_ROLE_KEY` (zaobilazi RLS) — pokreći je samo sa admin mašine, nikad iz browser-a.
+
+## Backfill: Planiranje proizvodnje bez vremenskog prozora
+
+Skripta u `scripts/backfill-production-cache.js` povlači kompletan set podataka koji koristi modul **Planiranje proizvodnje**:
+
+- `dbo.tRN` → `public.bigtehn_work_orders_cache`
+- `dbo.tStavkeRN` → `public.bigtehn_work_order_lines_cache`
+- `dbo.tTehPostupak` → `public.bigtehn_tech_routing_cache`
+
+Default režim je `--scope=open`: bez filtera “poslednjih 30 dana”, ali samo za RN-ove koji nisu završeni (`StatusRN` nije `true`). To je najbrži i najbezbedniji sync za ekran “Po mašini”. Ako treba cela istorija, koristi `--scope=all`.
+
+```bash
+cd workers/loc-sync-mssql
+
+# 1) Prvo dry-run za otvorene RN-ove
+npm run backfill:production:dry
+
+# 2) Produkcioni backfill otvorenih RN-ova i njihovih operacija/prijava
+npm run backfill:production
+
+# 3) Ako baš treba puna istorija bez status filtera
+npm run backfill:production:full:dry
+npm run backfill:production:full
+```
+
+Korisne opcije za ciljano pokretanje:
+
+```bash
+# Samo operacije i prijave, bez RN header-a
+node scripts/backfill-production-cache.js --tables=lines,tech --scope=open
+
+# Test prvih 1000 redova po tabeli
+node scripts/backfill-production-cache.js --scope=open --limit=1000 --dry-run
+```

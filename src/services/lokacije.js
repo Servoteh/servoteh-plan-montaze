@@ -510,9 +510,9 @@ export async function fetchAllLocReportPartsByLocations(filters = {}, opts = {})
 }
 
 /**
- * BigTehn lookup helper — pretraga radnih naloga po broju crteža/RN/nazivu.
- * Čisto read-only nad `bigtehn_work_orders_cache` (RLS na tabeli pušta sve
- * autentifikovane korisnike — koristi se i u Plan Proizvodnje).
+ * BigTehn lookup helper — pretraga aktivnih radnih naloga po broju
+ * crteža/RN/nazivu.
+ * Čita `v_active_bigtehn_work_orders`, tj. ručnu MES listu aktivnih RN-ova.
  *
  * @param {string} q  bilo koji od: deo broja crteža, ident_broj, naziv dela
  * @param {number} [limit=50]
@@ -524,9 +524,9 @@ export async function searchBigtehnWorkOrders(q, limit = 50) {
   const lim = Math.max(1, Math.min(Number(limit) || 50, 200));
   const enc = encodeURIComponent(`*${s}*`);
   const sel =
-    'id,ident_broj,broj_crteza,naziv_dela,materijal,dimenzija_materijala,komada,tezina_obr,status_rn,revizija,rok_izrade,customer_id';
+    'id,ident_broj,broj_crteza,naziv_dela,materijal,dimenzija_materijala,komada,tezina_obr,status_rn,revizija,rok_izrade,customer_id,is_mes_active';
   const path =
-    `bigtehn_work_orders_cache?select=${sel}` +
+    `v_active_bigtehn_work_orders?select=${sel}` +
     `&or=(broj_crteza.ilike.${enc},ident_broj.ilike.${enc},naziv_dela.ilike.${enc})` +
     `&order=modified_at.desc&limit=${lim}`;
   const rows = await sbReq(path);
@@ -607,9 +607,9 @@ export async function searchBigtehnItems(q, limit = 50, { onlyActive = true } = 
 
 /**
  * Lista DISTINCT TP-ova (radnih naloga) za jedan Predmet, direktno iz
- * `bigtehn_work_orders_cache` — bez placement-a, namenjen pickerima
- * (npr. modal za štampu nalepnica). Po default-u prikazuje samo otvorene
- * RN-ove (`status_rn = false`) kako bi spisak bio kratak i upotrebljiv.
+ * `v_active_bigtehn_work_orders` — bez placement-a, namenjen pickerima
+ * (npr. modal za štampu nalepnica). Uvek prikazuje samo ručno aktivne
+ * RN-ove; `onlyOpen` je zadržan samo radi backward-compat poziva.
  *
  * @param {number|string} itemId  bigtehn_items_cache.id
  * @param {{ onlyOpen?: boolean, search?: string, limit?: number }} [opts]
@@ -620,26 +620,25 @@ export async function searchBigtehnWorkOrdersForItem(itemId, opts = {}) {
   if (!Number.isFinite(idNum) || idNum <= 0) return [];
   const lim = Math.max(1, Math.min(Number(opts.limit) || 200, 1000));
   const sel =
-    'id,ident_broj,broj_crteza,naziv_dela,materijal,dimenzija_materijala,jedinica_mere,komada,tezina_obr,status_rn,revizija,rok_izrade';
+    'id,ident_broj,broj_crteza,naziv_dela,materijal,dimenzija_materijala,jedinica_mere,komada,tezina_obr,status_rn,revizija,rok_izrade,is_mes_active';
   const parts = [
     `select=${sel}`,
     `item_id=eq.${idNum}`,
     `order=ident_broj.asc`,
     `limit=${lim}`,
   ];
-  if (opts.onlyOpen !== false) parts.push('status_rn=is.false');
   if (opts.search && String(opts.search).trim()) {
     const enc = encodeURIComponent(`*${String(opts.search).trim()}*`);
     parts.push(
       `or=(ident_broj.ilike.${enc},broj_crteza.ilike.${enc},naziv_dela.ilike.${enc})`,
     );
   }
-  const rows = await sbReq(`bigtehn_work_orders_cache?${parts.join('&')}`);
+  const rows = await sbReq(`v_active_bigtehn_work_orders?${parts.join('&')}`);
   return Array.isArray(rows) ? rows : [];
 }
 
 /**
- * Učitaj sve TP-ove (radne naloge) za jedan Predmet sa pridruženim
+ * Učitaj sve aktivne TP-ove (radne naloge) za jedan Predmet sa pridruženim
  * placement-ima. Wrapper oko RPC `loc_tps_for_predmet` (v2).
  *
  * Migracija: `sql/migrations/add_loc_tps_for_predmet_rpc_v2.sql`.
@@ -657,7 +656,7 @@ export async function searchBigtehnWorkOrdersForItem(itemId, opts = {}) {
  *
  * @param {number|string} itemId  bigtehn_items_cache.id
  * @param {{
- *   onlyOpen?: boolean,
+ *   onlyOpen?: boolean, // legacy: RPC sada uvek koristi ručnu MES aktivnost
  *   includeAssembled?: boolean,
  *   tpNo?: string,
  *   drawingNo?: string,
@@ -677,7 +676,7 @@ export async function fetchTpsForPredmet(itemId, opts = {}) {
     : 'all';
   const body = {
     p_item_id: idNum,
-    p_only_open: opts.onlyOpen !== false,
+    p_only_open: true,
     p_include_assembled: !!opts.includeAssembled,
     p_tp_no: tp ? tp : null,
     p_drawing_no: dr ? dr : null,

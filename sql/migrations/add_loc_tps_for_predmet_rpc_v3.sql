@@ -1,7 +1,7 @@
 -- ============================================================================
 -- LOKACIJE — RPC: loc_tps_for_predmet (v3)
 -- ----------------------------------------------------------------------------
--- Verzija 3: dve izmene u odnosu na v2:
+-- Verzija 3: dve izmene u odnosu na v2 + MES aktivni RN filter:
 --
 -- 1) PREFIX MATCH umesto „contains" za p_tp_no i p_drawing_no.
 --    Razlog: u sistemu sklopova brojevi predstavljaju hijerarhiju
@@ -17,6 +17,10 @@
 --    `removed_at IS NULL` i `storage_path IS NOT NULL`). U UI se koristi
 --    za prikaz PDF ikonice pored broja crteža (klik otvara signed URL
 --    preko `openDrawingPdf` iz `services/drawings.js`).
+--
+-- 3) Pregled koristi `v_active_bigtehn_work_orders` — ručnu MES listu
+--    aktivnih RN-ova. `p_only_open` ostaje u signaturi radi kompatibilnosti,
+--    ali se BigTehn `status_rn` više ne koristi kao aktivni filter.
 --
 -- Idempotentno: drop ako postoji bilo koja od ranijih signatura, pa CREATE
 -- iste signature kao v2 (parametri se nisu menjali — samo semantika
@@ -77,15 +81,16 @@ BEGIN
       w.tezina_neobr  AS tezina_neobr,
       w.tezina_obr    AS tezina_obr,
       w.status_rn     AS status_rn,
+      w.is_mes_active AS is_mes_active,
       w.zakljucano    AS zakljucano,
       w.revizija      AS revizija,
       w.rok_izrade    AS rok_izrade,
       w.modified_at   AS wo_modified_at,
       split_part(w.ident_broj, '/', 1) AS predmet_no,
       NULLIF(split_part(w.ident_broj, '/', 2), '') AS tp_no
-    FROM public.bigtehn_work_orders_cache w
+    FROM public.v_active_bigtehn_work_orders w
     WHERE w.item_id = p_item_id
-      AND (NOT p_only_open OR w.status_rn IS NOT TRUE)
+      AND w.is_mes_active IS TRUE
       -- v3: PREFIX match (LIKE 'X%') umesto „contains" — semantika hijerarhije sklopova.
       AND (v_tp IS NULL OR NULLIF(split_part(w.ident_broj, '/', 2), '') ILIKE v_tp || '%')
       AND (v_dr IS NULL OR w.broj_crteza ILIKE v_dr || '%')
@@ -150,6 +155,7 @@ BEGIN
       wo.tezina_neobr,
       wo.tezina_obr,
       wo.status_rn,
+      wo.is_mes_active,
       wo.zakljucano,
       wo.revizija,
       wo.rok_izrade,
@@ -219,6 +225,7 @@ COMMENT ON FUNCTION public.loc_tps_for_predmet(bigint, boolean, boolean, text, t
   'Lokacije v3: TP-ovi za jedan Predmet, sa LEFT JOIN-om ka loc_item_placements. '
   'PREFIX match na p_tp_no/p_drawing_no (hijerarhija sklopova). '
   'Polje has_pdf (boolean) iz bigtehn_drawings_cache. '
+  'Vraća samo ručno aktivne MES RN-ove iz v_active_bigtehn_work_orders. '
   'Multi-row split: 1 red po (TP × placement). SECURITY INVOKER + loc_auth_roles().';
 
 REVOKE ALL ON FUNCTION public.loc_tps_for_predmet(bigint, boolean, boolean, text, text, text, int, int) FROM PUBLIC;

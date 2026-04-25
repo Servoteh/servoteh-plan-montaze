@@ -67,7 +67,7 @@ const state = {
     drawingNo: '',           // ILIKE filter na broj_crteza
     locationFilter: 'all',   // 'all' | 'with' | 'without'
     includeAssembled: false, // false = sakrij UGRADJENO/OTPISANO
-    onlyOpen: true,          // true = samo status_rn = false
+    onlyOpen: true,          // legacy: pregledi sada uvek koriste ručno aktivne RN-ove
   },
   predmetPage: 0,
   predmetPageSize: 100,
@@ -297,7 +297,7 @@ function normalizePredmetFilters(v) {
     drawingNo: normalizeFilter(f.drawingNo).slice(0, 40),
     locationFilter: VALID_LOCATION_FILTERS.has(lf) ? lf : 'all',
     includeAssembled: !!f.includeAssembled,
-    onlyOpen: f.onlyOpen !== false,
+    onlyOpen: true,
   };
 }
 
