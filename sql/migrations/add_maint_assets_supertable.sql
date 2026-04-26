@@ -54,6 +54,21 @@ CREATE TRIGGER maint_assets_touch_updated
   BEFORE UPDATE ON public.maint_assets
   FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
 
+
+-- Mora pre `maint_asset_visible` (funkcija join-uje `maint_machines.asset_id`).
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'maint_machines'
+      AND column_name = 'asset_id'
+  ) THEN
+    ALTER TABLE public.maint_machines
+      ADD COLUMN asset_id uuid REFERENCES public.maint_assets (asset_id) ON DELETE RESTRICT;
+  END IF;
+END $$;
+
 -- Vidljivost (mašine preko postojećeg maint_machine_visible)
 CREATE OR REPLACE FUNCTION public.maint_asset_visible(p_asset_id uuid)
 RETURNS boolean
@@ -92,19 +107,6 @@ COMMENT ON FUNCTION public.maint_asset_visible IS
   'Mašine: maint_machine_visible. Ostali tipovi: floor/menadžment/šef.';
 
 GRANT EXECUTE ON FUNCTION public.maint_asset_visible(uuid) TO authenticated;
-
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_schema = 'public'
-      AND table_name = 'maint_machines'
-      AND column_name = 'asset_id'
-  ) THEN
-    ALTER TABLE public.maint_machines
-      ADD COLUMN asset_id uuid REFERENCES public.maint_assets (asset_id) ON DELETE RESTRICT;
-  END IF;
-END $$;
 
 INSERT INTO public.maint_assets (
   asset_code,
