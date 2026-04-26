@@ -77,6 +77,8 @@ export async function sbReq(path, method = 'GET', body = null, options = {}) {
     if (!txt) {
       if (method === 'PATCH') parsed = [];
       else if (method === 'DELETE') parsed = true;
+      /* PostgREST: RPC sa RETURNS void daje 200/204 sa praznim telom — to je uspeh, ne NULL greška. */
+      else if (method === 'POST') parsed = true;
       else parsed = null;
     } else {
       try {
