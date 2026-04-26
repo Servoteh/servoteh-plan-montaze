@@ -81,6 +81,10 @@ export function pathnameToRoute(pathname) {
   if (p === '/sastanci') {
     return { kind: 'module', moduleId: 'sastanci' };
   }
+  const sd = /^\/sastanci\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/.exec(p);
+  if (sd) {
+    return { kind: 'module', moduleId: 'sastanci', sastanakId: sd[1] };
+  }
   if (p === '/podesavanja') {
     return { kind: 'module', moduleId: 'podesavanja' };
   }
@@ -150,6 +154,17 @@ export function pathForModule(moduleId) {
 export function buildMaintenanceMachinePath(machineCode, tab = null) {
   const enc = encodeURIComponent(machineCode);
   const base = `/maintenance/machines/${enc}`;
+  if (tab) return `${base}?tab=${encodeURIComponent(tab)}`;
+  return base;
+}
+
+/**
+ * Deep link na detalj sastanka.
+ * @param {string} sastanakId UUID
+ * @param {string | null} [tab] npr. 'zapisnik'
+ */
+export function buildSastanakDetaljPath(sastanakId, tab = null) {
+  const base = `/sastanci/${sastanakId}`;
   if (tab) return `${base}?tab=${encodeURIComponent(tab)}`;
   return base;
 }

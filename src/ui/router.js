@@ -238,8 +238,12 @@ function showModulePlaceholder(moduleId, options = {}) {
   currentScreen = moduleId;
   clearMount(leaving);
   if (!options.skipUrlSync) {
-    syncBrowserUrl(pathForModule(moduleId));
+    const path = (moduleId === 'sastanci' && options.sastanakId)
+      ? `/sastanci/${options.sastanakId}`
+      : pathForModule(moduleId);
+    syncBrowserUrl(path);
   }
+  const opts = options;
   /* Legacy CSS koristi body.module-* klase za visibility (display:none !important
      na #module-kadrovska / #module-settings ako odgovarajuća klasa nije setovana).
      Dok ne migriramo te selektore u Vite-only verziju, postavi obe klase. */
@@ -471,6 +475,7 @@ function showModulePlaceholder(moduleId, options = {}) {
   if (moduleId === 'sastanci') {
     try {
       renderSastanciModule(mountEl, {
+        sastanakId: opts.sastanakId || null,
         onBackToHub: () => showHub(),
         onLogout: () => {
           resetKadrovskaState();
@@ -777,7 +782,7 @@ function applyRouteFromLocation() {
       showHub();
       return;
     }
-    showModulePlaceholder(route.moduleId, { skipUrlSync: true });
+    showModulePlaceholder(route.moduleId, { skipUrlSync: true, sastanakId: route.sastanakId || null });
   }
 }
 

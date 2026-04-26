@@ -55,6 +55,10 @@ export const SESSION_KEYS = Object.freeze({
   SAST_INTENT_AKCIJONI_MOJE: 'sastanci:intent_akcioni_moje',
   /** Jednokratni fokus PM teme sub-tab = moje (string '1' pa briši) */
   SAST_INTENT_PM_MOJE: 'sastanci:intent_pm_moje',
+  /** Aktivni interni tab u detalju sastanka ('pripremi'|'zapisnik'|'akcije'|'arhiva') */
+  SAST_DETALJ_TAB: 'sastanci:detalj_tab',
+  /** Lista / Kanban u Akcionom planu ('lista'|'kanban') */
+  SAST_AKCIONI_VIEW: 'sastanci:akcioni_view',
 });
 
 /* ── Role hijerarhija (priority: admin > leadpm > pm > menadzment > hr > viewer) ── */

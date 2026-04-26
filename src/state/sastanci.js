@@ -56,6 +56,36 @@ export function getSastSastanView() {
   }
 }
 
+/** Aktivni interni tab u detalju sastanka (sessionStorage). */
+export function getSastDetaljTab() {
+  try {
+    return sessionStorage.getItem(SESSION_KEYS.SAST_DETALJ_TAB) || 'pripremi';
+  } catch {
+    return 'pripremi';
+  }
+}
+
+export function setSastDetaljTab(tab) {
+  try {
+    sessionStorage.setItem(SESSION_KEYS.SAST_DETALJ_TAB, tab);
+  } catch { /* ignore */ }
+}
+
+/** Lista / Kanban u Akcionom planu (sessionStorage). */
+export function getSastAkcioniView() {
+  try {
+    return sessionStorage.getItem(SESSION_KEYS.SAST_AKCIONI_VIEW) || 'lista';
+  } catch {
+    return 'lista';
+  }
+}
+
+export function setSastAkcioniView(v) {
+  try {
+    sessionStorage.setItem(SESSION_KEYS.SAST_AKCIONI_VIEW, v);
+  } catch { /* ignore */ }
+}
+
 export function resetSastanciState() {
   state.projektiCache = null;
   state.projektiCacheAt = 0;
