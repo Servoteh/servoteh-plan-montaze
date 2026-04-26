@@ -53,8 +53,13 @@ import {
 
 export async function ensureEmployeesLoaded(force = false) {
   if (kadrovskaState.loaded && !force) return;
-  /* Cache prvi — UI mora da ima šta da prikaže odmah */
-  kadrovskaState.employees = loadEmployeesCache();
+  /* Force: ne puni in-memory stari mesečni keš (department bi ostao netačan). */
+  if (force) {
+    kadrovskaState.employees = [];
+  } else {
+    /* Cache prvi — UI brzo prikazuje; mreža ga prepisuje kad stigne. */
+    kadrovskaState.employees = loadEmployeesCache();
+  }
   kadrovskaState.loaded = true;
   if (getIsOnline() && hasSupabaseConfig()) {
     const fresh = await loadEmployeesFromDb();
@@ -63,6 +68,10 @@ export async function ensureEmployeesLoaded(force = false) {
       saveEmployeesCache(fresh);
       kadrovskaState._schemaSupported = true;
     } else {
+      if (force) {
+        /* Posle slobodnog fetch-a, fallback na LS samo da UI nije prazan. */
+        kadrovskaState.employees = loadEmployeesCache();
+      }
       kadrovskaState._schemaSupported = false;
     }
   }

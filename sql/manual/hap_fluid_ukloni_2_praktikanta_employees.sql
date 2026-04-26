@@ -40,3 +40,14 @@ COMMIT;
 -- Ako UPDATE pokaže 0 redova, proveri tačan full_name (korak 0), pa npr.:
 -- UPDATE public.employees SET department = 'Servoteh', updated_at = now()
 -- WHERE id = 'PASTE-UUID' AND department = 'HAP Fluid';
+
+-- 2) Fiks po UUID-ima (izvoz apr. 2026 — AŽURIRAJ ako se ID razlikuje u vašoj bazi):
+-- BEGIN;
+-- UPDATE public.employees
+-- SET department = 'Servoteh', position = COALESCE(nullif(btrim(COALESCE(position, '')), ''), 'Praksa'),
+--     note = btrim(COALESCE(note, '')) || E'\n' || 'HAP→Servoteh (fix po id).', updated_at = now()
+-- WHERE id IN (
+--   '600cd1e3-70c5-484c-b62e-aef28503fee2'::uuid,  /* Janković Mihajlo */
+--   '86e98f49-ce48-49de-be2a-4d42c1c75bb2'::uuid   /* Radelić Uroš */
+-- );
+-- COMMIT;

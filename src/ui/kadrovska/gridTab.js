@@ -988,6 +988,10 @@ export async function wireGridTab(panel) {
       gridState.dirty.clear();
     }
     const yyyymm = panel.querySelector('#gridMonth')?.value || _gridDefaultMonthKey();
+    /* Firma/odeljenje dolazi sa liste zaposlenih; bez force u istoj sesiji ostaje stari keš. */
+    await ensureEmployeesLoaded(true);
+    const firmSel = panel.querySelector('#gridCompanyFilter');
+    if (firmSel) firmSel.innerHTML = _gridCompanyOptions(firmSel.value || '');
     await _loadAndRender(yyyymm);
   });
   panel.querySelector('#gridSaveAll')?.addEventListener('click', _saveAllGrid);
@@ -1020,9 +1024,9 @@ export async function wireGridTab(panel) {
     _renderGridBody();
   });
 
-  /* Učitaj zaposlene (potrebno za firma filter i grupisanje) */
+  /* Učitaj zaposlene (potrebno za firma filter) — uvek sa mreže da department ne zeza keš. */
   try {
-    await ensureEmployeesLoaded();
+    await ensureEmployeesLoaded(true);
   } catch (err) {
     console.warn('[grid] employees load failed', err);
   }
