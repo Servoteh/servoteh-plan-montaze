@@ -33,6 +33,7 @@ U UI-ju, filter **Firma** je jednak koloni **`employees.department`**, ne tabeli
 - **Janković Mihajlo** i **Radelić Uroš** su praktikanti i **ne treba** da budu u HAP listi: migracija
   `supabase/migrations/20260429120000__employees_remove_praktikanti_hap_fluid_firma.sql` ih prebacuje sa `HAP Fluid` na `Servoteh` (dijakritike u `full_name` i opciono `work_type = praksa`).
 - Posle `supabase db push` (ili nalepljenja SQL u **Supabase → SQL**), u pregledu uradi **↻ Osveži** (ili ponovo učitaj stranicu).
+- Ako u listi i dalje piše **HAP Fluid** za Jankovića / Radelića, migracija verovatno **nije bila uopšte pokrenuta** na bazi. Brzi ručni fix: `sql/manual/hap_fluid_ukloni_2_praktikanta_employees.sql` (nalepi u **Supabase → SQL** → *Run*), pa u app-u **↻ Osveži**.
 
 ## Sinhronizacija iz Excela (obračun)
 
