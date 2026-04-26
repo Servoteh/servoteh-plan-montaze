@@ -147,6 +147,44 @@ export async function fetchPodsklopoviPredmeta(itemId) {
   return rpc('get_podsklopovi_predmeta', { p_item_id: id });
 }
 
+/** Jedan payload za ekran / Excel / PDF — read-only RPC. */
+export async function fetchPredmetPracenjeIzvestaj(itemId, { rootRnId = null, lotQty = 12 } = {}) {
+  const id = Number(itemId);
+  if (!Number.isFinite(id) || id <= 0) throw new Error('Neispravan ID predmeta.');
+  const lot = Number(lotQty);
+  const body = {
+    p_predmet_item_id: id,
+    p_lot_qty: Number.isFinite(lot) && lot > 0 ? Math.min(Math.floor(lot), 100000) : 12,
+  };
+  const rn = rootRnId != null ? Number(rootRnId) : null;
+  if (rn != null && Number.isFinite(rn) && rn > 0) {
+    body.p_root_rn_id = rn;
+  } else {
+    body.p_root_rn_id = null;
+  }
+  return rpc('get_predmet_pracenje_izvestaj', body);
+}
+
+/** Korisnička napomena — samo admin/menadžment (backend + RLS). */
+export async function upsertPracenjeProizvodnjeNapomena({
+  predmetItemId,
+  bigtehnRnId,
+  note,
+  rnId = null,
+} = {}) {
+  const pid = Number(predmetItemId);
+  const wid = Number(bigtehnRnId);
+  if (!Number.isFinite(pid) || pid <= 0 || !Number.isFinite(wid) || wid <= 0) {
+    throw new Error('Neispravan predmet ili RN.');
+  }
+  return rpc('upsert_pracenje_proizvodnje_napomena', {
+    p_predmet_item_id: pid,
+    p_bigtehn_rn_id: wid,
+    p_note: String(note ?? ''),
+    p_rn_id: rnId || null,
+  });
+}
+
 export async function setPredmetPrioritet(itemId, sortPriority) {
   const id = Number(itemId);
   const sp = Number(sortPriority);
@@ -297,7 +335,7 @@ export async function fetchActivityHistory(activityId) {
   return { blokade, audit };
 }
 
-export async function logPracenjeExport({ rnId, tab, rnBroj }) {
+export async function logPracenjeExport({ rnId, tab, rnBroj, predmetItemId, extra = null }) {
   if (!getIsOnline()) return false;
   const user = getCurrentUser();
   const payload = {
@@ -309,8 +347,10 @@ export async function logPracenjeExport({ rnId, tab, rnBroj }) {
     new_data: {
       rn_id: rnId || null,
       rn_broj: rnBroj || null,
+      predmet_item_id: predmetItemId ?? null,
       tab,
       exported_at: new Date().toISOString(),
+      ...(extra && typeof extra === 'object' ? extra : {}),
     },
   };
   try {

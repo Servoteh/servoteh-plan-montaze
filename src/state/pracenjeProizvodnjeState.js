@@ -14,6 +14,8 @@ import {
   fetchOperativniPlan,
   fetchPodsklopoviPredmeta,
   fetchPracenjeRn,
+  fetchPredmetPracenjeIzvestaj,
+  upsertPracenjeProizvodnjeNapomena,
   listOdeljenja,
   listRadnici,
   promovisiAkcionuTacku,
@@ -25,7 +27,7 @@ import {
   upsertOperativnaAktivnost,
   zatvoriAktivnost,
 } from '../services/pracenjeProizvodnje.js';
-import { canEdit as authCanEditApp, getCurrentRole } from '../state/auth.js';
+import { canEdit as authCanEditApp, getCurrentRole, isAdminOrMenadzment } from '../state/auth.js';
 import { showToast } from '../lib/dom.js';
 
 /** UI edit: RPC can_edit_pracenje + fallback na app ulogu (isti pattern kao Plan Montaže). */
@@ -34,6 +36,8 @@ function effectiveCanEditPracenje(rpcAllowed) {
 }
 
 export const PRACENJE_TABS = ['po_pozicijama', 'operativni_plan'];
+
+export const PREDMET_TAB_IDS = ['stablo', 'tabela_pracenja'];
 
 export const pracenjeState = {
   rnId: null,
@@ -84,6 +88,15 @@ export const pracenjeState = {
     loaded: false,
     podsklopoviLoading: false,
     podsklopoviError: null,
+    activePredmetTab: 'stablo',
+    izvestaj: null,
+    izvestajLoading: false,
+    izvestajError: null,
+    izvestajLotQty: 12,
+    izvestajRootRnId: null,
+    izvestajFilter: 'sve',
+    izvestajMatrixView: false,
+    izvestajExpandedNodeIds: {},
   },
 };
 
@@ -142,6 +155,15 @@ export function resetPracenjeState() {
     loaded: false,
     podsklopoviLoading: false,
     podsklopoviError: null,
+    activePredmetTab: 'stablo',
+    izvestaj: null,
+    izvestajLoading: false,
+    izvestajError: null,
+    izvestajLotQty: 12,
+    izvestajRootRnId: null,
+    izvestajFilter: 'sve',
+    izvestajMatrixView: false,
+    izvestajExpandedNodeIds: {},
   };
   emit();
 }
@@ -150,6 +172,112 @@ export function setActiveTab(tab) {
   if (!PRACENJE_TABS.includes(tab)) return;
   pracenjeState.activeTab = tab;
   emit();
+}
+
+export function setActivePredmetTab(tab) {
+  if (!PREDMET_TAB_IDS.includes(tab)) return;
+  pracenjeState.aktivniPredmetiState.activePredmetTab = tab;
+  emit();
+}
+
+/** Admin + menadžment: izmena korisničke napomene u tabeli praćenja (backend proverava). */
+export function canEditPracenjeNapomenu() {
+  return isAdminOrMenadzment();
+}
+
+export function setIzvestajLotQty(qty) {
+  const n = Number(qty);
+  if (!Number.isFinite(n) || n <= 0) return;
+  pracenjeState.aktivniPredmetiState.izvestajLotQty = Math.min(Math.floor(n), 100000);
+  emit();
+}
+
+export function setIzvestajRootRnId(rootRnId) {
+  const ap = pracenjeState.aktivniPredmetiState;
+  if (rootRnId == null || rootRnId === '') {
+    ap.izvestajRootRnId = null;
+  } else {
+    const n = Number(rootRnId);
+    ap.izvestajRootRnId = Number.isFinite(n) && n > 0 ? n : null;
+  }
+  emit();
+}
+
+export function setIzvestajFilter(filter) {
+  const allowed = new Set([
+    'sve', 'nije_kompletirano', 'nema_tp', 'nema_crtez', 'nema_zavrsnu_kontrolu', 'kasni', 'ima_napomenu',
+  ]);
+  if (!allowed.has(filter)) return;
+  pracenjeState.aktivniPredmetiState.izvestajFilter = filter;
+  emit();
+}
+
+export function toggleIzvestajMatrixView() {
+  const ap = pracenjeState.aktivniPredmetiState;
+  ap.izvestajMatrixView = !ap.izvestajMatrixView;
+  emit();
+}
+
+export function toggleIzvestajRowExpanded(nodeId) {
+  const ap = pracenjeState.aktivniPredmetiState;
+  const k = String(nodeId);
+  const next = { ...ap.izvestajExpandedNodeIds };
+  if (next[k]) delete next[k];
+  else next[k] = true;
+  ap.izvestajExpandedNodeIds = next;
+  emit();
+}
+
+export async function loadPredmetIzvestaj() {
+  const ap = pracenjeState.aktivniPredmetiState;
+  const itemId = ap.selectedItemId;
+  if (itemId == null) return;
+  if (ap.izvestajLoading) return;
+  ap.izvestajLoading = true;
+  ap.izvestajError = null;
+  emit();
+  try {
+    const raw = await fetchPredmetPracenjeIzvestaj(itemId, {
+      rootRnId: ap.izvestajRootRnId,
+      lotQty: ap.izvestajLotQty,
+    });
+    ap.izvestaj = raw && typeof raw === 'object' ? raw : JSON.parse(String(raw || '{}'));
+    ap.izvestajError = null;
+  } catch (e) {
+    ap.izvestaj = null;
+    ap.izvestajError = e?.message || String(e);
+  } finally {
+    ap.izvestajLoading = false;
+    emit();
+  }
+}
+
+export function patchIzvestajRowKorisnickaNapomena(bigtehnRnId, note) {
+  const ap = pracenjeState.aktivniPredmetiState;
+  const data = ap.izvestaj;
+  if (!data?.rows || !Array.isArray(data.rows)) return;
+  const id = Number(bigtehnRnId);
+  const rows = data.rows.map((r) => {
+    if (Number(r.node_id) === id) {
+      return { ...r, korisnicka_napomena: note };
+    }
+    return r;
+  });
+  ap.izvestaj = { ...data, rows };
+  emit();
+}
+
+export async function savePracenjeIzvestajNapomena({ bigtehnRnId, note, rnUuid = null }) {
+  const ap = pracenjeState.aktivniPredmetiState;
+  const itemId = ap.selectedItemId;
+  if (itemId == null) throw new Error('Nije izabran predmet.');
+  await upsertPracenjeProizvodnjeNapomena({
+    predmetItemId: itemId,
+    bigtehnRnId,
+    note,
+    rnId: rnUuid || null,
+  });
+  patchIzvestajRowKorisnickaNapomena(bigtehnRnId, note);
 }
 
 export function setOperativniFilter(name, value) {
@@ -234,7 +362,22 @@ export async function selectPredmet(itemId) {
   const id = Number(itemId);
   if (!Number.isFinite(id) || id <= 0) return;
   const ap = pracenjeState.aktivniPredmetiState;
+  let rootFromUrl = null;
+  let tabFromUrl = null;
+  if (typeof window !== 'undefined') {
+    const p = new URLSearchParams(window.location.search);
+    if (p.get('predmet') === String(id)) {
+      const r = p.get('root');
+      if (r != null && /^\d+$/.test(String(r).trim())) {
+        const rn = Number(r);
+        rootFromUrl = Number.isFinite(rn) && rn > 0 ? rn : null;
+      }
+    }
+    tabFromUrl = new URLSearchParams((window.location.hash || '').replace(/^#/, '')).get('tab');
+  }
   ap.selectedItemId = id;
+  ap.izvestajRootRnId = rootFromUrl;
+  if (PREDMET_TAB_IDS.includes(tabFromUrl)) ap.activePredmetTab = tabFromUrl;
   ap.podsklopoviError = null;
   ap.podsklopoviLoading = true;
   ap.headerPredmet = ap.predmeti.find(p => Number(p.item_id) === id) || {
@@ -265,6 +408,15 @@ export function clearSelectedPredmet() {
   ap.podsklopovi = [];
   ap.headerPredmet = null;
   ap.podsklopoviError = null;
+  ap.activePredmetTab = 'stablo';
+  ap.izvestaj = null;
+  ap.izvestajLoading = false;
+  ap.izvestajError = null;
+  ap.izvestajLotQty = 12;
+  ap.izvestajRootRnId = null;
+  ap.izvestajFilter = 'sve';
+  ap.izvestajMatrixView = false;
+  ap.izvestajExpandedNodeIds = {};
   clearPredmetFromUrl();
   emit();
 }
@@ -308,6 +460,7 @@ function syncPredmetUrl(itemId) {
   const params = new URLSearchParams(window.location.search);
   params.delete('rn');
   params.set('predmet', String(itemId));
+  params.delete('root');
   const hash = window.location.hash || '';
   history.pushState(null, '', `${window.location.pathname}?${params.toString()}${hash}`);
 }
@@ -317,6 +470,7 @@ function clearPredmetFromUrl() {
   const params = new URLSearchParams(window.location.search);
   if (!params.has('predmet')) return;
   params.delete('predmet');
+  params.delete('root');
   const qs = params.toString();
   const hash = window.location.hash || '';
   history.pushState(null, '', `${window.location.pathname}${qs ? `?${qs}` : ''}${hash}`);

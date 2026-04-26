@@ -11,9 +11,11 @@ import {
   clearSelectedPredmet,
   getPracenjeSnapshot,
   loadAktivniPredmeti,
+  loadPredmetIzvestaj,
   loadPracenje,
   resetPracenjeState,
   selectPredmet,
+  setActivePredmetTab,
   setActiveTab,
   startRealtime,
   stopRealtime,
@@ -21,7 +23,8 @@ import {
 } from '../../state/pracenjeProizvodnjeState.js';
 import { aktivniPredmetiListHtml, wireAktivniPredmetiList } from './aktivniPredmetiList.js';
 import { podsklopoviTreeHtml, wirePodsklopoviTree } from './podsklopoviTree.js';
-import { getPracenjeUrlState } from './pracenjeRouter.js';
+import { getPracenjeUrlState, predmetTabFromHash } from './pracenjeRouter.js';
+import { tabelaPracenjaMainHtml, wireTabelaPracenja } from './tabelaPracenjaTab.js';
 import { pageHeaderHtml } from './pageHeader.js';
 import { tab1PozicijeHtml, wireTab1Pozicije } from './tab1Pozicije.js';
 import {
@@ -51,14 +54,23 @@ export function renderPracenjeProizvodnjeModule(mountEl, options = {}) {
 
   const hashTab = tabFromHash();
   if (hashTab) setActiveTab(hashTab);
+  {
+    const { predmet: p0, rn: r0 } = getPracenjeUrlState();
+    if (!r0 && p0 != null) setActivePredmetTab(predmetTabFromHash());
+  }
 
   if (_unsubscribe) _unsubscribe();
   _unsubscribe = subscribePracenje(() => renderShell());
 
   if (_hashHandler) window.removeEventListener('hashchange', _hashHandler);
   _hashHandler = () => {
-    const tab = tabFromHash();
-    if (tab) setActiveTab(tab);
+    const { rn, predmet } = getPracenjeUrlState();
+    if (rn) {
+      const tab = tabFromHash();
+      if (tab) setActiveTab(tab);
+    } else if (predmet != null) {
+      setActivePredmetTab(predmetTabFromHash());
+    }
   };
   window.addEventListener('hashchange', _hashHandler);
 
@@ -75,7 +87,13 @@ export function renderPracenjeProizvodnjeModule(mountEl, options = {}) {
     stopRealtime();
     if (getPracenjeSnapshot().rnId) clearRnInkrementView();
     if (predmet != null) {
-      void loadAktivniPredmeti().then(() => selectPredmet(predmet).then(() => renderShell()));
+      void loadAktivniPredmeti().then(() =>
+        selectPredmet(predmet).then(async () => {
+          setActivePredmetTab(predmetTabFromHash());
+          if (predmetTabFromHash() === 'tabela_pracenja') await loadPredmetIzvestaj();
+          renderShell();
+        }),
+      );
     } else {
       clearSelectedPredmet();
       void loadAktivniPredmeti().then(() => renderShell());
@@ -93,7 +111,13 @@ export function renderPracenjeProizvodnjeModule(mountEl, options = {}) {
     renderShell();
     startRealtime();
   } else if (predmetParam != null) {
-    void loadAktivniPredmeti().then(() => selectPredmet(predmetParam).then(() => renderShell()));
+    void loadAktivniPredmeti().then(() =>
+      selectPredmet(predmetParam).then(async () => {
+        setActivePredmetTab(predmetTabFromHash());
+        if (predmetTabFromHash() === 'tabela_pracenja') await loadPredmetIzvestaj();
+        renderShell();
+      }),
+    );
   } else {
     void loadAktivniPredmeti();
   }
@@ -180,12 +204,16 @@ function rnLoaderHtml(state) {
 }
 
 function bodyHtml(state) {
-  if (!state.rnId && state.aktivniPredmetiState?.selectedItemId) {
+  const ap = state.aktivniPredmetiState;
+  if (!state.rnId && ap?.selectedItemId) {
+    if (ap.activePredmetTab === 'tabela_pracenja') {
+      return tabelaPracenjaMainHtml(state);
+    }
     return `
       <div class="pp-state">
         <div class="pp-state-icon">…</div>
         <div class="pp-state-title">Izaberi RN u stablu</div>
-        <div class="pp-state-desc">Klik na red u stablu iznad otvara praćenje (Inkrement 2). Ili unesi RN ispod / <code>?rn=</code>.</div>
+        <div class="pp-state-desc">Klik na red u stablu iznad otvara praćenje (Inkrement 2). Ili unesi RN ispod / <code>?rn=</code>. Tab „Tabela praćenja” za izveštaj po predmetu.</div>
       </div>
     `;
   }
@@ -234,6 +262,9 @@ function wireShell(container, state) {
   });
   if (!state.rnId && state.aktivniPredmetiState?.selectedItemId) {
     wirePodsklopoviTree(container, state, renderShell);
+    if (state.aktivniPredmetiState.activePredmetTab === 'tabela_pracenja') {
+      wireTabelaPracenja(container, state, renderShell);
+    }
   } else if (!state.rnId) {
     wireAktivniPredmetiList(container, renderShell);
   }
@@ -241,12 +272,25 @@ function wireShell(container, state) {
 
 function loadFromInput(rnId, options = {}) {
   if (!rnId) return;
+  const snap = getPracenjeSnapshot();
+  const ap = snap.aktivniPredmetiState;
   const params = new URLSearchParams(window.location.search);
-  params.delete('predmet');
+  if (ap?.selectedItemId) {
+    params.set('predmet', String(ap.selectedItemId));
+    const root = ap?.izvestajRootRnId;
+    if (root != null && root > 0) params.set('root', String(root));
+    else params.delete('root');
+  } else {
+    params.delete('predmet');
+    params.delete('root');
+  }
   params.set('rn', rnId);
   const hash = window.location.hash || '#tab=po_pozicijama';
-  history.replaceState(null, '', `${window.location.pathname}?${params.toString()}${hash}`);
-  void loadPracenje(rnId, options).then(ok => { if (ok) startRealtime(); });
+  history.pushState(null, '', `${window.location.pathname}?${params.toString()}${hash}`);
+  void loadPracenje(rnId, options).then((ok) => {
+    if (ok) startRealtime();
+    renderShell();
+  });
 }
 
 function errorHtml(message) {

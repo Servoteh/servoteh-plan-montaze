@@ -10,6 +10,7 @@ import {
   selectPredmet,
   startRealtime,
 } from '../../state/pracenjeProizvodnjeState.js';
+import { predmetTabsStripHtml, wirePredmetTabs } from './tabelaPracenjaTab.js';
 
 function treeExpandKey(itemId) {
   return `pracenjeTreeExpand:v1:${itemId}`;
@@ -106,12 +107,15 @@ export function podsklopoviTreeHtml(state) {
   const bp = escHtml(String(hid.broj_predmeta || ''));
   const kom = escHtml(String(hid.customer_name || ''));
 
+  const tabs = predmetTabsStripHtml(ap.activePredmetTab || 'stablo');
+
   if (ap.podsklopoviLoading) {
     return `
       <section class="form-card" style="margin-bottom:14px">
         <div class="pp-toolbar" style="margin:0 0 12px">
           <button type="button" class="pp-refresh-btn" id="ppPredmetBackBtn">← Nazad na listu predmeta</button>
         </div>
+        ${tabs}
         <h2 class="form-section-title" style="margin:0 0 8px">${naz}</h2>
         <p class="form-hint">${bp}${kom ? ` · ${kom}` : ''}</p>
         <p class="form-hint">Učitavanje stabla…</p>
@@ -124,6 +128,7 @@ export function podsklopoviTreeHtml(state) {
         <div class="pp-toolbar" style="margin:0 0 12px">
           <button type="button" class="pp-refresh-btn" id="ppPredmetBackBtn">← Nazad na listu predmeta</button>
         </div>
+        ${tabs}
         <p class="pp-error">${escHtml(ap.podsklopoviError)}</p>
         <button type="button" class="btn btn-ghost" id="ppPodsklopRetry">Pokušaj ponovo</button>
       </section>
@@ -163,18 +168,24 @@ export function podsklopoviTreeHtml(state) {
       ${nested}`;
   }).join('');
 
+  const treeBlock = (ap.activePredmetTab || 'stablo') !== 'stablo'
+    ? '<p class="form-hint" style="margin:8px 0 0">Stablo je na tabu „Stablo”. Ispod je tabela praćenja.</p>'
+    : `
+      <div class="pp-table-wrap" style="max-height:min(65vh,640px);overflow:auto">
+        <table class="pp-table" id="ppPodsklopTable">
+          <tbody>${body || '<tr><td class="form-hint">Nema redova u strukturi za ovaj predmet.</td></tr>'}</tbody>
+        </table>
+      </div>`;
+
   return `
     <section class="form-card" style="margin-bottom:14px">
       <div class="pp-toolbar" style="margin:0 0 12px">
         <button type="button" class="pp-refresh-btn" id="ppPredmetBackBtn">← Nazad na listu predmeta</button>
       </div>
+      ${tabs}
       <h2 class="form-section-title" style="margin:0 0 4px">${naz}</h2>
       <p class="form-hint" style="margin:0 0 14px">${bp}${kom ? ` · ${kom}` : ''}</p>
-      <div class="pp-table-wrap" style="max-height:min(65vh,640px);overflow:auto">
-        <table class="pp-table" id="ppPodsklopTable">
-          <tbody>${body || '<tr><td class="form-hint">Nema redova u strukturi za ovaj predmet.</td></tr>'}</tbody>
-        </table>
-      </div>
+      ${treeBlock}
     </section>
   `;
 }
@@ -182,6 +193,8 @@ export function podsklopoviTreeHtml(state) {
 export function wirePodsklopoviTree(container, state, renderShell) {
   const ap = state.aktivniPredmetiState || {};
   const itemId = ap.selectedItemId;
+
+  wirePredmetTabs(container, state, renderShell);
 
   container.querySelector('#ppPredmetBackBtn')?.addEventListener('click', () => {
     clearSelectedPredmet();
@@ -212,7 +225,10 @@ export function wirePodsklopoviTree(container, state, renderShell) {
       try {
         const uuid = await ensureRadniNalogFromBigtehn(id);
         const params = new URLSearchParams(window.location.search);
-        params.delete('predmet');
+        if (itemId != null) params.set('predmet', String(itemId));
+        const root = ap.izvestajRootRnId;
+        if (root != null && root > 0) params.set('root', String(root));
+        else params.delete('root');
         params.set('rn', uuid);
         const hash = window.location.hash || '#tab=po_pozicijama';
         history.pushState(null, '', `${window.location.pathname}?${params.toString()}${hash}`);
