@@ -6,9 +6,9 @@
 
 ## 1. Sažetak
 
-- **Tabela sa RLS politikama:** 35
-- **Ukupno efektivnih politika:** 106
-- **SECURITY DEFINER funkcija:** 58
+- **Tabela sa RLS politikama:** 40
+- **Ukupno efektivnih politika:** 119
+- **SECURITY DEFINER funkcija:** 73
 - **Objekata sa anon grant-om:** 2
 
 ## 2. Anon (javni) pristup
@@ -69,9 +69,10 @@ eskalacija ako search_path nije postavljen ili ako logika ne proverava ulogu.
 | `maint_dispatch_mark_sent` | `sql/migrations/add_maint_notify_dispatch_rpc.sql` |
 | `maint_enqueue_notification` | `sql/migrations/add_maint_notification_outbox.sql` |
 | `maint_has_floor_read_access` | `sql/migrations/add_maintenance_module.sql` |
+| `maint_incidents_autocreate_work_order` | `sql/migrations/link_maint_incidents_to_wo.sql` |
 | `maint_incidents_enqueue_notify` | `sql/migrations/add_maint_notification_outbox.sql` |
 | `maint_is_erp_admin` | `sql/migrations/add_maintenance_module.sql` |
-| `maint_is_erp_admin_or_management` | `sql/migrations/add_maint_machine_hard_delete.sql` |
+| `maint_is_erp_admin_or_management` | `sql/migrations/add_maint_work_orders.sql` |
 | `maint_machine_delete_hard` | `sql/migrations/add_maint_machine_hard_delete.sql` |
 | `maint_machine_rename` | `sql/migrations/add_maint_rls_menadzment_paritet.sql` |
 | `maint_machine_visible` | `sql/migrations/add_maintenance_module.sql` |
@@ -79,10 +80,24 @@ eskalacija ako search_path nije postavljen ili ako logika ne proverava ulogu.
 | `maint_machines_import_from_cache` | `sql/migrations/add_maint_rls_menadzment_paritet.sql` |
 | `maint_notification_retry` | `sql/migrations/add_maint_rls_menadzment_paritet.sql` |
 | `maint_profile_role` | `sql/migrations/add_maintenance_module.sql` |
+| `maint_wo_log_field_changes` | `sql/migrations/add_maint_work_orders.sql` |
+| `maint_wo_row_visible` | `sql/migrations/add_maint_work_orders.sql` |
+| `maint_work_orders_assign_wo_number` | `sql/migrations/add_maint_work_orders.sql` |
 | `mark_in_progress_from_tech_routing` | `sql/migrations/add_production_g6_auto_in_progress.sql` |
 | `production_machine_group_slug` | `sql/migrations/add_production_g5_reassign_rpc.sql` |
 | `reassign_production_line` | `sql/migrations/add_production_g5_reassign_rpc.sql` |
 | `salary_payroll_set_created_by` | `sql/migrations/add_kadr_salary_payroll.sql` |
+| `sast_trg_akcija_changed` | `sql/migrations/add_sastanci_notification_triggers.sql` |
+| `sast_trg_akcija_new` | `sql/migrations/add_sastanci_notification_triggers.sql` |
+| `sast_trg_meeting_locked` | `sql/migrations/add_sastanci_notification_triggers.sql` |
+| `sast_trg_ucesnik_invite` | `sql/migrations/add_sastanci_notification_triggers.sql` |
+| `sastanci_dispatch_dequeue` | `sql/migrations/add_sastanci_dispatch_rpc.sql` |
+| `sastanci_dispatch_mark_failed` | `sql/migrations/add_sastanci_dispatch_rpc.sql` |
+| `sastanci_dispatch_mark_sent` | `sql/migrations/add_sastanci_dispatch_rpc.sql` |
+| `sastanci_enqueue_action_reminders` | `sql/migrations/add_sastanci_reminder_jobs.sql` |
+| `sastanci_enqueue_meeting_reminders` | `sql/migrations/add_sastanci_reminder_jobs.sql` |
+| `sastanci_enqueue_notification` | `sql/migrations/add_sastanci_notification_outbox.sql` |
+| `sastanci_get_or_create_my_prefs` | `sql/migrations/add_sastanci_notification_prefs.sql` |
 | `touch_updated_at` | `sql/migrations/add_plan_proizvodnje.sql` |
 | `update_updated_at` | `sql/migrations/add_kadrovska_phase1.sql` |
 | `user_roles_set_updated_at` | `sql/migrations/add_admin_roles.sql` |
@@ -138,10 +153,10 @@ Legenda flag-ova:
 
 | Politika | Akcija | Role | USING | WITH CHECK | Flagovi | Izvor |
 |---|---|---|---|---|---|---|
-| `employee_children_delete` | DELETE | `authenticated` | `public.current_user_is_hr_or_admin()` | `` | ✅ | `sql/migrations/add_kadr_employee_extended.sql` |
-| `employee_children_insert` | INSERT | `authenticated` | `` | `public.current_user_is_hr_or_admin()` | ✅ | `sql/migrations/add_kadr_employee_extended.sql` |
-| `employee_children_select` | SELECT | `authenticated` | `public.current_user_is_hr_or_admin()` | `` | ✅ | `sql/migrations/add_kadr_employee_extended.sql` |
-| `employee_children_update` | UPDATE | `authenticated` | `public.current_user_is_hr_or_admin()` | `public.current_user_is_hr_or_admin()` | ✅ | `sql/migrations/add_kadr_employee_extended.sql` |
+| `employee_children_delete` | DELETE | `authenticated` | `public.current_user_is_admin()` | `` | ✅ | `sql/migrations/restrict_employee_pii_admin_only.sql` |
+| `employee_children_insert` | INSERT | `authenticated` | `` | `public.current_user_is_admin()` | ✅ | `sql/migrations/restrict_employee_pii_admin_only.sql` |
+| `employee_children_select` | SELECT | `authenticated` | `public.current_user_is_admin()` | `` | ✅ | `sql/migrations/restrict_employee_pii_admin_only.sql` |
+| `employee_children_update` | UPDATE | `authenticated` | `public.current_user_is_admin()` | `public.current_user_is_admin()` | ✅ | `sql/migrations/restrict_employee_pii_admin_only.sql` |
 
 ### `employees`
 
@@ -201,6 +216,12 @@ Legenda flag-ova:
 | Politika | Akcija | Role | USING | WITH CHECK | Flagovi | Izvor |
 |---|---|---|---|---|---|---|
 | `loc_sync_select` | SELECT | `authenticated` | `public.loc_is_admin()` | `` | ✅ | `sql/migrations/add_loc_module.sql` |
+
+### `maint_wo_number_counter`
+
+| Politika | Akcija | Role | USING | WITH CHECK | Flagovi | Izvor |
+|---|---|---|---|---|---|---|
+| `maint_wo_num_counter_deny` | ALL | `authenticated` | `false` | `false` | ✅ | `sql/migrations/add_maint_work_orders.sql` |
 
 ### `phases`
 
@@ -340,6 +361,38 @@ Legenda flag-ova:
 | `sastanci_write` | ALL | `authenticated` | `public.has_edit_role()` | `public.has_edit_role()` | ✅ | `sql/migrations/add_sastanci_module.sql` |
 | `sastanci_select` | SELECT | `authenticated` | `public.is_sastanak_ucesnik(id) OR public.current_user_is_ma…` | `` | ✅ | `sql/migrations/harden_sastanci_rls_phase2.sql` |
 
+### `sastanci_notification_log`
+
+| Politika | Akcija | Role | USING | WITH CHECK | Flagovi | Izvor |
+|---|---|---|---|---|---|---|
+| `snl_delete` | DELETE | `authenticated` | `public.current_user_is_management()` | `` | ✅ | `sql/migrations/add_sastanci_notification_outbox.sql` |
+| `snl_insert` | INSERT | `authenticated` | `` | `public.has_edit_role()` | ✅ | `sql/migrations/add_sastanci_notification_outbox.sql` |
+| `snl_select` | SELECT | `authenticated` | `recipient_email = lower(COALESCE(auth.jwt() ->> 'email', ''…` | `` | ✅ | `sql/migrations/add_sastanci_notification_outbox.sql` |
+| `snl_update` | UPDATE | `authenticated` | `public.current_user_is_management()` | `` | ✅ | `sql/migrations/add_sastanci_notification_outbox.sql` |
+
+### `sastanci_notification_prefs`
+
+| Politika | Akcija | Role | USING | WITH CHECK | Flagovi | Izvor |
+|---|---|---|---|---|---|---|
+| `snp_delete_admin` | DELETE | `authenticated` | `public.current_user_is_management()` | `` | ✅ | `sql/migrations/add_sastanci_notification_prefs.sql` |
+| `snp_insert_own` | INSERT | `authenticated` | `` | `email = lower(COALESCE(auth.jwt() ->> 'email', ''))` | ✅ | `sql/migrations/add_sastanci_notification_prefs.sql` |
+| `snp_select_own` | SELECT | `authenticated` | `email = lower(COALESCE(auth.jwt() ->> 'email', '')) OR publ…` | `` | ✅ | `sql/migrations/add_sastanci_notification_prefs.sql` |
+| `snp_update_own` | UPDATE | `authenticated` | `email = lower(COALESCE(auth.jwt() ->> 'email', '')) OR publ…` | `email = lower(COALESCE(auth.jwt() ->> 'email', '')) OR publ…` | ✅ | `sql/migrations/add_sastanci_notification_prefs.sql` |
+
+### `sastanci_template_ucesnici`
+
+| Politika | Akcija | Role | USING | WITH CHECK | Flagovi | Izvor |
+|---|---|---|---|---|---|---|
+| `sast_tu_write` | ALL | `authenticated` | `public.has_edit_role()` | `public.has_edit_role()` | ✅ | `sql/migrations/add_sastanci_templates.sql` |
+| `sast_tu_select` | SELECT | `authenticated` | `true` | `` | ⚠ USING(true) | `sql/migrations/add_sastanci_templates.sql` |
+
+### `sastanci_templates`
+
+| Politika | Akcija | Role | USING | WITH CHECK | Flagovi | Izvor |
+|---|---|---|---|---|---|---|
+| `sast_tpl_write` | ALL | `authenticated` | `public.has_edit_role()` | `public.has_edit_role()` | ✅ | `sql/migrations/add_sastanci_templates.sql` |
+| `sast_tpl_select` | SELECT | `authenticated` | `true` | `` | ⚠ USING(true) | `sql/migrations/add_sastanci_templates.sql` |
+
 ### `user_roles`
 
 | Politika | Akcija | Role | USING | WITH CHECK | Flagovi | Izvor |
@@ -377,7 +430,7 @@ Legenda flag-ova:
 
 ## 5. Statistika rizika
 
-- Politike sa `USING(true)` (osim INSERT): **20**
+- Politike sa `USING(true)` (osim INSERT): **22**
 - Politike sa `TO anon`: **0**
 - Anon objekt grant-ovi (sa SELECT/INSERT/UPDATE/DELETE): **2**
 
