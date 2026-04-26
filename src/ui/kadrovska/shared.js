@@ -85,20 +85,28 @@ export function employeeOptionsHtml({
   return opts.join('');
 }
 
+/**
+ * Definicije tabova (redosled = strip). `adminOnly` = samo canAccessSalary().
+ */
+export const KADROVSKA_TAB_DEFS = [
+  { id: 'employees', label: 'Zaposleni', badgeId: 'kadrTabCountEmployees' },
+  { id: 'absences', label: 'Odsustva', badgeId: 'kadrTabCountAbsences' },
+  { id: 'vacation', label: 'Godišnji odmor', badgeId: 'kadrTabCountVacation' },
+  { id: 'grid', label: 'Mesečni grid', badgeId: 'kadrTabCountGrid' },
+  { id: 'hours', label: 'Sati', badgeId: 'kadrTabCountHours' },
+  { id: 'contracts', label: 'Ugovori', badgeId: 'kadrTabCountContracts' },
+  { id: 'salary', label: 'Zarade', badgeId: 'kadrTabCountSalary', adminOnly: true },
+  { id: 'notifications', label: 'Notifikacije', badgeId: 'kadrTabCountNotif' },
+  { id: 'reports', label: 'Izveštaji', badgeId: 'kadrTabCountReports' },
+];
+
+export function kadrVisibleTabDefs() {
+  return KADROVSKA_TAB_DEFS.filter(t => !t.adminOnly || canAccessSalary());
+}
+
 /** Tab bar sa badge-ovima. Active tab se kontroliše classList.add('active'). */
 export function kadrTabsHtml(activeTab) {
-  const tabs = [
-    { id: 'employees', label: 'Zaposleni', badgeId: 'kadrTabCountEmployees' },
-    { id: 'absences', label: 'Odsustva', badgeId: 'kadrTabCountAbsences' },
-    { id: 'vacation', label: 'Godišnji odmor', badgeId: 'kadrTabCountVacation' },
-    { id: 'grid', label: 'Mesečni grid', badgeId: 'kadrTabCountGrid' },
-    { id: 'hours', label: 'Sati (pojedinačno)', badgeId: 'kadrTabCountHours' },
-    { id: 'contracts', label: 'Ugovori', badgeId: 'kadrTabCountContracts' },
-    /* Zarade su strogo admin-only; ostale role (uključujući menadzment) ih ne vide. */
-    ...(canAccessSalary() ? [{ id: 'salary', label: 'Zarade', badgeId: 'kadrTabCountSalary' }] : []),
-    { id: 'notifications', label: 'Notifikacije', badgeId: 'kadrTabCountNotif' },
-    { id: 'reports', label: 'Izveštaji', badgeId: 'kadrTabCountReports' },
-  ];
+  const tabs = kadrVisibleTabDefs();
   return `
     <div class="kadrovska-tabs" role="tablist" aria-label="Kadrovska - sekcije">
       ${tabs.map(t => `

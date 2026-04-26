@@ -1353,6 +1353,104 @@ body.module-kadrovska > #module-settings { display:none !important; }
   display:flex; flex-direction:column;
 }
 
+/* Sticky: top nav + tabovi + (opciono) mesečni grid toolbar */
+.kadr-sticky-header-chrome {
+  position:sticky;
+  top:0;
+  z-index:20;
+  background:var(--bg);
+  box-shadow:0 1px 0 var(--border);
+}
+.kadr-panel-host {
+  flex:1;
+  min-height:0;
+  overflow-y:auto;
+  overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+}
+.kadr-grid-toolbar-slot:not([hidden]) { background:var(--surface2); border-bottom:1px solid var(--border); }
+.kadr-mesecni-grid-toolbar { padding:10px 24px; }
+.kadr-grid-toolbar-row {
+  display:flex;
+  flex-wrap:wrap;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:12px 16px;
+}
+.kadr-grid-toolbar-left {
+  display:flex;
+  flex:1 1 280px;
+  flex-wrap:wrap;
+  align-items:flex-end;
+  gap:10px 14px;
+  min-width:0;
+}
+.kadr-grid-toolbar-right {
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:flex-end;
+  gap:8px 10px;
+}
+.kadr-field--toolbar span {
+  display:block;
+  font-size:10px;
+  font-weight:600;
+  text-transform:uppercase;
+  letter-spacing:0.4px;
+  color:var(--text3);
+  margin-bottom:3px;
+}
+.kadr-dirty-count-badge {
+  min-width:26px;
+  height:24px;
+  padding:0 8px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-size:12px;
+  font-weight:700;
+  font-family:var(--mono);
+  border-radius:6px;
+  background:var(--surface3);
+  color:var(--text);
+  border:1px solid var(--border2);
+}
+.btn.btn-excel-outline {
+  background:transparent;
+  color:#27ae60;
+  border:1px solid #27ae60;
+  font-weight:600;
+}
+.btn.btn-excel-outline:hover {
+  background:color-mix(in srgb, #27ae60 10%, var(--surface));
+  color:#27ae60;
+}
+.kadr-grid-search-field--toolbar {
+  min-width:180px;
+  max-width:min(100%, 320px);
+  flex:1 1 200px;
+}
+.grid-legend-collapsible { padding:0 24px 8px; background:var(--surface); }
+.grid-legend-toggle {
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:6px 10px;
+  font-size:12px;
+  font-weight:600;
+  color:var(--text2);
+  background:var(--surface2);
+  border:1px solid var(--border);
+  border-radius:7px;
+  cursor:pointer;
+  font-family:var(--font);
+}
+.grid-legend-toggle:hover { color:var(--text); }
+.grid-legend-body { margin-top:8px; }
+.grid-legend-chev { font-size:10px; opacity:0.8; }
+.kadr-grid-panel .kadr-summary-strip { padding-top:12px; }
+
 .kadrovska-header {
   display:flex; align-items:center; justify-content:space-between;
   padding:14px 24px;
@@ -1588,14 +1686,14 @@ body.module-kadrovska > #module-settings { display:none !important; }
 }
 .kadrovska-tab:hover { color:var(--text); background:var(--surface2); }
 .kadrovska-tab.active {
-  color:var(--accent);
-  border-bottom-color:var(--accent);
+  color:var(--text);
+  border-bottom-color:#E25B45;
   font-weight:600;
 }
 .kadrovska-tab.active .kadr-tab-badge {
-  background:var(--accent-dim);
+  background:color-mix(in srgb, #E25B45 12%, var(--surface2));
   color:var(--accent);
-  border-color:color-mix(in srgb, var(--accent) 35%, transparent);
+  border-color:color-mix(in srgb, #E25B45 30%, var(--border2));
 }
 
 /* Tab panels ? only active one visible */

@@ -61,6 +61,18 @@ const gridState = {
 };
 
 let panelRoot = null;
+/** Sticky toolbar (mesec/odeljenje/pretraga/dugmad) u #kadrGridToolbarSlot. */
+let gridToolbarHost = null;
+
+function _gridQ(sel) {
+  if (!sel || typeof sel !== 'string') return null;
+  if (gridToolbarHost) {
+    const x = gridToolbarHost.querySelector(sel);
+    if (x) return x;
+  }
+  return panelRoot?.querySelector(sel) || null;
+}
+
 /** @type {ReturnType<typeof setTimeout> | null} */
 let _gridSearchDebounce = null;
 
@@ -222,10 +234,13 @@ function _gridDirtyCount() {
 }
 
 function _gridUpdateDirtyBadge() {
-  const el = panelRoot?.querySelector('#gridDirtyCount');
-  const btn = panelRoot?.querySelector('#gridSaveAll');
+  const el = _gridQ('#gridDirtyCount');
+  const btn = _gridQ('#gridSaveAll');
   const n = _gridDirtyCount();
-  if (el) el.textContent = n + ' izmena';
+  if (el) {
+    el.textContent = String(n);
+    el.title = n === 1 ? '1 izmena za snimanje' : n + ' izmena za snimanje';
+  }
   if (btn) {
     btn.disabled = !canEditKadrovskaGrid() || n === 0 || gridState.saving;
     btn.style.opacity = btn.disabled ? '0.55' : '1';
@@ -234,7 +249,7 @@ function _gridUpdateDirtyBadge() {
 
 /** Aktivni + firma (filter) + sort; bez pretrage — za čip, badge, XLSX. */
 function _gridEmployeesCompanyOnly() {
-  const company = panelRoot?.querySelector('#gridCompanyFilter')?.value || '';
+  const company = _gridQ('#gridCompanyFilter')?.value || '';
   return kadrovskaState.employees
     .filter(e => e.isActive)
     .filter(e => !company || e.department === company)
@@ -242,7 +257,7 @@ function _gridEmployeesCompanyOnly() {
 }
 
 function _gridCurrentSearchQuery() {
-  const fromInput = panelRoot?.querySelector('#gridSearch')?.value;
+  const fromInput = _gridQ('#gridSearch')?.value;
   if (fromInput != null) return String(fromInput).trim();
   return String(gridState.searchQuery || '').trim();
 }
@@ -259,8 +274,8 @@ function _gridFilteredEmployees() {
 }
 
 function _syncGridSearchMeta(companyCount, visibleCount) {
-  const el = panelRoot?.querySelector('#gridSearchMeta');
-  const clearBtn = panelRoot?.querySelector('#gridSearchClear');
+  const el = _gridQ('#gridSearchMeta');
+  const clearBtn = _gridQ('#gridSearchClear');
   if (clearBtn) {
     const q = _gridCurrentSearchQuery();
     clearBtn.style.visibility = q ? 'visible' : 'hidden';
@@ -272,7 +287,7 @@ function _syncGridSearchMeta(companyCount, visibleCount) {
     el.textContent = '';
     return;
   }
-  el.style.display = 'block';
+  el.style.display = 'inline';
   el.textContent = `Prikazano ${visibleCount} od ${companyCount}`;
 }
 
@@ -304,7 +319,7 @@ function _gridCompanyOptions(selected) {
     if (e.isActive && e.department) set.add(e.department);
   });
   const list = Array.from(set).sort((a, b) => a.localeCompare(b, 'sr'));
-  let html = `<option value=""${!selected ? ' selected' : ''}>Sve firme</option>`;
+  let html = `<option value=""${!selected ? ' selected' : ''}>Sva odeljenja</option>`;
   for (const d of list) {
     const sel = d === selected ? ' selected' : '';
     html += `<option value="${escHtml(d)}"${sel}>${escHtml(d)}</option>`;
@@ -317,63 +332,76 @@ function _gridDefaultMonthKey() {
   return String(t.getFullYear()) + '-' + String(t.getMonth() + 1).padStart(2, '0');
 }
 
-/* ─── RENDER (HTML SHELL) ─────────────────────────────────────────────── */
+/* ─── RENDER (HTML SHELL) — toolbar u sticky slotu, telo u panelu ───────── */
 
-export function renderGridTab() {
+export function renderKadrovskaGridToolbarHtml() {
   const monthKey = gridState.monthKey || _gridDefaultMonthKey();
   return `
-    <section class="kadr-panel-inner kadr-grid-panel" aria-label="Mesečni grid">
-      <div class="kadr-toolbar grid-toolbar">
-        <div class="kadr-toolbar-row">
-          <label class="kadr-field">
+    <div class="kadr-toolbar kadr-mesecni-grid-toolbar" aria-label="Mesečni grid alatke">
+      <div class="kadr-grid-toolbar-row">
+        <div class="kadr-grid-toolbar-left">
+          <label class="kadr-field kadr-field--toolbar">
             <span>Mesec</span>
             <input type="month" id="gridMonth" value="${escHtml(monthKey)}">
           </label>
-          <label class="kadr-field">
-            <span>Firma</span>
+          <label class="kadr-field kadr-field--toolbar">
+            <span>Odeljenje</span>
             <select id="gridCompanyFilter">${_gridCompanyOptions('')}</select>
           </label>
-          <button type="button" class="btn btn-ghost" id="gridReload" title="Osveži iz baze">↻ Osveži</button>
-          <span class="grid-dirty-badge" id="gridDirtyCount">0 izmena</span>
-          <button type="button" class="btn btn-primary" id="gridSaveAll" disabled>💾 Sačuvaj sve izmene</button>
-          <button type="button" class="btn btn-ghost" id="gridExport" title="Izvoz u Excel">📊 Excel</button>
-        </div>
-        <div class="grid-legend" aria-label="Legenda">
-          <span class="grid-legend-pill abs-go">go = god. odmor</span>
-          <span class="grid-legend-pill abs-bo">bo = bolovanje 65%</span>
-          <span class="grid-legend-pill abs-bo">bop = povreda na radu 100%</span>
-          <span class="grid-legend-pill abs-bo">bot = održavanje trudnoće 100%</span>
-          <span class="grid-legend-pill abs-sp">sp = plaćeni praznik</span>
-          <span class="grid-legend-pill abs-np">np = neopravdano</span>
-          <span class="grid-legend-pill abs-sl">sl = slobodan dan</span>
-          <span class="grid-legend-pill abs-pr">pr = prazan dan</span>
-        </div>
-      </div>
-      <div class="kadr-summary-strip" id="gridSummary"></div>
-      <div class="kadr-grid-search-bar" role="search" aria-label="Pretraga radnika u mesečnom gridu">
-        <div class="kadr-grid-search-inner">
-          <span class="kadr-grid-search-icon" aria-hidden="true">🔎</span>
-          <div class="kadr-grid-search-field">
+          <div class="kadr-grid-search-field kadr-grid-search-field--toolbar" role="search">
+            <span class="kadr-grid-search-icon" aria-hidden="true">🔎</span>
             <input type="search" class="kadr-grid-search-input" id="gridSearch" name="kadrGridSearch" inputmode="search" enterkeyhint="search" autocomplete="off" placeholder="Pretraga po imenu i prezimenu" spellcheck="false" aria-label="Pretraga po imenu i prezimenu">
             <button type="button" class="kadr-grid-search-clear" id="gridSearchClear" title="Obriši pretragu" aria-label="Obriši pretragu" style="visibility:hidden">✕</button>
           </div>
+          <span class="kadr-grid-search-meta" id="gridSearchMeta" style="display:none" aria-live="polite"></span>
         </div>
-        <p class="kadr-grid-search-meta" id="gridSearchMeta" style="display:none" aria-live="polite"></p>
+        <div class="kadr-grid-toolbar-right">
+          <button type="button" class="btn btn-ghost" id="gridReload" title="Osveži iz baze">↻ Osveži</button>
+          <span class="kadr-dirty-count-badge" id="gridDirtyCount" title="Nesačuvanih izmena">0</span>
+          <button type="button" class="btn btn-primary" id="gridSaveAll" disabled>Sačuvaj izmene</button>
+          <button type="button" class="btn btn-excel-outline" id="gridExport" title="Izvoz u Excel">Excel</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+export function renderGridPanelBody() {
+  return `
+    <section class="kadr-panel-inner kadr-grid-panel" aria-label="Mesečni grid">
+      <div class="kadr-summary-strip" id="gridSummary"></div>
+      <div class="grid-legend-collapsible">
+        <button type="button" class="grid-legend-toggle" id="gridLegendToggle" aria-expanded="false" aria-controls="gridLegendBody">
+          Legenda <span class="grid-legend-chev" aria-hidden="true">▶</span>
+        </button>
+        <div class="grid-legend-body" id="gridLegendBody" hidden>
+          <div class="grid-legend" aria-label="Legenda">
+            <span class="grid-legend-pill abs-go">go = god. odmor</span>
+            <span class="grid-legend-pill abs-bo">bo = bolovanje 65%</span>
+            <span class="grid-legend-pill abs-bo">bop = povreda na radu 100%</span>
+            <span class="grid-legend-pill abs-bo">bot = održavanje trudnoće 100%</span>
+            <span class="grid-legend-pill abs-sp">sp = plaćeni praznik</span>
+            <span class="grid-legend-pill abs-np">np = neopravdano</span>
+            <span class="grid-legend-pill abs-sl">sl = slobodan dan</span>
+            <span class="grid-legend-pill abs-pr">pr = prazan dan</span>
+          </div>
+        </div>
       </div>
       <div id="gridWrap" class="grid-wrap"></div>
-      <div id="gridEmpty" class="kadr-empty" style="display:none">Nema aktivnih radnika za izbrane filtere.</div>
+      <div id="gridEmpty" class="kadr-empty" style="display:none">Nema aktivnih radnika za izabrane filtere.</div>
     </section>
   `;
 }
 
+export { renderGridPanelBody as renderGridTab };
+
 /* ─── RENDER (TABELA) ─────────────────────────────────────────────────── */
 
 function _renderGridBody() {
-  const wrap = panelRoot?.querySelector('#gridWrap');
-  const empty = panelRoot?.querySelector('#gridEmpty');
+  const wrap = _gridQ('#gridWrap');
+  const empty = _gridQ('#gridEmpty');
   if (!wrap) return;
 
-  const monthEl = panelRoot?.querySelector('#gridMonth');
+  const monthEl = _gridQ('#gridMonth');
   if (monthEl && !monthEl.value) monthEl.value = _gridDefaultMonthKey();
   const yyyymm = monthEl?.value || _gridDefaultMonthKey();
   gridState.monthKey = yyyymm;
@@ -564,7 +592,6 @@ function _renderGridBody() {
 }
 
 function _renderSummary(emps, days, gt, companyCount) {
-  const company = panelRoot?.querySelector('#gridCompanyFilter')?.value || '';
   const nCompany = companyCount != null ? companyCount : emps.length;
   let g = gt;
   if (!g || g.fdom === undefined) {
@@ -588,8 +615,6 @@ function _renderSummary(emps, days, gt, companyCount) {
   }
   renderSummaryChips('gridSummary', [
     { label: 'Aktivnih radnika', value: nCompany, tone: 'accent' },
-    { label: 'Firma (filter)', value: company || 'Sve', tone: 'muted' },
-    { label: 'Mesec', value: gridState.monthKey || '—', tone: 'muted' },
     { label: 'Σ Redovni', value: _gridFormatSum(g.reg), tone: 'accent' },
     { label: 'Σ Prekov.', value: _gridFormatSum(g.ot), tone: g.ot > 0 ? 'warn' : 'muted' },
     { label: 'Σ Teren', value: _gridFormatSum(g.field), tone: 'ok' },
@@ -738,7 +763,7 @@ function _gridOnCellKeydown(e) {
 
 /** Live re-sum sums for a single employee bez full re-rendera. */
 function _gridRefreshSums(empId) {
-  const wrap = panelRoot?.querySelector('#gridWrap');
+  const wrap = _gridQ('#gridWrap');
   if (!wrap) return;
   const days = _gridDaysInMonth(gridState.monthKey);
   let sReg = 0, sOt = 0, sField = 0, sFdom = 0, sFfor = 0, sTm = 0;
@@ -783,14 +808,14 @@ async function _saveAllGrid() {
     showToast('⚠ Offline — batch save zahteva Supabase');
     return;
   }
-  const wrap = panelRoot?.querySelector('#gridWrap');
+  const wrap = _gridQ('#gridWrap');
   if (wrap?.querySelector('td.cell-error')) {
     showToast('⚠ Postoje nevažeće ćelije (crveno) — popravi pre snimanja');
     return;
   }
   gridState.saving = true;
-  const btn = panelRoot?.querySelector('#gridSaveAll');
-  if (btn) { btn.disabled = true; btn.textContent = '💾 Snimanje…'; }
+  const btn = _gridQ('#gridSaveAll');
+  if (btn) { btn.disabled = true; btn.textContent = 'Snimanje…'; }
 
   try {
     const saved = await batchUpsertGrid(gridState.dirty);
@@ -814,13 +839,13 @@ async function _saveAllGrid() {
     showToast('⚠ Greška pri snimanju — vidi konzolu');
   } finally {
     gridState.saving = false;
-    if (btn) { btn.textContent = '💾 Sačuvaj sve izmene'; }
+    if (btn) { btn.textContent = 'Sačuvaj izmene'; }
     _gridUpdateDirtyBadge();
   }
 }
 
 async function _onMonthChange() {
-  const monthEl = panelRoot?.querySelector('#gridMonth');
+  const monthEl = _gridQ('#gridMonth');
   if (_gridDirtyCount() > 0) {
     if (!confirm('Imaš nesačuvanih izmena. Promena meseca će ih odbaciti. Nastaviti?')) {
       if (monthEl) monthEl.value = gridState.monthKey;
@@ -834,7 +859,7 @@ async function _onMonthChange() {
 }
 
 async function _loadAndRender(yyyymm) {
-  const wrap = panelRoot?.querySelector('#gridWrap');
+  const wrap = _gridQ('#gridWrap');
   if (wrap) {
     wrap.innerHTML = `<div style="padding:30px;color:var(--text3);font-size:12px;text-align:center">Učitavanje ${escHtml(yyyymm)}…</div>`;
   }
@@ -860,7 +885,7 @@ async function _loadAndRender(yyyymm) {
  */
 
 async function _exportToXlsx() {
-  const yyyymm = gridState.monthKey || panelRoot?.querySelector('#gridMonth')?.value;
+  const yyyymm = gridState.monthKey || _gridQ('#gridMonth')?.value;
   if (!yyyymm) {
     showToast('⚠ Nema izabranog meseca');
     return;
@@ -974,28 +999,27 @@ async function _exportToXlsx() {
 
 /* ─── PUBLIC: WIRE ────────────────────────────────────────────────────── */
 
-export async function wireGridTab(panel) {
+export async function wireGridTab(panel, toolbarHost = null) {
   panelRoot = panel;
+  gridToolbarHost = toolbarHost;
 
-  /* Toolbar handlers */
-  panel.querySelector('#gridMonth')?.addEventListener('change', _onMonthChange);
-  panel.querySelector('#gridCompanyFilter')?.addEventListener('change', () => {
+  _gridQ('#gridMonth')?.addEventListener('change', _onMonthChange);
+  _gridQ('#gridCompanyFilter')?.addEventListener('change', () => {
     _renderGridBody();
   });
-  panel.querySelector('#gridReload')?.addEventListener('click', async () => {
+  _gridQ('#gridReload')?.addEventListener('click', async () => {
     if (_gridDirtyCount() > 0) {
       if (!confirm('Imaš nesačuvanih izmena. Reload će ih odbaciti. Nastaviti?')) return;
       gridState.dirty.clear();
     }
-    const yyyymm = panel.querySelector('#gridMonth')?.value || _gridDefaultMonthKey();
-    /* Firma/odeljenje dolazi sa liste zaposlenih; bez force u istoj sesiji ostaje stari keš. */
+    const yyyymm = _gridQ('#gridMonth')?.value || _gridDefaultMonthKey();
     await ensureEmployeesLoaded(true);
-    const firmSel = panel.querySelector('#gridCompanyFilter');
+    const firmSel = _gridQ('#gridCompanyFilter');
     if (firmSel) firmSel.innerHTML = _gridCompanyOptions(firmSel.value || '');
     await _loadAndRender(yyyymm);
   });
-  panel.querySelector('#gridSaveAll')?.addEventListener('click', _saveAllGrid);
-  panel.querySelector('#gridExport')?.addEventListener('click', () => {
+  _gridQ('#gridSaveAll')?.addEventListener('click', _saveAllGrid);
+  _gridQ('#gridExport')?.addEventListener('click', () => {
     void _exportToXlsx().catch(err => {
       console.error('[kadr-grid-xlsx]', err);
       showToast('Greška pri izvozu: ' + (err && err.message ? err.message : String(err)));
@@ -1004,19 +1028,19 @@ export async function wireGridTab(panel) {
 
   const savedSearch = ssGet(SESSION_KEYS.KADR_GRID_SEARCH, '') || '';
   gridState.searchQuery = savedSearch;
-  const searchInp = panel.querySelector('#gridSearch');
+  const searchInp = _gridQ('#gridSearch');
   if (searchInp) searchInp.value = savedSearch;
   searchInp?.addEventListener('input', () => {
     clearTimeout(_gridSearchDebounce);
     _gridSearchDebounce = setTimeout(() => {
-      const v = panel.querySelector('#gridSearch')?.value ?? '';
+      const v = _gridQ('#gridSearch')?.value ?? '';
       gridState.searchQuery = String(v);
       ssSet(SESSION_KEYS.KADR_GRID_SEARCH, String(v));
       _renderGridBody();
     }, 150);
   });
-  panel.querySelector('#gridSearchClear')?.addEventListener('click', () => {
-    const inp = panel.querySelector('#gridSearch');
+  _gridQ('#gridSearchClear')?.addEventListener('click', () => {
+    const inp = _gridQ('#gridSearch');
     if (inp) inp.value = '';
     gridState.searchQuery = '';
     ssSet(SESSION_KEYS.KADR_GRID_SEARCH, '');
@@ -1024,22 +1048,35 @@ export async function wireGridTab(panel) {
     _renderGridBody();
   });
 
-  /* Učitaj zaposlene (potrebno za firma filter) — uvek sa mreže da department ne zeza keš. */
+  panel.querySelector('#gridLegendToggle')?.addEventListener('click', () => {
+    const body = panel.querySelector('#gridLegendBody');
+    const btn = panel.querySelector('#gridLegendToggle');
+    const chev = btn?.querySelector('.grid-legend-chev');
+    const isHidden = body?.hasAttribute('hidden');
+    if (isHidden) {
+      body?.removeAttribute('hidden');
+      btn?.setAttribute('aria-expanded', 'true');
+      if (chev) chev.textContent = '▼';
+    } else {
+      body?.setAttribute('hidden', '');
+      btn?.setAttribute('aria-expanded', 'false');
+      if (chev) chev.textContent = '▶';
+    }
+  });
+
   try {
     await ensureEmployeesLoaded(true);
   } catch (err) {
     console.warn('[grid] employees load failed', err);
   }
 
-  /* Refresh firma options nakon load-a (možda su novi departments stigli) */
-  const compSel = panel.querySelector('#gridCompanyFilter');
+  const compSel = _gridQ('#gridCompanyFilter');
   if (compSel) {
     const cur = compSel.value;
     compSel.innerHTML = _gridCompanyOptions(cur);
   }
 
-  /* Učitaj mesec — ako je već loadovan, samo rerender */
-  const monthEl = panel.querySelector('#gridMonth');
+  const monthEl = _gridQ('#gridMonth');
   const wantMonth = monthEl?.value || _gridDefaultMonthKey();
   if (gridState.loaded && gridState.monthKey === wantMonth) {
     _renderGridBody();
