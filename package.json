@@ -11,7 +11,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:sql": "echo Run manually: pg_prove -h localhost -U postgres -d DBNAME sql/tests/*.sql",
-    "check:schema-baseline": "node scripts/check-schema-security-baseline.cjs"
+    "check:schema-baseline": "node scripts/check-schema-security-baseline.cjs",
+    "gen:rbac-matrix": "node scripts/generate-rbac-matrix.cjs",
+    "check:rbac-matrix": "node scripts/generate-rbac-matrix.cjs --check"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",

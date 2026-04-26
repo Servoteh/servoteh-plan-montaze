@@ -25,6 +25,8 @@ Kanonik za kolone / enum: `docs/SUPABASE_PUBLIC_SCHEMA.md`.
 | `maint_machine_status_override` | Ručni operativni status po `machine_code` (validnost, razlog). |
 | `maint_notification_log` | Notifikacioni outbox + istorija (kanal, primalac, retry, payload, veze). |
 | `maint_machines` | Lokalni katalog mašina (PK `machine_code`, meta, arhiva, izvor). |
+| `maint_locations` | Hijerarhija lokacija za CMMS (Faza 1.2+); `add_maint_locations.sql`. |
+| `maint_assets` | Supertype sredstava (mašine 1:1 preko `maint_machines.asset_id`); `add_maint_assets_supertable.sql`. |
 | `maint_machine_files` | Metapodaci fajlova; binari u Storage bucket-u `maint-machine-files`. |
 | `maint_machines_deletion_log` | Audit nakon `maint_machine_delete_hard`. |
 
@@ -49,6 +51,7 @@ Kanonik za kolone / enum: `docs/SUPABASE_PUBLIC_SCHEMA.md`.
 | `maint_incident_severity` | `minor`, `major`, `critical` |
 | `maint_incident_status` | `open`, `acknowledged`, `in_progress`, `awaiting_parts`, `resolved`, `closed` |
 | `maint_operational_status` | `running`, `degraded`, `down`, `maintenance` |
+| `maint_asset_type` | `machine`, `vehicle`, `it`, `facility` (supertype; mašine = 1:1 preko `maint_machines`) |
 | `maint_notification_channel` | `telegram`, `email`, `in_app`, `whatsapp` (vrednost `whatsapp` u `add_maint_notifications_plan.sql`) |
 | `maint_notification_status` | `queued`, `sent`, `failed` |
 

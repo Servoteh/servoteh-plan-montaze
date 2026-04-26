@@ -98,6 +98,21 @@ CREATE TABLE IF NOT EXISTS public.user_roles (
 ALTER TABLE public.user_roles
   ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
 
+-- Globalni odnos (NULL = nije projekat-specifičan red) — potrebno za
+-- `add_maintenance_module.sql` / `maint_is_erp_admin()` i srodne upite.
+ALTER TABLE public.user_roles
+  ADD COLUMN IF NOT EXISTS project_id UUID;
+
+-- Stub BigTehn cache: `add_maintenance_module.sql` i `add_maint_machines_catalog.sql`
+-- referenciraju ovu tabelu (view + seed), ali kompletan shape dolazi u produkciji
+-- iz plan-proizvodnje synca. U CI zadržavamo min. kolone koje očekuje seed/view.
+CREATE TABLE IF NOT EXISTS public.bigtehn_machines_cache (
+  rj_code         TEXT PRIMARY KEY,
+  name            TEXT,
+  department_id   TEXT,
+  no_procedure    BOOLEAN NOT NULL DEFAULT FALSE
+);
+
 -- Grant-ovi očekivani u migracijama (PostgREST style).
 GRANT USAGE ON SCHEMA public TO authenticated, anon, service_role;
 GRANT USAGE ON SCHEMA auth TO authenticated, service_role;

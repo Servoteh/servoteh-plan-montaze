@@ -15,6 +15,14 @@ sql/migrations/add_loc_step2_ci_unique.sql
 sql/migrations/add_loc_step3_cleanup.sql
 sql/migrations/add_loc_step5_sync_rpcs.sql
 
+# Održavanje (CMMS) — stek: modul, katalog mašina, odgovorni, lokacije, supertablica sredstava
+# (bootstrap u `00_bootstrap.sql` daje `project_id` + stub `bigtehn_machines_cache` za CI)
+sql/migrations/add_maintenance_module.sql
+sql/migrations/add_maint_machines_catalog.sql
+sql/migrations/add_maint_machine_responsible.sql
+sql/migrations/add_maint_locations.sql
+sql/migrations/add_maint_assets_supertable.sql
+
 # Faza 1 security hardening (2026-04-23). Migracija je idempotentna i
 # preživljava izvrsavanje cak i ako v_production_operations ne postoji
 # (REVOKE FROM anon na nepostojecem objektu padne — pa je u CI svjesno

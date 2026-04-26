@@ -477,13 +477,23 @@ export async function fetchMaintMachine(machineCode) {
   );
   const row = Array.isArray(rows) && rows[0] ? rows[0] : null;
   if (row) {
-    /* Best-effort dopuna sa responsible_user_id — ako migracija nije prošla,
-       samo izostavljamo polje. */
-    const extra = await sbReq(
-      `maint_machines?select=responsible_user_id&machine_code=eq.${enc(machineCode)}&limit=1`,
+    /* Best-effort: responsible_user_id + asset_id (add_maint_* migracije; bez kolone
+       PostgREST 400 — probamo uže polje). */
+    let extra = await sbReq(
+      `maint_machines?select=responsible_user_id,asset_id&machine_code=eq.${enc(machineCode)}&limit=1`,
     ).catch(() => null);
-    if (Array.isArray(extra) && extra[0] && 'responsible_user_id' in extra[0]) {
-      row.responsible_user_id = extra[0].responsible_user_id || null;
+    if (!Array.isArray(extra) || !extra[0]) {
+      extra = await sbReq(
+        `maint_machines?select=responsible_user_id&machine_code=eq.${enc(machineCode)}&limit=1`,
+      ).catch(() => null);
+    }
+    if (Array.isArray(extra) && extra[0]) {
+      if ('responsible_user_id' in extra[0]) {
+        row.responsible_user_id = extra[0].responsible_user_id || null;
+      }
+      if ('asset_id' in extra[0]) {
+        row.asset_id = extra[0].asset_id || null;
+      }
     }
   }
   return row;
@@ -573,6 +583,7 @@ export async function insertMaintMachine(payload) {
   if (payload.responsible_user_id !== undefined) {
     body.responsible_user_id = payload.responsible_user_id || null;
   }
+  /* `asset_id` ne šaljemo — NOT NULL u bazi popunjava trigger pre INSERT-a. */
   /* upsert:false → čist INSERT (ako postoji machine_code, vraća grešku — ne
      prepisujemo potencijalno arhivirani red). */
   const rows = await sbReq('maint_machines', 'POST', body, { upsert: false });
