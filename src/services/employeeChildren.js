@@ -1,14 +1,13 @@
 /**
  * Employee children — CRUD (Faza K2).
  * Tabela `employee_children` je RLS-gated: SELECT/INSERT/UPDATE/DELETE
- * samo za korisnike sa rolom `admin` ili `hr` (vidi migraciju
- * add_kadr_employee_extended.sql).
+ * samo za `admin` (migracija `restrict_employee_pii_admin_only.sql`).
  *
- * Na FE strani — UI poziva ove funkcije samo kada `isHrOrAdmin()` vraća true.
+ * Na FE strani — UI poziva ove funkcije samo kada `canViewEmployeePii()` vraća true.
  */
 
 import { sbReq } from './supabase.js';
-import { isHrOrAdmin, getIsOnline } from '../state/auth.js';
+import { canViewEmployeePii, getIsOnline } from '../state/auth.js';
 
 export function mapDbChild(d) {
   return {
@@ -36,7 +35,7 @@ function buildPayload(c) {
 
 /** Vrati svu decu jednog zaposlenog (ili svu decu ako ne prosledimo empId). */
 export async function loadChildrenForEmployee(employeeId) {
-  if (!getIsOnline() || !isHrOrAdmin()) return null;
+  if (!getIsOnline() || !canViewEmployeePii()) return null;
   const q = employeeId
     ? `employee_children?employee_id=eq.${encodeURIComponent(employeeId)}&select=*&order=birth_date.asc.nullslast`
     : `employee_children?select=*&order=employee_id,birth_date.asc.nullslast`;
@@ -46,12 +45,12 @@ export async function loadChildrenForEmployee(employeeId) {
 }
 
 export async function saveChildToDb(c) {
-  if (!getIsOnline() || !isHrOrAdmin()) return null;
+  if (!getIsOnline() || !canViewEmployeePii()) return null;
   return await sbReq('employee_children', 'POST', buildPayload(c));
 }
 
 export async function updateChildInDb(c) {
-  if (!getIsOnline() || !isHrOrAdmin() || !c.id) return null;
+  if (!getIsOnline() || !canViewEmployeePii() || !c.id) return null;
   const { id, ...rest } = buildPayload(c);
   return await sbReq(
     `employee_children?id=eq.${encodeURIComponent(c.id)}`,
@@ -61,7 +60,7 @@ export async function updateChildInDb(c) {
 }
 
 export async function deleteChildFromDb(id) {
-  if (!getIsOnline() || !isHrOrAdmin() || !id) return false;
+  if (!getIsOnline() || !canViewEmployeePii() || !id) return false;
   return (await sbReq(
     `employee_children?id=eq.${encodeURIComponent(id)}`,
     'DELETE',

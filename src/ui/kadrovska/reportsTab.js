@@ -18,7 +18,7 @@
 
 import { escHtml, showToast } from '../../lib/dom.js';
 import { daysInclusive } from '../../lib/date.js';
-import { isHrOrAdmin } from '../../state/auth.js';
+import { canViewEmployeePii } from '../../state/auth.js';
 import { KADR_EDU_LEVEL_LABELS } from '../../lib/constants.js';
 import {
   kadrovskaState,
@@ -97,7 +97,7 @@ function _intersectingDays(absFrom, absTo, periodFrom, periodTo) {
 
 export function renderReportsTab() {
   const curYear = String(new Date().getFullYear());
-  const showChildren = isHrOrAdmin();
+  const showChildren = canViewEmployeePii();
   return `
     <section class="kadr-panel-inner kadr-reports-panel" aria-label="Izveštaji">
       <div class="kadr-toolbar reports-toolbar">
@@ -647,7 +647,7 @@ async function _exportVacXlsx() {
 }
 
 /* ═════════════════════════════════════════════════════════════════════
-   DECA (samo HR/admin)
+   DECA (samo admin)
    ═════════════════════════════════════════════════════════════════════ */
 
 async function _loadAllChildren() {
@@ -667,7 +667,7 @@ async function _loadAllChildren() {
 }
 
 async function _renderChildrenReport() {
-  if (!panelRoot || !isHrOrAdmin()) return;
+  if (!panelRoot || !canViewEmployeePii()) return;
   const tbody = panelRoot.querySelector('#repChildrenTbody');
   const empty = panelRoot.querySelector('#repChildrenEmpty');
   const countEl = panelRoot.querySelector('#repChildrenCount');

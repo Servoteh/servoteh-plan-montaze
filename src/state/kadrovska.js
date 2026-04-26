@@ -53,7 +53,7 @@ export const kadrVacationState = {
   _schema: true,
 };
 
-/* Faza K2 — deca zaposlenih (samo HR/admin vide) */
+/* Faza K2 — deca zaposlenih (samo admin vidi, RLS) */
 export const kadrChildrenState = {
   /** Map<employeeId, Array<{id, firstName, birthDate, ...}>> — lazy po zaposlenom */
   byEmp: new Map(),

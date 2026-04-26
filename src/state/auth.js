@@ -136,13 +136,20 @@ export function maintHasFloorReadAccess() {
   return ['admin', 'pm', 'leadpm', 'menadzment'].includes(state.role);
 }
 /**
- * Da li trenutni korisnik može da vidi i uređuje osetljiva polja zaposlenog
- * (JMBG, adresa, broj računa, privatni telefon, kontakt osobe, deca)?
- * Sinhronizovano sa Postgres helperom `current_user_is_hr_or_admin()`
- * (admin / hr / menadzment).
+ * HR / menadžment „traka" (npr. Kadrovska notifikacije). Nemoj koristiti za
+ * JMBG, banku, decu — to je `canViewEmployeePii()` (samo admin).
  */
 export function isHrOrAdmin() {
   return ['admin', 'hr', 'menadzment'].includes(state.role);
+}
+
+/**
+ * JMBG, banka, adresa, privatni telefon, kontakt za hitne slučajeve, deca
+ * (`employee_children`). Samo admin — usklađeno sa `v_employees_safe`,
+ * `employees_sensitive_guard` i RLS na `employee_children` u bazi.
+ */
+export function canViewEmployeePii() {
+  return state.role === 'admin';
 }
 export function canManageUsers() {
   return isAdmin();

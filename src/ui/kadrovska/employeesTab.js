@@ -6,7 +6,7 @@
  * obrazovanje, lekarski pregled, deca) živi u detaljnom modalu sa sekcijama.
  *
  * Osetljiva polja (JMBG, adresa, banka, privatni telefon, kontakt osoba, deca)
- * vide i menjaju samo HR/admin. Za ostale korisnike modal prikazuje „•••“ u tim
+ * vide i menjaju samo admin. Za ostale korisnike modal prikazuje „•••“ u tim
  * sekcijama i disable-uje ih.
  *
  * Public API:
@@ -17,7 +17,7 @@
 
 import { escHtml, showToast } from '../../lib/dom.js';
 import { formatDate } from '../../lib/date.js';
-import { canEditKadrovska, getIsOnline, isHrOrAdmin } from '../../state/auth.js';
+import { canEditKadrovska, canViewEmployeePii, getIsOnline } from '../../state/auth.js';
 import {
   hasSupabaseConfig,
   KADR_EDU_LEVEL_LABELS,
@@ -298,7 +298,7 @@ export function refreshEmployeesTab() {
 function sectionHtml(title, innerHtml, opts = {}) {
   const locked = opts.locked === true;
   const hint = locked
-    ? ' <span class="kadr-section-lock" title="Samo HR/admin">🔒</span>'
+    ? ' <span class="kadr-section-lock" title="Samo admin">🔒</span>'
     : '';
   return `
     <fieldset class="emp-section${locked ? ' emp-section-locked' : ''}">
@@ -311,13 +311,13 @@ function sectionHtml(title, innerHtml, opts = {}) {
 
 function buildEmployeeModalHtml(emp) {
   const isEdit = !!emp;
-  const hrOk = isHrOrAdmin();
+  const piiOk = canViewEmployeePii();
   const eduOpts = Object.entries(KADR_EDU_LEVEL_LABELS)
     .map(([v, l]) => `<option value="${v}"${emp?.educationLevel === v ? ' selected' : ''}>${escHtml(l)}</option>`)
     .join('');
 
-  /* Osetljive sekcije — ako nije HR, prikaži read-only (ili maskirano). */
-  const sensitiveDisabled = hrOk ? '' : 'disabled';
+  /* Osetljive sekcije — ako nije admin, prikaži read-only (ili maskirano). */
+  const sensitiveDisabled = piiOk ? '' : 'disabled';
 
   return `
     <div class="emp-modal-overlay" id="empModal" role="dialog" aria-labelledby="empModalTitle" aria-modal="true">
@@ -384,11 +384,11 @@ function buildEmployeeModalHtml(emp) {
             </div>
           `)}
 
-          ${sectionHtml('Lični podaci' + (hrOk ? '' : ' (samo HR/admin)'), `
+          ${sectionHtml('Lični podaci' + (piiOk ? '' : ' (samo admin)'), `
             <div class="emp-field">
               <label for="empPersonalId">JMBG (13 cifara)</label>
               <input type="text" id="empPersonalId" inputmode="numeric" pattern="\\d{13}" maxlength="13"
-                     value="${escHtml(hrOk ? (emp?.personalId || '') : maskSensitive(emp?.personalId || ''))}"
+                     value="${escHtml(piiOk ? (emp?.personalId || '') : maskSensitive(emp?.personalId || ''))}"
                      ${sensitiveDisabled}>
             </div>
             <div class="emp-field">
@@ -406,19 +406,19 @@ function buildEmployeeModalHtml(emp) {
             <div class="emp-field">
               <label for="empPhonePrivate">Telefon (privatni)</label>
               <input type="tel" id="empPhonePrivate" maxlength="40"
-                     value="${escHtml(hrOk ? (emp?.phonePrivate || '') : maskSensitive(emp?.phonePrivate || ''))}"
+                     value="${escHtml(piiOk ? (emp?.phonePrivate || '') : maskSensitive(emp?.phonePrivate || ''))}"
                      ${sensitiveDisabled}>
             </div>
             <div class="emp-field">
               <label for="empEmergencyName">Kontakt osoba — ime</label>
               <input type="text" id="empEmergencyName" maxlength="120"
-                     value="${escHtml(hrOk ? (emp?.emergencyContactName || '') : '')}"
+                     value="${escHtml(piiOk ? (emp?.emergencyContactName || '') : '')}"
                      ${sensitiveDisabled}>
             </div>
             <div class="emp-field">
               <label for="empEmergencyPhone">Kontakt osoba — telefon</label>
               <input type="tel" id="empEmergencyPhone" maxlength="40"
-                     value="${escHtml(hrOk ? (emp?.emergencyContactPhone || '') : maskSensitive(emp?.emergencyContactPhone || ''))}"
+                     value="${escHtml(piiOk ? (emp?.emergencyContactPhone || '') : maskSensitive(emp?.emergencyContactPhone || ''))}"
                      ${sensitiveDisabled}>
             </div>
             <div class="emp-field">
@@ -430,41 +430,41 @@ function buildEmployeeModalHtml(emp) {
               <input type="text" id="empSlavaDay" maxlength="5" placeholder="12-19"
                      value="${escHtml(emp?.slavaDay ? emp.slavaDay.slice(0, 2) + '-' + emp.slavaDay.slice(2, 4) : '')}">
             </div>
-          `, { locked: !hrOk })}
+          `, { locked: !piiOk })}
 
-          ${sectionHtml('Adresa i banka' + (hrOk ? '' : ' (samo HR/admin)'), `
+          ${sectionHtml('Adresa i banka' + (piiOk ? '' : ' (samo admin)'), `
             <div class="emp-field col-full">
               <label for="empAddress">Adresa</label>
               <input type="text" id="empAddress" maxlength="200"
-                     value="${escHtml(hrOk ? (emp?.address || '') : '•••')}"
+                     value="${escHtml(piiOk ? (emp?.address || '') : '•••')}"
                      ${sensitiveDisabled}>
             </div>
             <div class="emp-field">
               <label for="empCity">Grad</label>
               <input type="text" id="empCity" maxlength="80"
-                     value="${escHtml(hrOk ? (emp?.city || '') : '•••')}"
+                     value="${escHtml(piiOk ? (emp?.city || '') : '•••')}"
                      ${sensitiveDisabled}>
             </div>
             <div class="emp-field">
               <label for="empPostalCode">Poštanski broj</label>
               <input type="text" id="empPostalCode" maxlength="10"
-                     value="${escHtml(hrOk ? (emp?.postalCode || '') : '')}"
+                     value="${escHtml(piiOk ? (emp?.postalCode || '') : '')}"
                      ${sensitiveDisabled}>
             </div>
             <div class="emp-field">
               <label for="empBankName">Banka</label>
               <input type="text" id="empBankName" maxlength="120"
-                     value="${escHtml(hrOk ? (emp?.bankName || '') : '•••')}"
+                     value="${escHtml(piiOk ? (emp?.bankName || '') : '•••')}"
                      ${sensitiveDisabled}>
             </div>
             <div class="emp-field">
               <label for="empBankAccount">Broj računa</label>
               <input type="text" id="empBankAccount" maxlength="40"
                      placeholder="xxx-xxxxxxxxxxxxx-xx"
-                     value="${escHtml(hrOk ? (emp?.bankAccount || '') : maskSensitive(emp?.bankAccount || ''))}"
+                     value="${escHtml(piiOk ? (emp?.bankAccount || '') : maskSensitive(emp?.bankAccount || ''))}"
                      ${sensitiveDisabled}>
             </div>
-          `, { locked: !hrOk })}
+          `, { locked: !piiOk })}
 
           ${sectionHtml('Obrazovanje i zdravlje', `
             <div class="emp-field">
@@ -488,7 +488,7 @@ function buildEmployeeModalHtml(emp) {
             </div>
           `)}
 
-          ${isEdit && hrOk ? sectionHtml('Deca zaposlenog', `
+          ${isEdit && piiOk ? sectionHtml('Deca zaposlenog', `
             <div class="emp-field col-full">
               <div id="empChildrenList" class="emp-children-list"><em>Učitavam…</em></div>
               <div class="emp-children-add">
@@ -568,7 +568,7 @@ async function openEmployeeModal(id) {
   });
 
   /* Deca — lazy load */
-  if (id && isHrOrAdmin()) {
+  if (id && canViewEmployeePii()) {
     const list = await ensureChildrenLoaded(id);
     renderChildrenList(modal, id, list || []);
     modal.querySelector('#empChildAddBtn')?.addEventListener('click', () => addChildFromForm(modal, id));
@@ -647,7 +647,7 @@ async function submitEmployeeForm() {
     return;
   }
   const id = document.getElementById('empId').value || null;
-  const hrOk = isHrOrAdmin();
+  const piiOk = canViewEmployeePii();
 
   /* Slava_day u DB je MMDD (bez crtice). */
   const slavaRaw = (document.getElementById('empSlavaDay').value || '').trim();
@@ -678,8 +678,8 @@ async function submitEmployeeForm() {
     note: document.getElementById('empNote').value.trim(),
   };
 
-  /* Osetljiva polja idu samo ako je HR/admin — time izbegavamo trigger reject. */
-  if (hrOk) {
+  /* Osetljiva polja idu samo ako je admin — time izbegavamo trigger reject. */
+  if (piiOk) {
     basePayload.personalId = document.getElementById('empPersonalId').value.trim() || null;
     basePayload.phonePrivate = document.getElementById('empPhonePrivate').value.trim() || null;
     basePayload.emergencyContactName = document.getElementById('empEmergencyName').value.trim() || null;

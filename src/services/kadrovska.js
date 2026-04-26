@@ -31,7 +31,7 @@ import {
   loadTermsForEmployee,
 } from './salary.js';
 
-import { getIsOnline, isHrOrAdmin, isAdmin } from '../state/auth.js';
+import { getIsOnline, canViewEmployeePii, isAdmin } from '../state/auth.js';
 import { hasSupabaseConfig } from '../lib/constants.js';
 import {
   kadrovskaState,
@@ -151,11 +151,11 @@ export async function ensureVacationLoaded(year, force = false) {
 
 /**
  * Deca jednog zaposlenog — lazy per-employee.
- * Ako pozivalac nije HR/admin → `null` (RLS bi ionako zabranio).
+ * Ako pozivalac nije admin → `null` (RLS bi ionako zabranio).
  */
 export async function ensureChildrenLoaded(employeeId, force = false) {
   if (!employeeId) return [];
-  if (!isHrOrAdmin()) return null;
+  if (!canViewEmployeePii()) return null;
   if (kadrChildrenState.byEmp.has(employeeId) && !force) {
     return kadrChildrenState.byEmp.get(employeeId);
   }

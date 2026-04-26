@@ -19,7 +19,7 @@
 
 import { escHtml, showToast } from '../../lib/dom.js';
 import { formatDate } from '../../lib/date.js';
-import { canEditKadrovska } from '../../state/auth.js';
+import { canEditKadrovska, canViewEmployeePii } from '../../state/auth.js';
 import {
   kadrovskaState,
   kadrAbsencesState,
@@ -343,7 +343,7 @@ function openResenjePrint(employeeId) {
     <div class="meta-row"><span>Zaposleni:</span><strong>${escHtml(emp.fullName || '')}</strong></div>
     ${emp.position ? `<div class="meta-row"><span>Radno mesto:</span><span>${escHtml(emp.position)}</span></div>` : ''}
     ${emp.department ? `<div class="meta-row"><span>Odeljenje:</span><span>${escHtml(emp.department)}</span></div>` : ''}
-    ${emp.personalId ? `<div class="meta-row"><span>JMBG:</span><span>${escHtml(emp.personalId)}</span></div>` : ''}
+    ${emp.personalId && canViewEmployeePii() ? `<div class="meta-row"><span>JMBG:</span><span>${escHtml(emp.personalId)}</span></div>` : ''}
   </div>
 
   <p>

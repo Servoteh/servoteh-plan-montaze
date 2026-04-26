@@ -9,10 +9,10 @@
  *      (CDN lazy load), mapiranje kolona, preview sa validacijom,
  *      bulk INSERT potvrđenih redova.
  *
- * Podržana polja u oba moda (HR/admin dodatno vidi osetljiva):
+ * Podržana polja u oba moda (admin dodatno vidi osetljiva):
  *   firstName, lastName, position, department, team, hireDate,
  *   email, phoneWork, isActive,
- *   + (HR/admin): personalId (JMBG), gender, birthDate,
+ *   + (admin): personalId (JMBG), gender, birthDate,
  *                 address, city, postalCode,
  *                 bankName, bankAccount
  *
@@ -24,7 +24,7 @@
  */
 
 import { escHtml, showToast } from '../../lib/dom.js';
-import { isHrOrAdmin } from '../../state/auth.js';
+import { canViewEmployeePii } from '../../state/auth.js';
 import { loadXlsx } from '../../lib/xlsx.js';
 import { saveEmployeeToDb } from '../../services/employees.js';
 
@@ -32,7 +32,7 @@ import { saveEmployeeToDb } from '../../services/employees.js';
 
 /**
  * Definicija kolona za brzi unos / import. `sensitive: true` kolone vide
- * samo HR/admin; za ostale se preskaču i u gridu i u template-u.
+ * samo admin; za ostale se preskaču i u gridu i u template-u.
  *
  * `aliases` — sinonimi iz Excel header-a (case-insensitive, trim-ovano,
  * bez dijakritika) koje mapiramo na ovu kolonu prilikom importa.
@@ -75,8 +75,8 @@ const COLUMNS = [
 ];
 
 function activeColumns() {
-  const hr = isHrOrAdmin();
-  return COLUMNS.filter(c => hr || !c.sensitive);
+  const showSensitive = canViewEmployeePii();
+  return COLUMNS.filter(c => showSensitive || !c.sensitive);
 }
 
 /* ─── VALIDATORI ─────────────────────────────────────────────────────── */
@@ -658,7 +658,7 @@ export async function downloadEmployeesTemplate() {
     ['Pol: M ili Z. JMBG mora imati 13 cifara. Iz JMBG-a se auto-popunjavaju pol i datum rođenja ako su prazni.'],
     ['„Aktivan": DA/NE (ili 1/0).'],
     [''],
-    ['Osetljiva polja (JMBG, adresa, banka) vide i unose samo HR/admin korisnici.'],
+    ['Osetljiva polja (JMBG, adresa, banka) vide i unose samo administratori.'],
   ];
   const wsInfo = XLSX.utils.aoa_to_sheet(info);
   wsInfo['!cols'] = [{ wch: 100 }];

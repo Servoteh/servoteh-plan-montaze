@@ -11,9 +11,9 @@
  *   * medical_exam_date, medical_exam_expires, team
  *
  * SELECT se radi preko `v_employees_safe` view-a koji maskira osetljiva polja
- * za ne-HR korisnike (vidi i `current_user_is_hr_or_admin()` u bazi).
+ * za sve koji nisu admin (migracija `restrict_employee_pii_admin_only.sql`).
  * INSERT/UPDATE/DELETE idu direktno na `employees` tabelu, uz trigger
- * `employees_sensitive_guard` koji u bazi odbije izmenu ako korisnik nije HR.
+ * `employees_sensitive_guard` koji odbija izmenu osetljivih kolona ako korisnik nije admin.
  */
 
 import { sbReq } from './supabase.js';
