@@ -7,6 +7,7 @@
 
 import {
   canEditPracenje,
+  ensureRadniNalogFromBigtehn,
   fetchAktivniNaloziZaPracenje,
   fetchOperativneAktivnostiRaw,
   fetchOperativniPlan,
@@ -145,24 +146,36 @@ export async function loadAktivniNaloziList() {
   }
 }
 
-export async function loadPracenje(rnId) {
+/**
+ * @param {string} rnId - RN broj, UUID, ili privremeni query
+ * @param {{ bigtehnWorkOrderId?: number }} [options] - ako je setovan, kreira RN u Fazi 2 iz BigTehn cache-a (MES)
+ */
+export async function loadPracenje(rnId, options = {}) {
+  const { bigtehnWorkOrderId } = options;
   const rnQuery = String(rnId || '').trim();
-  if (!rnQuery) {
+  if (!rnQuery && bigtehnWorkOrderId == null) {
     pracenjeState.error = 'Unesi RN broj ili RN UUID za učitavanje.';
     emit();
     return false;
   }
-  pracenjeState.rnId = rnQuery;
-  hydrateFilters(rnQuery);
+  pracenjeState.rnId = rnQuery || `wo:${bigtehnWorkOrderId}`;
+  hydrateFilters(pracenjeState.rnId);
   pracenjeState.loading = true;
   pracenjeState.error = null;
   emit();
 
   try {
-    const resolvedRnId = await resolveRnId(rnQuery);
-    if (resolvedRnId !== rnQuery) {
+    let resolvedRnId;
+    if (bigtehnWorkOrderId != null && Number.isFinite(Number(bigtehnWorkOrderId))) {
+      resolvedRnId = await ensureRadniNalogFromBigtehn(bigtehnWorkOrderId);
       pracenjeState.rnId = resolvedRnId;
       hydrateFilters(resolvedRnId);
+    } else {
+      resolvedRnId = await resolveRnId(rnQuery);
+      if (resolvedRnId !== rnQuery) {
+        pracenjeState.rnId = resolvedRnId;
+        hydrateFilters(resolvedRnId);
+      }
     }
     const [tab1, tab2, departments, radnici] = await Promise.all([
       fetchPracenjeRn(resolvedRnId),

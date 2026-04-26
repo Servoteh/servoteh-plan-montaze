@@ -120,6 +120,18 @@ export async function resolveRnId(value) {
   throw new Error(`RN "${q}" nije pronađen u proizvodnji. Proveri RN broj ili prvo importuj/lansiraj RN.`);
 }
 
+/**
+ * Kreira ili poveže red u production.radni_nalog iz BigTehn cache-a (MES id).
+ * Koristi se kada aktivna lista ima RN, a Faza 2 zapis još ne postoji.
+ */
+export async function ensureRadniNalogFromBigtehn(workOrderId) {
+  const id = Number(workOrderId);
+  if (!Number.isFinite(id) || id <= 0) {
+    throw new Error('Neispravan BigTehn ID radnog naloga.');
+  }
+  return rpc('ensure_radni_nalog_iz_bigtehn', { p_work_order_id: id });
+}
+
 export async function fetchPracenjeRn(rnId) {
   if (!rnId) throw new Error('RN ID je obavezan');
   return rpc('get_pracenje_rn', { p_rn_id: rnId });

@@ -163,7 +163,7 @@ function aktivniNaloziTableHtml(state) {
           </thead>
           <tbody id="ppAktivniTbody">
             ${rows.map((r) => `
-              <tr class="pp-pickable-rn" data-pracenje-rn="${escHtml(r.loadQuery)}" style="cursor:pointer" title="Učitaj u praćenje proizvodnje">
+              <tr class="pp-pickable-rn" data-pracenje-rn="${escHtml(r.loadQuery)}" data-bigtehn-ensure="${r.pracenjeRnId ? '' : escHtml(String(r.bigtehnId ?? ''))}" style="cursor:pointer" title="Učitaj u praćenje proizvodnje">
                 <td class="pp-cell-num">${r.redBr}</td>
                 <td>${escHtml(r.brojPredmeta)}</td>
                 <td>${escHtml(r.naziv)}</td>
@@ -227,7 +227,10 @@ function wireShell(container, state) {
     const tr = ev.target.closest('tr[data-pracenje-rn]');
     if (!tr) return;
     const q = tr.getAttribute('data-pracenje-rn');
-    if (q) loadFromInput(q);
+    if (!q) return;
+    const ens = tr.getAttribute('data-bigtehn-ensure');
+    const id = ens && /^\d+$/.test(ens) ? Number(ens) : null;
+    loadFromInput(q, id != null && Number.isFinite(id) ? { bigtehnWorkOrderId: id } : {});
   });
   container.querySelector('#pracenjeRnInput')?.addEventListener('keydown', (ev) => {
     if (ev.key === 'Enter') loadFromInput(ev.target.value?.trim());
@@ -247,13 +250,13 @@ function wireShell(container, state) {
   });
 }
 
-function loadFromInput(rnId) {
+function loadFromInput(rnId, options = {}) {
   if (!rnId) return;
   const params = new URLSearchParams(window.location.search);
   params.set('rn', rnId);
   const hash = window.location.hash || '#tab=po_pozicijama';
   history.replaceState(null, '', `${window.location.pathname}?${params.toString()}${hash}`);
-  void loadPracenje(rnId).then(ok => { if (ok) startRealtime(); });
+  void loadPracenje(rnId, options).then(ok => { if (ok) startRealtime(); });
 }
 
 function errorHtml(message) {
