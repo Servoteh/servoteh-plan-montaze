@@ -30,7 +30,7 @@
 BEGIN;
 SET search_path = public, extensions;
 
-SELECT plan(11);
+SELECT plan(12);
 
 -- ─── Setup: seed-uj user_roles (kao postgres) ─────────────────────────────
 -- FORCE ROW LEVEL SECURITY je aktivna na user_roles posle migracije
