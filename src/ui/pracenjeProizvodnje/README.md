@@ -8,7 +8,7 @@ Uključivanje/isključivanje predmeta: **Podešavanja → Podeš. predmeta** (ad
 
 ## Otvaranje modula (Aktivni predmeti + Inkrement 2)
 
-Bez `?rn=` modul učitava listu opisanu gore. Kolone: redni broj, naziv predmeta (ispod: broj predmeta), komitent, badge **broj root RN** (`broj_root_rn` iz `v_bigtehn_rn_root_count`). Klik na red ili badge otvara **ekran 2** (`?predmet=<item_id>`): stablo iz `get_podsklopovi_predmeta` (indikator `is_mes_aktivan` i dalje gleda `v_active_bigtehn_work_orders`). Klik na RN poziva `ensure_radni_nalog_iz_bigtehn` + `loadPracenje` i `?rn=<uuid>`.
+Bez `?rn=` modul učitava listu: **Red. br.**, **Broj predmeta**, **Naziv predmeta**, **Komitent**, **Rok za završetak** (`rok_zavrsetka` iz `bigtehn_items_cache` preko `get_aktivni_predmeti()`), **Prioritet** (samo admin — strelice). Klik na red otvara **ekran 2** (`?predmet=<item_id>`): stablo iz `get_podsklopovi_predmeta`. Klik na RN poziva `ensure_radni_nalog_iz_bigtehn` + `loadPracenje` i `?rn=<uuid>`.
 
 **URL:**
 

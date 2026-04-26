@@ -9,6 +9,21 @@ import {
   shiftPrioritet,
 } from '../../state/pracenjeProizvodnjeState.js';
 
+function formatRokZaZavrsetak(v) {
+  if (v == null || v === '') return '—';
+  try {
+    const d = v instanceof Date ? v : new Date(v);
+    if (Number.isNaN(d.getTime())) return '—';
+    return d.toLocaleDateString('sr-Latn-RS', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  } catch {
+    return '—';
+  }
+}
+
 export function aktivniPredmetiListHtml(state) {
   const ap = state.aktivniPredmetiState || {};
   if (ap.loading) {
@@ -38,30 +53,32 @@ export function aktivniPredmetiListHtml(state) {
     `;
   }
   const adminCol = ap.isAdmin
-    ? '<th class="pp-cell-num" title="Samo admin">Prioritet</th>'
+    ? '<th class="pp-cell-num" title="Samo admin — pomeraj redosled">Prioritet</th>'
     : '';
   return `
     <section class="form-card" style="margin-bottom:14px">
       <h2 class="form-section-title" style="margin:0 0 10px">Aktivni predmeti</h2>
-      <p class="form-hint" style="margin:0 0 12px">Klik na red ili badge otvara stablo podsklopova. RN detalji: <code>?rn=</code> ili polje ispod.</p>
+      <p class="form-hint" style="margin:0 0 12px">Klik na red otvara stablo podsklopova. RN detalji: <code>?rn=</code> ili polje ispod.</p>
       <div class="pp-table-wrap" style="max-height:min(60vh,520px);overflow:auto">
         <table class="pp-table" id="ppAktivniPredmetiTable">
           <thead>
             <tr>
-              <th class="pp-cell-num">Red</th>
-              <th>Predmet</th>
+              <th class="pp-cell-num">Red. br.</th>
+              <th>Broj predmeta</th>
+              <th>Naziv predmeta</th>
               <th>Komitent</th>
-              <th class="pp-cell-num">Root RN</th>
+              <th>Rok za završetak</th>
               ${adminCol}
             </tr>
           </thead>
           <tbody id="ppAktPredmetiTbody">
             ${rows.map((r) => {
               const id = Number(r.item_id);
-              const badge = Number(r.broj_root_rn ?? 0);
-              const sub = escHtml(String(r.broj_predmeta || '—'));
+              const bp = escHtml(String(r.broj_predmeta || '—'));
               const naz = escHtml(String(r.naziv_predmeta || '—'));
               const kom = escHtml(String(r.customer_name || '—'));
+              const rok = formatRokZaZavrsetak(r.rok_zavrsetka);
+              const rokEsc = escHtml(rok);
               const adminBtns = ap.isAdmin ? `
                 <td class="pp-cell-num">
                   <button type="button" class="pp-refresh-btn pp-prio-btn" data-pp-prio="${id}" data-dir="up" title="Gore">↑</button>
@@ -70,14 +87,10 @@ export function aktivniPredmetiListHtml(state) {
               return `
               <tr class="pp-pickable-predmet" data-predmet-id="${id}" style="cursor:pointer" title="Otvori podsklopove">
                 <td class="pp-cell-num">${escHtml(String(r.redni_broj ?? ''))}</td>
-                <td>
-                  <div>${naz}</div>
-                  <div class="form-hint" style="margin:2px 0 0;font-size:12px">${sub}</div>
-                </td>
+                <td><code>${bp}</code></td>
+                <td>${naz}</td>
                 <td>${kom}</td>
-                <td class="pp-cell-num">
-                  <button type="button" class="pp-badge-btn" data-predmet-badge="${id}" title="Otvori stablo">${badge}</button>
-                </td>
+                <td class="pp-cell-nowrap" style="white-space:nowrap;font-size:13px">${rokEsc}</td>
                 ${adminBtns}
               </tr>`;
             }).join('')}
@@ -101,13 +114,6 @@ export function wireAktivniPredmetiList(container, renderShell) {
       if (Number.isFinite(id) && (dir === 'up' || dir === 'down')) {
         void shiftPrioritet(id, dir).then(() => renderShell());
       }
-      return;
-    }
-    const badge = ev.target.closest('[data-predmet-badge]');
-    if (badge) {
-      ev.stopPropagation();
-      const id = Number(badge.getAttribute('data-predmet-badge'));
-      if (Number.isFinite(id)) void selectPredmet(id).then(() => renderShell());
       return;
     }
     const tr = ev.target.closest('tr[data-predmet-id]');

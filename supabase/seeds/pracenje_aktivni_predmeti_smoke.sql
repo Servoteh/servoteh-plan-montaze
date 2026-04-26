@@ -15,7 +15,7 @@ ON CONFLICT (predmet_item_id) DO UPDATE SET
 -- 1) get_aktivni_predmeti
 -- expected: jsonb niz sa 3 objekta (A,B,C), polja:
 --   item_id, broj_predmeta, naziv_predmeta, customer_name, sort_priority|null,
---   broj_root_rn (A:1, B:1, C:1), redni_broj 1..3
+--   rok_zavrsetka (iz cache-a), redni_broj 1..3
 SELECT public.get_aktivni_predmeti() AS aktivni_predmeti;
 
 -- 2) get_podsklopovi_predmeta(810102) — Predmet C

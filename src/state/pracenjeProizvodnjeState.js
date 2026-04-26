@@ -242,6 +242,7 @@ export async function selectPredmet(itemId) {
     naziv_predmeta: '',
     customer_name: '',
     broj_predmeta: '',
+    rok_zavrsetka: null,
   };
   syncPredmetUrl(id);
   emit();
