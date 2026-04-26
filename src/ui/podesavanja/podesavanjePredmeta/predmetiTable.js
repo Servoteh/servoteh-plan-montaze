@@ -111,16 +111,31 @@ export function wirePredmetiTable(root, opts = {}) {
 
   root.querySelectorAll('[data-pred-akt-toggle]').forEach(el => {
     el.addEventListener('change', async ev => {
-      const id = Number(ev.target?.getAttribute('data-pred-akt-toggle'));
-      const next = !!ev.target?.checked;
+      const input = ev.target;
+      if (!(input instanceof HTMLInputElement) || input.type !== 'checkbox') return;
+      const id = Number(input.getAttribute('data-pred-akt-toggle'));
+      const next = input.checked;
       const prev = findRow(id);
-      const oldAkt = prev?.je_aktivan;
-      const oldNap = prev?.napomena;
+      const oldAkt = !!prev?.je_aktivan;
+      /* Vrati čekboks dok korisnik ne potvrdi (change je već promenio stanje). */
+      input.checked = oldAkt;
+      const sif = prev ? String(prev.broj_predmeta || '').trim() : '';
+      const naz = prev ? String(prev.naziv_predmeta || '').trim() : '';
+      const opis = [sif || `#${id}`, naz].filter(Boolean).join(' — ');
+      const akcija = next ? 'aktivirate' : 'deaktivirate';
+      const upozorenje = next
+        ? 'Predmet će ući u Plan proizvodnje i u listu u Praćenju proizvodnje (uz ostala podešavanja).'
+        : 'Predmet će biti uklonjen iz Plana proizvodnje i iz liste u Praćenju proizvodnje, bez brisanja podataka u bazi.';
+      const potvrdi = window.confirm(
+        `Da li ste sigurni da želite da ${akcija} predmet?\n\n${opis}\n\n${upozorenje}\n\nNastaviti?`
+      );
+      if (!potvrdi) return;
+      input.checked = next;
       if (prev) prev.je_aktivan = next;
       const ok = await setPredmetAktivacija(id, next, null);
       if (ok == null) {
         if (prev) prev.je_aktivan = oldAkt;
-        ev.target.checked = !!oldAkt;
+        input.checked = oldAkt;
         showToast('Snimanje nije uspelo (proveri dozvolu ili mrežu).');
         return;
       }
