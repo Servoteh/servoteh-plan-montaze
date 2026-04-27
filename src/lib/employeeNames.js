@@ -6,11 +6,11 @@ function clean(value) {
 }
 
 export function employeeFirstName(emp) {
-  return clean(emp?.firstName ?? emp?.first_name);
+  return clean(emp?.firstName ?? emp?.first_name ?? emp?.employeeFirstName ?? emp?.employee_first_name);
 }
 
 export function employeeLastName(emp) {
-  return clean(emp?.lastName ?? emp?.last_name);
+  return clean(emp?.lastName ?? emp?.last_name ?? emp?.employeeLastName ?? emp?.employee_last_name);
 }
 
 export function employeeRawName(emp) {

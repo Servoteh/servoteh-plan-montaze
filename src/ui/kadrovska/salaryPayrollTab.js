@@ -50,14 +50,14 @@ function payrollEmployee(row) {
 }
 
 function payrollEmployeeName(row) {
-  return employeeDisplayName(payrollEmployee(row)) || row.employeeName || '';
+  return employeeDisplayName(payrollEmployee(row)) || employeeDisplayName(row) || row.employeeName || '';
 }
 
 function comparePayrollRows(a, b) {
   const ea = payrollEmployee(a);
   const eb = payrollEmployee(b);
   if (ea && eb) return compareEmployeesByLastFirst(ea, eb);
-  return payrollEmployeeName(a).localeCompare(payrollEmployeeName(b), 'sr', { sensitivity: 'base' });
+  return compareEmployeesByLastFirst(ea || a, eb || b);
 }
 
 /* ── Public API ─────────────────────────────────────────────── */

@@ -15,14 +15,23 @@
 
 import { sbReq } from './supabase.js';
 import { isAdmin, getIsOnline } from '../state/auth.js';
+import { employeeDisplayName } from '../lib/employeeNames.js';
 
 /* ── Mapping ──────────────────────────────────────────────────── */
 
 export function mapDbPayroll(d) {
+  const employeeFirstName = d.employee_first_name || '';
+  const employeeLastName = d.employee_last_name || '';
   return {
     id: d.id,
     employeeId: d.employee_id,
-    employeeName: d.employee_name || '',     // iz view-a
+    employeeName: employeeDisplayName({
+      employeeName: d.employee_name,
+      employeeFirstName,
+      employeeLastName,
+    }),
+    employeeFirstName,
+    employeeLastName,
     employeePosition: d.employee_position || '',
     employeeDepartment: d.employee_department || '',
     employeeActive: d.employee_active != null ? !!d.employee_active : true,
@@ -116,7 +125,7 @@ export async function loadPayrollByMonth(year, month) {
     'select=*',
     `period_year=eq.${int(year)}`,
     `period_month=eq.${int(month)}`,
-    'order=employee_name.asc',
+    'order=employee_last_name.asc,employee_first_name.asc,employee_name.asc',
   ];
   const data = await sbReq(`v_salary_payroll_month?${params.join('&')}`);
   if (!data) return null;

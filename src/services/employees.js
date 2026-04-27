@@ -125,7 +125,7 @@ export async function loadEmployeesFromDb() {
   if (data) return data.map(mapDbEmployee);
 
   /* Fallback: ako view nije postavljen (migracija nije primenjena), čitaj direktno. */
-  data = await sbReq('employees?select=*&order=full_name.asc');
+  data = await sbReq('employees?select=*&order=last_name.asc,first_name.asc,full_name.asc');
   if (!data) return null;
   return data.map(mapDbEmployee);
 }
