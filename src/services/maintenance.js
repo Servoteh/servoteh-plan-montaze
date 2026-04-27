@@ -470,6 +470,70 @@ export async function fetchMaintAssetsForPicker(opts = {}) {
   return Array.isArray(rows) ? rows : [];
 }
 
+/**
+ * Registar CMMS sredstava.
+ * @param {{ q?: string, type?: string, includeArchived?: boolean, limit?: number }} [opts]
+ * @returns {Promise<Array<object>|null>}
+ */
+export async function fetchMaintAssets(opts = {}) {
+  const limit = Math.min(opts.limit ?? 1000, 5000);
+  const q = String(opts.q || '').trim();
+  const parts = [
+    'select=asset_id,asset_code,asset_type,name,status,location_id,responsible_user_id,manufacturer,model,serial_number,date_of_purchase,warranty_until,supplier,active,archived_at,created_at,updated_at,notes',
+    'order=asset_code.asc',
+    `limit=${limit}`,
+  ];
+  if (opts.type && opts.type !== 'all') parts.push(`asset_type=eq.${enc(opts.type)}`);
+  if (!opts.includeArchived) {
+    parts.push('archived_at=is.null');
+  }
+  if (q) {
+    const like = enc(`*${q.replace(/[,*]/g, ' ')}*`);
+    parts.push(`or=(asset_code.ilike.${like},name.ilike.${like},manufacturer.ilike.${like},model.ilike.${like},serial_number.ilike.${like})`);
+  }
+  return await sbReq(`maint_assets?${parts.join('&')}`);
+}
+
+/**
+ * @param {{ asset_code: string, asset_type: string, name: string, status?: string, manufacturer?: string|null, model?: string|null, serial_number?: string|null, supplier?: string|null, notes?: string|null }} payload
+ * @returns {Promise<object|null>}
+ */
+export async function insertMaintAsset(payload) {
+  const code = String(payload.asset_code || '').trim();
+  const name = String(payload.name || '').trim();
+  const type = String(payload.asset_type || '').trim();
+  if (!code || !name || !type) return null;
+  const rows = await sbReq('maint_assets', 'POST', {
+    asset_code: code,
+    asset_type: type,
+    name,
+    status: payload.status || 'running',
+    manufacturer: payload.manufacturer || null,
+    model: payload.model || null,
+    serial_number: payload.serial_number || null,
+    supplier: payload.supplier || null,
+    notes: payload.notes || null,
+    active: true,
+  }, { upsert: false }).catch(() => null);
+  return Array.isArray(rows) && rows[0] ? rows[0] : null;
+}
+
+/**
+ * @param {string} assetId
+ * @param {Record<string, unknown>} fields
+ * @returns {Promise<boolean>}
+ */
+export async function patchMaintAsset(assetId, fields) {
+  if (!assetId) return false;
+  const body = { ...fields };
+  delete body.asset_id;
+  delete body.created_at;
+  delete body.updated_at;
+  body.updated_by = getCurrentUser()?.id || null;
+  const r = await sbReq(`maint_assets?asset_id=eq.${encodeURIComponent(assetId)}`, 'PATCH', body);
+  return r !== null;
+}
+
 /* ── Katalog mašina (maint_machines) ─────────────────────────────────────── */
 
 /* `responsible_user_id` NIJE u ovoj listi namerno — dodat je u posebnoj

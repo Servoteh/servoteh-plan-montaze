@@ -51,6 +51,7 @@ import {
 import { renderMaintLocationsPanel } from './maintLocationsTab.js';
 import { renderMaintFilesTab } from './maintFilesTab.js';
 import { renderMaintWorkOrdersPanel } from './maintWorkOrdersPanel.js';
+import { renderMaintAssetsPanel } from './maintAssetsPanel.js';
 
 let mountRef = null;
 let disposeRef = { disposed: false };
@@ -1023,23 +1024,9 @@ async function renderPanel(host, section, machineCode, tab, onNavigateToPath, on
   }
 
   if (section === 'assets') {
-    host.innerHTML = `
-      <div class="mnt-panel">
-        <h3 style="font-size:16px;margin:0 0 8px">Sredstva</h3>
-        <p class="mnt-muted">Sva sredstva se vode kroz asset model. Mašine su implementirane; ostali tipovi su pripremljeni kao placeholder-i za naredne sprintove.</p>
-        <p style="display:flex;gap:8px;flex-wrap:wrap">
-          <button type="button" class="btn" data-mnt-nav="/maintenance/assets/machines">Mašine →</button>
-          <button type="button" class="btn" data-mnt-nav="/maintenance/assets/vehicles" style="background:var(--surface3)">Vozila</button>
-          <button type="button" class="btn" data-mnt-nav="/maintenance/assets/it" style="background:var(--surface3)">IT oprema</button>
-          <button type="button" class="btn" data-mnt-nav="/maintenance/assets/facilities" style="background:var(--surface3)">Objekti</button>
-        </p>
-      </div>`;
-    host.querySelectorAll('[data-mnt-nav]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const p = btn.getAttribute('data-mnt-nav');
-        if (p) onNavigateToPath?.(p);
-      });
-    });
+    const prof = await fetchMaintUserProfile();
+    if (disposeRef.disposed || !host.isConnected) return;
+    await renderMaintAssetsPanel(host, { prof, onNavigateToPath, forcedType: 'all' });
     return;
   }
 
@@ -1055,26 +1042,23 @@ async function renderPanel(host, section, machineCode, tab, onNavigateToPath, on
   }
 
   if (section === 'assetsVehicles') {
-    host.innerHTML = maintenancePlaceholderHtml('Vozila', [
-      'Sprint 3: registracija, osiguranje, gume, kilometraža i servisni WO template-i.',
-      'Model je spreman kroz maint_assets(asset_type=vehicle), ali extension tabela još nije uvedena.',
-    ]);
+    const prof = await fetchMaintUserProfile();
+    if (disposeRef.disposed || !host.isConnected) return;
+    await renderMaintAssetsPanel(host, { prof, onNavigateToPath, forcedType: 'vehicle' });
     return;
   }
 
   if (section === 'assetsIt') {
-    host.innerHTML = maintenancePlaceholderHtml('IT oprema', [
-      'Sprint 4: helpdesk tiketi kroz WO, licence, garancije, IP/MAC/hostname.',
-      'Puni license key se ne sme čuvati u plain tekstu.',
-    ]);
+    const prof = await fetchMaintUserProfile();
+    if (disposeRef.disposed || !host.isConnected) return;
+    await renderMaintAssetsPanel(host, { prof, onNavigateToPath, forcedType: 'it' });
     return;
   }
 
   if (section === 'assetsFacilities') {
-    host.innerHTML = maintenancePlaceholderHtml('Objekti', [
-      'Sprint 5: objekti, prostorije, instalacije, PP/HVAC/elektro inspekcije.',
-      'Hijerarhija lokacija već postoji kroz maint_locations.',
-    ]);
+    const prof = await fetchMaintUserProfile();
+    if (disposeRef.disposed || !host.isConnected) return;
+    await renderMaintAssetsPanel(host, { prof, onNavigateToPath, forcedType: 'facility' });
     return;
   }
 
