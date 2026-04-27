@@ -176,7 +176,7 @@ function applyFilters(list) {
 }
 
 export function refreshEmployeesTab() {
-  console.log('[kadrovska-diag] role=', getCurrentRole(), 'edit=', canEditKadrovska(), 'online=', getIsOnline(), 'employees=', kadrovskaState.employees.length);
+  console.error('[kadrovska-diag] role=', getCurrentRole(), 'edit=', canEditKadrovska(), 'online=', getIsOnline(), 'employees=', kadrovskaState.employees.length); console.trace('[kadrovska-trace]');
   if (!panelRef) return;
   const tbody = panelRef.querySelector('#kadrovskaTbody');
   const emptyBox = panelRef.querySelector('#kadrovskaEmpty');
@@ -302,7 +302,7 @@ export function refreshEmployeesTab() {
   }).join('');
 
   tbody.querySelectorAll('button[data-action="edit"]').forEach(btn => {
-    btn.addEventListener('click', () => { console.log('[btn-click] edit id=', btn.dataset.id); openEmployeeModal(btn.dataset.id); });
+    btn.addEventListener('click', () => { console.error('[btn-click] edit id=', btn.dataset.id); openEmployeeModal(btn.dataset.id); });
   });
   tbody.querySelectorAll('button[data-action="delete"]').forEach(btn => {
     btn.addEventListener('click', () => confirmDeleteEmployee(btn.dataset.id));
@@ -566,7 +566,7 @@ function closeEmployeeModal() {
 }
 
 async function openEmployeeModal(id) {
-  console.log('[openEmployeeModal] id=', id, 'edit=', canEditKadrovska());
+  console.error('[openEmployeeModal] id=', id, 'edit=', canEditKadrovska());
   if (!canEditKadrovska()) {
     showToast('⚠ Nemate prava za izmenu');
     return;
