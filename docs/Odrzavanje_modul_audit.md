@@ -26,7 +26,7 @@
 | `maint_locations` | Hijerarhija lokacija (parent, code, name, `location_type`, aktivno) — migracija `add_maint_locations.sql`. |
 | `maint_assets` | CMMS supertype: `asset_code`, `asset_type`, status, FK lokacija/odgovorni, `qr_token`, itd. — migracija `add_maint_assets_supertable.sql`. Veza: `maint_machines.asset_id` → `maint_assets`. |
 
-**Napomena:** U snimku `docs/SUPABASE_PUBLIC_SCHEMA.md` (generisano 2026-04-22) **nema** `maint_assets` / `maint_locations` u listi; u repu migracije postoje — baseline dokument treba ažurirati kada se uskladi `sql/schema.sql` / regeneracija.
+**Napomena:** `docs/SUPABASE_PUBLIC_SCHEMA.md` je ažuriran 2026-04-27 za `maint_assets`, `maint_locations`, radne naloge i `work_order_id` na incidentima (usklađeno sa migracijama).
 
 **U repozitorijumu (2026):** `add_maint_work_orders.sql`, `link_maint_incidents_to_wo.sql` — `maint_work_orders` + child tabele, veza sa incidentima. **Još nema:** polimorfni `maint_documents` (Sprint 2+).
 
@@ -173,7 +173,7 @@ Za precizan matrix po tabeli, pratiti migracije ili regenerisati dokumentaciju p
 1. **Dupla izvora istine za šifru:** i dalje `machine_code` u incidentima/taskovima; `asset_code` na `maint_assets` mora ostati usklađen (rename RPC za mašine već postoji; za asset nivo — planirati `maint_asset_rename`).
 2. **Notifikacioni pipeline:** zavisi od triggera na `maint_incidents` + outbox + Edge `maint-notify-dispatch`. Bilo koja izmena severity→queue mora ostati kompatibilna; fanout očekuje stub redove.
 3. **Edge worker:** trenutno `rpc()` šalje samo `apikey` + `Authorization: Bearer` service role — **nema** `X-Audit-Actor` u implementaciji u `supabase/functions/maint-notify-dispatch/index.ts` (proveriti očekivanja iz projektnih instrukcija pri refaktoru).
-4. **Dokumentacija šeme:** `SUPABASE_PUBLIC_SCHEMA.md` zastareo u odnosu na migracije (assets/locations).
+4. **Dokumentacija šeme:** `SUPABASE_PUBLIC_SCHEMA.md` (2026-04-27) uključuje CMMS assets/locations/WO; `sql/schema.sql` i dalje ne sadrži ceo održavanski stek — namerno (migracije su izvor za produ).
 5. **UI pristup modulu:** `canAccessMaintenance()` u `router.js` je samo **ulogovan + online** — fine-grained kontrola je na RLS / `maint_user_profiles` u servisima.
 6. **Zavisnost od cache-a:** `fetchBigtehnMachineNames`, import iz cache — `bigtehn_machines_cache` ne sme se polomiti u syncu (crvena linija u instrukciji).
 
@@ -203,7 +203,7 @@ Glavni pozivi: view `v_maint_machine_current_status`, tabele `maint_*`, `bigtehn
 1. **Zalihe i dobavljači** u glavnom meniju Faze 1 ili odlaganje? (instrukcija traži potvrdu korisnika.)
 2. **Bezbednost kvara:** zasebno polje `safety_marker` vs peti prioritet? (instrukcija preporučuje marker.)
 3. **`X-Audit-Actor`:** da li treba uvesti u `maint-notify-dispatch` odmah pri sledećem diranju, ili ostaje samo za nove worker-e?
-4. **Regeneracija** `docs/SUPABASE_PUBLIC_SCHEMA.md` i `check:schema-baseline` nakon što se baseline uskladi sa `maint_assets` / `maint_locations`.
+4. **Puna regeneracija** iz žive baze (npr. SQL skripta / `supabase db dump`) po potrebi — ručni baseline u `SUPABASE_PUBLIC_SCHEMA.md` je ažuriran za CMMS; `check:schema-baseline` i dalje cilja `sql/schema.sql`.
 5. **Produkcija:** primeniti `add_maint_work_orders.sql` i `link_maint_incidents_to_wo.sql` redom (već u `sql/ci/migrations.txt` za CI).
 
 ---

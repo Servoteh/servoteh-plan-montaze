@@ -23,7 +23,7 @@ function normalizePathname(pathname) {
  *   | 'reset-password'
  *   | 'unknown',
  *   moduleId?: string,
- *   section?: 'dashboard' | 'machines' | 'machine' | 'board' | 'notifications' | 'catalog' | 'locations',
+ *   section?: 'dashboard' | 'machines' | 'machine' | 'board' | 'notifications' | 'catalog' | 'locations' | 'workorders',
  *   machineCode?: string,
  *   mobileScreen?: 'home' | 'scan' | 'manual' | 'history' | 'batch' | 'lookup'
  * }}
@@ -108,6 +108,9 @@ export function pathnameToRoute(pathname) {
   }
   if (p === '/maintenance/locations') {
     return { kind: 'maintenance', moduleId: 'odrzavanje-masina', section: 'locations' };
+  }
+  if (p === '/maintenance/work-orders') {
+    return { kind: 'maintenance', moduleId: 'odrzavanje-masina', section: 'workorders' };
   }
   const mm = /^\/maintenance\/machines\/([^/]+)$/.exec(p);
   if (mm) {

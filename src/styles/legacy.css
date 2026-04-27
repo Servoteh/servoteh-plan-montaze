@@ -4019,3 +4019,102 @@ body.pdf-export .tg-wp-filter { display: none !important; }
   .wp-assembly-strip .wp-assembly-edit { margin-left: 0; }
 }
 
+/* Održavanje — radni nalozi (kanban) */
+.mnt-wo-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+.mnt-wo-col {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px 10px;
+  min-height: 80px;
+}
+.mnt-wo-col-h {
+  font-size: 14px;
+  margin: 0 0 8px;
+  font-weight: 600;
+}
+.mnt-wo-col-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mnt-wo-card {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  padding: 8px 10px;
+  cursor: pointer;
+  text-align: left;
+}
+.mnt-wo-card:hover {
+  border-color: var(--accent);
+}
+.mnt-wo-card:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.mnt-wo-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.mnt-wo-num {
+  font-size: 12px;
+}
+.mnt-wo-pri {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.mnt-wo-pri--p1 {
+  background: rgba(220, 80, 80, 0.2);
+  color: #f0a0a0;
+}
+.mnt-wo-pri--p2 {
+  background: rgba(220, 160, 60, 0.2);
+  color: #e8c47a;
+}
+.mnt-wo-pri--p34 {
+  background: var(--surface3);
+  color: var(--text2);
+}
+.mnt-wo-card-title {
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 1.3;
+  margin-bottom: 4px;
+}
+.mnt-wo-card-meta {
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+.mnt-wo-card-st {
+  font-size: 11px;
+  color: var(--text2);
+}
+.mnt-wo-empty {
+  font-size: 12px;
+  margin: 0;
+  padding: 4px 0;
+}
+.mnt-wo-tiny {
+  font-size: 11px;
+  color: var(--accent);
+  text-decoration: none;
+  margin-left: 4px;
+}
+.mnt-wo-tiny:hover {
+  text-decoration: underline;
+}
+.mnt-wo-table-details summary {
+  user-select: none;
+}
+

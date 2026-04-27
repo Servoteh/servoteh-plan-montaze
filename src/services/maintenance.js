@@ -212,7 +212,7 @@ export async function fetchMaintChecksForMachine(machineCode, opts = {}) {
 export async function fetchMaintIncidentsForMachine(machineCode, opts = {}) {
   const lim = opts.limit ?? 30;
   return await sbReq(
-    `maint_incidents?select=id,title,severity,status,reported_at,assigned_to&machine_code=eq.${enc(machineCode)}&order=reported_at.desc&limit=${lim}`
+    `maint_incidents?select=id,title,severity,status,reported_at,assigned_to,work_order_id,maint_work_orders(wo_id,wo_number,status,title,priority)&machine_code=eq.${enc(machineCode)}&order=reported_at.desc&limit=${lim}`,
   );
 }
 
@@ -314,7 +314,9 @@ export async function insertMaintIncidentEvent(payload) {
  * @returns {Promise<object|null>}
  */
 export async function fetchIncidentById(incidentId) {
-  const rows = await sbReq(`maint_incidents?select=*&id=eq.${encodeURIComponent(incidentId)}&limit=1`);
+  const rows = await sbReq(
+    `maint_incidents?select=*,maint_work_orders(wo_id,wo_number,status,title,priority)&id=eq.${encodeURIComponent(incidentId)}&limit=1`,
+  );
   return Array.isArray(rows) && rows[0] ? rows[0] : null;
 }
 
@@ -1020,6 +1022,73 @@ export async function patchMaintMachineFile(id, patch) {
   params.set('id', `eq.${id}`);
   const res = await sbReq(`maint_machine_files?${params.toString()}`, 'PATCH', body);
   return Array.isArray(res) ? (res[0] || null) : (res || null);
+}
+
+/* ── Radni nalozi (maint_work_orders) — add_maint_work_orders.sql ───────── */
+
+const MAINT_WO_LIST_COLS =
+  'wo_id,wo_number,title,status,priority,type,created_at,assigned_to,source_incident_id,asset_id,description';
+
+/**
+ * Lista radnih naloga vidljivih korisniku (RLS). Ugnježđen `maint_assets` za šifru/naziv.
+ * @param {{ limit?: number, statusIn?: string[] }} [opts]
+ * @returns {Promise<Array<object>|null>}
+ */
+export async function fetchMaintWorkOrders(opts = {}) {
+  const limit = Math.min(opts.limit ?? 400, 1000);
+  const parts = [
+    `select=${MAINT_WO_LIST_COLS},maint_assets(asset_code,name,asset_type)`,
+    'order=created_at.desc',
+    `limit=${limit}`,
+  ];
+  if (Array.isArray(opts.statusIn) && opts.statusIn.length) {
+    const inList = opts.statusIn.map(s => enc(String(s).trim())).filter(Boolean);
+    if (inList.length) {
+      parts.push(`status=in.(${inList.join(',')})`);
+    }
+  }
+  return await sbReq(`maint_work_orders?${parts.join('&')}`);
+}
+
+/**
+ * @param {string} woId uuid
+ * @returns {Promise<object|null>}
+ */
+export async function fetchMaintWorkOrderById(woId) {
+  const rows = await sbReq(
+    `maint_work_orders?select=${MAINT_WO_LIST_COLS},maint_assets(asset_code,name,asset_type)&wo_id=eq.${encodeURIComponent(woId)}&limit=1`,
+  );
+  return Array.isArray(rows) && rows[0] ? rows[0] : null;
+}
+
+/**
+ * @param {string} woId
+ * @param {Record<string, unknown>} fields npr. status, assigned_to, started_at, completed_at, closure_comment
+ * @returns {Promise<boolean>}
+ */
+export async function patchMaintWorkOrder(woId, fields) {
+  const body = { ...fields };
+  delete body.wo_id;
+  delete body.created_at;
+  body.updated_by = getCurrentUser()?.id || null;
+  const r = await sbReq(`maint_work_orders?wo_id=eq.${encodeURIComponent(woId)}`, 'PATCH', body);
+  return r !== null;
+}
+
+/**
+ * `maint_machines.machine_code` po `asset_id` (katalog ↔ CMMS sredstvo).
+ * @param {string} assetId uuid
+ * @returns {Promise<string|null>}
+ */
+export async function fetchMachineCodeByAssetId(assetId) {
+  if (!assetId) return null;
+  const rows = await sbReq(
+    `maint_machines?select=machine_code&asset_id=eq.${encodeURIComponent(assetId)}&archived_at=is.null&limit=1`,
+  ).catch(() => null);
+  if (Array.isArray(rows) && rows[0]?.machine_code) {
+    return String(rows[0].machine_code);
+  }
+  return null;
 }
 
 /* ── Hijerarhija lokacija (maint_locations) — add_maint_locations.sql ───── */

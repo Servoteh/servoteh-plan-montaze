@@ -49,6 +49,7 @@ import {
 } from './maintCatalogTab.js';
 import { renderMaintLocationsPanel } from './maintLocationsTab.js';
 import { renderMaintFilesTab } from './maintFilesTab.js';
+import { renderMaintWorkOrdersPanel } from './maintWorkOrdersPanel.js';
 
 let mountRef = null;
 let disposeRef = { disposed: false };
@@ -282,12 +283,14 @@ function subnavHtml(section, machineCode, tab, onNavigateToPath) {
   const notifActive = section === 'notifications' ? ' mnt-subnav-active' : '';
   const catActive = section === 'catalog' ? ' mnt-subnav-active' : '';
   const locActive = section === 'locations' ? ' mnt-subnav-active' : '';
+  const woActive = section === 'workorders' ? ' mnt-subnav-active' : '';
   const machActive = section === 'machine' ? ' mnt-subnav-active' : '';
   return `
     <nav class="mnt-subnav" aria-label="Održavanje navigacija">
       <button type="button" class="mnt-subnav-btn${dashActive}" data-mnt-nav="/maintenance">Pregled</button>
       <button type="button" class="mnt-subnav-btn${listActive}" data-mnt-nav="/maintenance/machines">Mašine</button>
       <button type="button" class="mnt-subnav-btn${boardActive}" data-mnt-nav="/maintenance/board">Rokovi</button>
+      <button type="button" class="mnt-subnav-btn${woActive}" data-mnt-nav="/maintenance/work-orders">Radni nalozi</button>
       <button type="button" class="mnt-subnav-btn${notifActive}" data-mnt-nav="/maintenance/notifications">Obaveštenja</button>
       <button type="button" class="mnt-subnav-btn${locActive}" data-mnt-nav="/maintenance/locations">Lokacije</button>
       <button type="button" class="mnt-subnav-btn${catActive}" data-mnt-nav="/maintenance/catalog">Katalog mašina</button>
@@ -996,6 +999,13 @@ async function renderPanel(host, section, machineCode, tab, onNavigateToPath, on
     return;
   }
 
+  if (section === 'workorders') {
+    const prof = await fetchMaintUserProfile();
+    if (disposeRef.disposed || !host.isConnected) return;
+    await renderMaintWorkOrdersPanel(host, { prof, onNavigateToPath, onRefresh: onRefreshPanel });
+    return;
+  }
+
   if (section === 'board') {
     const [dues, prof, names, statuses] = await Promise.all([
       fetchMaintTaskDueDates(),
@@ -1394,6 +1404,11 @@ async function renderPanel(host, section, machineCode, tab, onNavigateToPath, on
       const ts = new Date(i.reported_at).getTime();
       if (!Number.isFinite(ts)) continue;
       const dateTxt = (i.reported_at || '').replace('T', ' ').slice(0, 16);
+      const wStub = i.maint_work_orders;
+      const wOne = Array.isArray(wStub) ? wStub[0] : wStub;
+      const woHtml = wOne
+        ? ` <a href="#" class="mnt-wo-tiny" data-mnt-wo-id="${escHtml(String(wOne.wo_id))}" title="Radni nalog">${escHtml(wOne.wo_number || 'RN')}</a>`
+        : '';
       items.push({
         kind: 'inc',
         at: ts,
@@ -1401,7 +1416,7 @@ async function renderPanel(host, section, machineCode, tab, onNavigateToPath, on
           <div class="mnt-hist-when">${escHtml(dateTxt)}</div>
           <div class="mnt-hist-body">
             <span class="mnt-hist-kind mnt-hist-kind--inc">Kvar</span>
-            <button type="button" class="mnt-linkish" data-mnt-incident="${escHtml(String(i.id))}">${escHtml(i.title || '')}</button>
+            <button type="button" class="mnt-linkish" data-mnt-incident="${escHtml(String(i.id))}">${escHtml(i.title || '')}</button>${woHtml}
             <span class="${severityBadge(i.severity)}">${escHtml(i.severity)}</span>
             <span class="mnt-muted">${escHtml(i.status || '')}</span>
           </div>
@@ -1574,6 +1589,23 @@ async function renderPanel(host, section, machineCode, tab, onNavigateToPath, on
         incidentId: id,
         machineCode,
         maintProf: prof,
+        onNavigateToPath,
+        onSaved: () => onRefreshPanel?.(),
+      });
+    });
+  });
+
+  host.querySelectorAll('.mnt-hist-list [data-mnt-wo-id]').forEach(el => {
+    el.addEventListener('click', async e => {
+      e.preventDefault();
+      e.stopPropagation();
+      const wid = el.getAttribute('data-mnt-wo-id');
+      if (!wid) return;
+      const m = await import('./maintWorkOrdersPanel.js');
+      await m.openMaintWorkOrderDetailModal({
+        woId: wid,
+        maintProf: prof,
+        onNavigateToPath,
         onSaved: () => onRefreshPanel?.(),
       });
     });
@@ -1683,7 +1715,7 @@ async function renderPanel(host, section, machineCode, tab, onNavigateToPath, on
 /**
  * @param {HTMLElement} root
  * @param {{
- *   section: 'dashboard' | 'machines' | 'machine' | 'board' | 'notifications' | 'catalog' | 'locations',
+ *   section: 'dashboard' | 'machines' | 'machine' | 'board' | 'notifications' | 'catalog' | 'locations' | 'workorders',
  *   machineCode?: string | null,
  *   tab?: string | null,
  *   onBackToHub: () => void,
@@ -1726,12 +1758,19 @@ export function renderMaintenanceShell(root, opts) {
       machineCode,
       tabFromUrl || tab || null,
       onNavigateToPath,
-      section === 'machine' ? runPanel : null,
+      section === 'machine' || section === 'workorders' ? runPanel : null,
     );
   };
 
   if (host) {
-    renderPanel(host, section, machineCode, tab, onNavigateToPath, section === 'machine' ? runPanel : null).catch(
+    renderPanel(
+      host,
+      section,
+      machineCode,
+      tab,
+      onNavigateToPath,
+      section === 'machine' || section === 'workorders' ? runPanel : null,
+    ).catch(
       err => {
         console.error('[mnt] panel', err);
         if (!disposeRef.disposed && host.isConnected) {

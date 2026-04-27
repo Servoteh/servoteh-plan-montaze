@@ -685,6 +685,7 @@ function showMaintenanceFromRoute(route, searchParsed, opts = {}) {
     else if (route.section === 'notifications') wantPath = '/maintenance/notifications';
     else if (route.section === 'catalog') wantPath = '/maintenance/catalog';
     else if (route.section === 'locations') wantPath = '/maintenance/locations';
+    else if (route.section === 'workorders') wantPath = '/maintenance/work-orders';
     else if (route.section === 'machine' && route.machineCode) {
       wantPath = buildMaintenanceMachinePath(route.machineCode, searchParsed.tab);
     }
@@ -705,7 +706,9 @@ function showMaintenanceFromRoute(route, searchParsed, opts = {}) {
               ? 'catalog'
               : route.section === 'locations'
                 ? 'locations'
-                : 'dashboard';
+                : route.section === 'workorders'
+                  ? 'workorders'
+                  : 'dashboard';
   renderMaintenanceShell(mountEl, {
     section,
     machineCode: route.machineCode || null,

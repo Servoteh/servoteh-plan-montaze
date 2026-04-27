@@ -1,10 +1,10 @@
 # Supabase: šema baze (public)
 
-Generisano: 2026-04-22. Izvor: živa Supabase baza, šema `public` (baze tabela, pogledi, enum tipovi, strani ključevi, flat pregled svih kolona).
+Generisano: 2026-04-27. **Ažuriranje:** CMMS objekti (`maint_locations`, `maint_assets`, radni nalozi, `work_order_id` na incidentima) usklađeni su sa migracijama u `sql/migrations/` (`add_maint_locations.sql`, `add_maint_assets_supertable.sql`, `add_maint_work_orders.sql`, `link_maint_incidents_to_wo.sql`). Originalni snimak žive baze: 2026-04-22.
 
 ## Šta ovaj dokument pokriva
 
-- **Baze tabele (BASE TABLE)**: 58 tabela, kolone u jednoj flat tabeli (pogodno za pretragu).
+- **Baze tabele (BASE TABLE)**: 65 tabela, kolone u jednoj flat tabeli (pogodno za pretragu).
 - **Pregledi (views)**: 12 objekata u `public` (definicija SQL-a je u migracijama; ovde su samo imena).
 - **Enum vrednosti**: svi korisnički enum tipovi u `public` sa labelama.
 - **Strani ključevi (FOREIGN KEY)**: ograničenja koja referenciraju druge tabele (unutar `public`).
@@ -154,6 +154,45 @@ Ispod: **Pregledi**, **Enumi**, **Foreign keys**, zatim **flat tabela svih kolon
 | 2 | important |
 | 3 | critical |
 
+### maint_asset_type
+| sort | value |
+|------|-------|
+| 1 | machine |
+| 2 | vehicle |
+| 3 | it |
+| 4 | facility |
+
+### maint_wo_type
+| sort | value |
+|------|-------|
+| 1 | kvar |
+| 2 | preventiva |
+| 3 | inspekcija |
+| 4 | servis |
+| 5 | administrativni |
+
+### maint_wo_priority
+| sort | value |
+|------|-------|
+| 1 | p1_zastoj |
+| 2 | p2_smetnja |
+| 3 | p3_manje |
+| 4 | p4_planirano |
+
+### maint_wo_status
+| sort | value |
+|------|-------|
+| 1 | novi |
+| 2 | potvrden |
+| 3 | dodeljen |
+| 4 | u_radu |
+| 5 | ceka_deo |
+| 6 | ceka_dobavljaca |
+| 7 | ceka_korisnika |
+| 8 | kontrola |
+| 9 | zavrsen |
+| 10 | otkazan |
+
 ---
 
 ## Strani ključevi (public → referenca)
@@ -176,8 +215,18 @@ Ispod: **Pregledi**, **Enumi**, **Foreign keys**, zatim **flat tabela svih kolon
 | loc_location_movements | to_location_id | loc_locations |
 | loc_location_movements | correction_of_movement_id | loc_location_movements |
 | loc_locations | parent_id | loc_locations |
+| maint_assets | location_id | maint_locations |
 | maint_checks | task_id | maint_tasks |
 | maint_incident_events | incident_id | maint_incidents |
+| maint_incidents | work_order_id | maint_work_orders |
+| maint_locations | parent_location_id | maint_locations |
+| maint_machines | asset_id | maint_assets |
+| maint_work_orders | asset_id | maint_assets |
+| maint_work_orders | source_incident_id | maint_incidents |
+| maint_work_orders | source_preventive_task_id | maint_tasks |
+| maint_wo_events | wo_id | maint_work_orders |
+| maint_wo_labor | wo_id | maint_work_orders |
+| maint_wo_parts | wo_id | maint_work_orders |
 | phases | project_id | projects |
 | phases | work_package_id | work_packages |
 | pm_teme | projekat_id | projects |
@@ -553,6 +602,26 @@ Ispod: **Pregledi**, **Enumi**, **Foreign keys**, zatim **flat tabela svih kolon
 | loc_sync_outbound_events | next_retry_at | timestamp with time zone(6) | YES |
 | loc_sync_outbound_events | created_at | timestamp with time zone(6) | NO |
 | loc_sync_outbound_events | synced_at | timestamp with time zone(6) | YES |
+| maint_assets | asset_id | uuid | NO |
+| maint_assets | asset_code | text | NO |
+| maint_assets | asset_type | maint_asset_type | NO |
+| maint_assets | name | text | NO |
+| maint_assets | status | maint_operational_status | NO |
+| maint_assets | location_id | uuid | YES |
+| maint_assets | responsible_user_id | uuid | YES |
+| maint_assets | manufacturer | text | YES |
+| maint_assets | model | text | YES |
+| maint_assets | serial_number | text | YES |
+| maint_assets | date_of_purchase | date(0) | YES |
+| maint_assets | warranty_until | date(0) | YES |
+| maint_assets | supplier | text | YES |
+| maint_assets | qr_token | text | NO |
+| maint_assets | active | boolean | NO |
+| maint_assets | archived_at | timestamp with time zone(6) | YES |
+| maint_assets | created_at | timestamp with time zone(6) | NO |
+| maint_assets | updated_at | timestamp with time zone(6) | NO |
+| maint_assets | updated_by | uuid | YES |
+| maint_assets | notes | text | YES |
 | maint_checks | id | uuid | NO |
 | maint_checks | task_id | uuid | NO |
 | maint_checks | machine_code | text | NO |
@@ -574,6 +643,7 @@ Ispod: **Pregledi**, **Enumi**, **Foreign keys**, zatim **flat tabela svih kolon
 | maint_incident_events | comment | text | YES |
 | maint_incidents | id | uuid | NO |
 | maint_incidents | machine_code | text | NO |
+| maint_incidents | work_order_id | uuid | YES |
 | maint_incidents | reported_by | uuid | NO |
 | maint_incidents | reported_at | timestamp with time zone(6) | NO |
 | maint_incidents | title | text | NO |
@@ -589,6 +659,14 @@ Ispod: **Pregledi**, **Enumi**, **Foreign keys**, zatim **flat tabela svih kolon
 | maint_incidents | created_at | timestamp with time zone(6) | NO |
 | maint_incidents | updated_at | timestamp with time zone(6) | NO |
 | maint_incidents | updated_by | uuid | YES |
+| maint_locations | location_id | uuid | NO |
+| maint_locations | parent_location_id | uuid | YES |
+| maint_locations | location_type | text | NO |
+| maint_locations | code | text | YES |
+| maint_locations | name | text | NO |
+| maint_locations | active | boolean | NO |
+| maint_locations | created_at | timestamp with time zone(6) | NO |
+| maint_locations | updated_at | timestamp with time zone(6) | NO |
 | maint_machine_files | id | uuid | NO |
 | maint_machine_files | machine_code | text | NO |
 | maint_machine_files | file_name | text | NO |
@@ -615,6 +693,7 @@ Ispod: **Pregledi**, **Enumi**, **Foreign keys**, zatim **flat tabela svih kolon
 | maint_machine_status_override | set_at | timestamp with time zone(6) | NO |
 | maint_machine_status_override | valid_until | timestamp with time zone(6) | YES |
 | maint_machines | machine_code | text | NO |
+| maint_machines | asset_id | uuid | YES |
 | maint_machines | name | text | NO |
 | maint_machines | type | text | YES |
 | maint_machines | manufacturer | text | YES |
@@ -686,6 +765,57 @@ Ispod: **Pregledi**, **Enumi**, **Foreign keys**, zatim **flat tabela svih kolon
 | maint_user_profiles | created_at | timestamp with time zone(6) | NO |
 | maint_user_profiles | updated_at | timestamp with time zone(6) | NO |
 | maint_user_profiles | phone | text | YES |
+| maint_work_orders | wo_id | uuid | NO |
+| maint_work_orders | wo_number | text | YES |
+| maint_work_orders | type | maint_wo_type | NO |
+| maint_work_orders | asset_id | uuid | NO |
+| maint_work_orders | asset_type | maint_asset_type | NO |
+| maint_work_orders | source_incident_id | uuid | YES |
+| maint_work_orders | source_preventive_task_id | uuid | YES |
+| maint_work_orders | title | text | NO |
+| maint_work_orders | description | text | YES |
+| maint_work_orders | priority | maint_wo_priority | NO |
+| maint_work_orders | safety_marker | boolean | NO |
+| maint_work_orders | status | maint_wo_status | NO |
+| maint_work_orders | reported_by | uuid | NO |
+| maint_work_orders | assigned_to | uuid | YES |
+| maint_work_orders | due_at | timestamp with time zone(6) | YES |
+| maint_work_orders | created_at | timestamp with time zone(6) | NO |
+| maint_work_orders | started_at | timestamp with time zone(6) | YES |
+| maint_work_orders | completed_at | timestamp with time zone(6) | YES |
+| maint_work_orders | downtime_from | timestamp with time zone(6) | YES |
+| maint_work_orders | downtime_to | timestamp with time zone(6) | YES |
+| maint_work_orders | labor_minutes | integer(32,0) | YES |
+| maint_work_orders | cost_total | numeric(10,2) | YES |
+| maint_work_orders | closure_comment | text | YES |
+| maint_work_orders | updated_at | timestamp with time zone(6) | NO |
+| maint_work_orders | updated_by | uuid | YES |
+| maint_wo_events | id | uuid | NO |
+| maint_wo_events | wo_id | uuid | NO |
+| maint_wo_events | actor | uuid | YES |
+| maint_wo_events | at | timestamp with time zone(6) | NO |
+| maint_wo_events | event_type | text | NO |
+| maint_wo_events | from_value | text | YES |
+| maint_wo_events | to_value | text | YES |
+| maint_wo_events | comment | text | YES |
+| maint_wo_labor | id | uuid | NO |
+| maint_wo_labor | wo_id | uuid | NO |
+| maint_wo_labor | technician_id | uuid | YES |
+| maint_wo_labor | started_at | timestamp with time zone(6) | YES |
+| maint_wo_labor | ended_at | timestamp with time zone(6) | YES |
+| maint_wo_labor | minutes | integer(32,0) | YES |
+| maint_wo_labor | notes | text | YES |
+| maint_wo_labor | created_at | timestamp with time zone(6) | NO |
+| maint_wo_number_counter | year | integer(32,0) | NO |
+| maint_wo_number_counter | last_value | integer(32,0) | NO |
+| maint_wo_parts | id | uuid | NO |
+| maint_wo_parts | wo_id | uuid | NO |
+| maint_wo_parts | part_name | text | NO |
+| maint_wo_parts | quantity | numeric(12,4) | YES |
+| maint_wo_parts | unit | text | YES |
+| maint_wo_parts | unit_cost | numeric(10,2) | YES |
+| maint_wo_parts | supplier | text | YES |
+| maint_wo_parts | created_at | timestamp with time zone(6) | NO |
 | phases | id | uuid | NO |
 | phases | project_id | uuid | NO |
 | phases | work_package_id | uuid | NO |

@@ -46,6 +46,22 @@ function statusLabel(s) {
   return m[s] || s;
 }
 
+function woStatusLabelForIncident(s) {
+  const m = {
+    novi: 'Novi',
+    potvrden: 'Potvrđen',
+    dodeljen: 'Dodeljen',
+    u_radu: 'U radu',
+    ceka_deo: 'Čeka deo',
+    ceka_dobavljaca: 'Čeka dobavljača',
+    ceka_korisnika: 'Čeka korisnika',
+    kontrola: 'Kontrola',
+    zavrsen: 'Završen',
+    otkazan: 'Otkazan',
+  };
+  return m[s] || s;
+}
+
 function eventTypeLabel(t) {
   const m = {
     status_change: 'Promena statusa',
@@ -57,10 +73,10 @@ function eventTypeLabel(t) {
 }
 
 /**
- * @param {{ incidentId: string, machineCode: string, maintProf: object|null, onSaved?: () => void }} opts
+ * @param {{ incidentId: string, machineCode: string, maintProf: object|null, onSaved?: () => void, onNavigateToPath?: (p: string) => void }} opts
  */
 export async function openIncidentDetailModal(opts) {
-  const { incidentId, machineCode, maintProf, onSaved } = opts;
+  const { incidentId, machineCode, maintProf, onSaved, onNavigateToPath } = opts;
   document.getElementById('mntIncDlg')?.remove();
 
   const [inc, events, assignList] = await Promise.all([
@@ -73,6 +89,9 @@ export async function openIncidentDetailModal(opts) {
     showToast('⚠ Incident nije učitan');
     return;
   }
+
+  const rawWo = inc.maint_work_orders;
+  const woRef = Array.isArray(rawWo) ? rawWo[0] : rawWo;
 
   const canEdit = canEditIncidentFields(maintProf);
   const canClose = canCloseIncident(maintProf);
@@ -138,6 +157,14 @@ export async function openIncidentDetailModal(opts) {
       <p class="mnt-muted" style="font-size:14px">${escHtml(inc.description || '—')}</p>
       <p>Ozbiljnost: <span class="mnt-muted">${escHtml(String(inc.severity || ''))}</span></p>
       ${
+        woRef
+          ? `<p>Radni nalog: <button type="button" class="mnt-linkish" id="mntIncDlgOpenWo" style="padding:0;border:0;background:transparent;font:inherit;color:var(--accent);text-decoration:underline;cursor:pointer">${escHtml(woRef.wo_number || String(woRef.wo_id).slice(0, 8) || 'RN')}</button>
+        <span class="mnt-muted">· ${escHtml(woStatusLabelForIncident(String(woRef.status || '')))}</span></p>`
+          : inc.work_order_id
+            ? `<p class="mnt-muted">Radni nalog: <code>${escHtml(String(inc.work_order_id))}</code></p>`
+            : ''
+      }
+      ${
         canEdit
           ? `<form id="mntIncDlgForm">
         ${assignRpcHint}
@@ -171,6 +198,19 @@ export async function openIncidentDetailModal(opts) {
     e.preventDefault();
     window.location.href = buildMaintenanceMachinePath(machineCode, 'incidenti');
     close();
+  });
+
+  wrap.querySelector('#mntIncDlgOpenWo')?.addEventListener('click', async e => {
+    e.preventDefault();
+    if (!woRef?.wo_id) return;
+    const m = await import('./maintWorkOrdersPanel.js');
+    close();
+    await m.openMaintWorkOrderDetailModal({
+      woId: String(woRef.wo_id),
+      maintProf,
+      onNavigateToPath,
+      onSaved: () => onSaved?.(),
+    });
   });
 
   wrap.querySelector('#mntIncDlgForm')?.addEventListener('submit', async e => {
