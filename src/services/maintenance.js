@@ -217,6 +217,18 @@ export async function fetchMaintIncidentsForMachine(machineCode, opts = {}) {
 }
 
 /**
+ * Globalna lista incidenata za CMMS izveštaje. RLS već ograničava vidljive redove.
+ * @param {{ limit?: number }} [opts]
+ * @returns {Promise<Array<object>|null>}
+ */
+export async function fetchMaintIncidents(opts = {}) {
+  const lim = Math.min(opts.limit ?? 1000, 5000);
+  return await sbReq(
+    `maint_incidents?select=id,machine_code,asset_id,asset_type,title,severity,status,reported_at,resolved_at,closed_at,downtime_minutes,work_order_id,safety_marker,maint_work_orders(wo_id,wo_number,status,title,priority)&order=reported_at.desc&limit=${lim}`,
+  );
+}
+
+/**
  * @param {string} machineCode
  * @returns {Promise<object|null>}
  */
