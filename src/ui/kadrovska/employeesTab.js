@@ -147,13 +147,12 @@ export async function wireEmployeesTab(panelEl, { onChange } = {}) {
   });
 
   panelEl.addEventListener('click', e => {
-    const btn = e.target.closest('button[data-action]');
+    const btn = e.target.closest('.btn-emp-edit, .btn-emp-delete');
     if (!btn || btn.disabled) return;
-    const action = btn.getAttribute('data-action');
-    const empId  = btn.getAttribute('data-id');
-    console.log('[EMP-ACTION]', JSON.stringify(action), JSON.stringify(empId));
-    if (action === 'edit')   openEmployeeModal(empId);
-    if (action === 'delete') confirmDeleteEmployee(empId);
+    const empId = btn.getAttribute('data-id');
+    if (!empId) return;
+    if (btn.classList.contains('btn-emp-edit'))   openEmployeeModal(empId);
+    if (btn.classList.contains('btn-emp-delete')) confirmDeleteEmployee(empId);
   });
 
   await ensureEmployeesLoaded(true);
@@ -304,8 +303,8 @@ export function refreshEmployeesTab() {
       <td class=”col-hide-sm”>${medBadge}</td>
       <td><span class=”emp-status-badge ${statusCls}”>${statusTxt}</span></td>
       <td class=”col-actions”>
-        <button class=”btn-row-act” data-action=”edit” data-id=”${rowId}” ${edit ? '' : 'disabled'} title=”${edit ? 'Izmeni' : 'Samo pregled'}”>Izmeni</button>
-        <button class=”btn-row-act danger” data-action=”delete” data-id=”${rowId}” ${edit ? '' : 'disabled'} title=”${edit ? 'Obriši' : 'Samo pregled'}”>Obriši</button>
+        <button class=”btn-row-act btn-emp-edit” data-id=”${rowId}” ${edit ? '' : 'disabled'} title=”${edit ? 'Izmeni' : 'Samo pregled'}”>Izmeni</button>
+        <button class=”btn-row-act danger btn-emp-delete” data-id=”${rowId}” ${edit ? '' : 'disabled'} title=”${edit ? 'Obriši' : 'Samo pregled'}”>Obriši</button>
       </td>
     </tr>`;
   }).join('');
@@ -569,7 +568,6 @@ function closeEmployeeModal() {
 }
 
 async function openEmployeeModal(id) {
-  console.log('[MODAL] id=', id, 'canEdit=', canEditKadrovska());
   if (!canEditKadrovska()) {
     showToast('⚠ Nemate prava za izmenu');
     return;
@@ -579,7 +577,6 @@ async function openEmployeeModal(id) {
   let emp = null;
   if (id) {
     emp = kadrovskaState.employees.find(x => x.id === id);
-    console.log('[MODAL] emp=', emp ? 'found' : 'NOT FOUND, total=' + kadrovskaState.employees.length);
     if (!emp) {
       showToast('⚠ Zaposleni nije pronađen');
       return;
