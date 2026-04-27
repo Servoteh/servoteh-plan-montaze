@@ -1053,7 +1053,7 @@ export async function patchMaintMachineFile(id, patch) {
 /* ── Radni nalozi (maint_work_orders) — add_maint_work_orders.sql ───────── */
 
 const MAINT_WO_LIST_COLS =
-  'wo_id,wo_number,title,status,priority,type,created_at,assigned_to,source_incident_id,asset_id,description';
+  'wo_id,wo_number,title,status,priority,type,created_at,assigned_to,source_incident_id,asset_id,description,safety_marker,due_at';
 
 /**
  * Lista radnih naloga vidljivih korisniku (RLS). Ugnježđen `maint_assets` za šifru/naziv.

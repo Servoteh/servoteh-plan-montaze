@@ -27,6 +27,7 @@ import {
   patchMaintMachineNote,
   patchMaintTask,
   fetchMaintMachineOverride,
+  fetchMaintWorkOrders,
 } from '../../services/maintenance.js';
 import { buildMaintenanceMachinePath } from '../../lib/appPaths.js';
 import { openConfirmCheckModal, openReportIncidentModal } from './maintDialogs.js';
@@ -1185,13 +1186,14 @@ async function renderPanel(host, section, machineCode, tab, onNavigateToPath, on
   }
 
   if (section === 'dashboard') {
-    const [rows, prof, names, dues] = await Promise.all([
+    const [rows, prof, names, dues, workOrders] = await Promise.all([
       fetchMaintMachineStatuses(),
       fetchMaintUserProfile(),
       fetchMaintMachines(),
       /* Dues treba za KPI „Rokovi danas" — best-effort, ako RPC nije dostupan
          kartica će samo pokazati 0, ne ruši dashboard. */
       fetchMaintTaskDueDates().catch(() => []),
+      fetchMaintWorkOrders({ limit: 250 }).catch(() => null),
     ]);
     if (disposeRef.disposed || !host.isConnected) return;
 
@@ -1204,20 +1206,28 @@ async function renderPanel(host, section, machineCode, tab, onNavigateToPath, on
     );
     const merged = mergeMachineNames(rows, nameByCode);
 
-    /* Operativno-orijentisani KPI (umesto proste podele po status-u). */
+    /* Operativno-orijentisani KPI za Sprint 1.7: statusi + WO + preventiva. */
     const nDown = merged.filter(r => r.status === 'down').length;
+    const nDegraded = merged.filter(r => r.status === 'degraded').length;
+    const nRunning = merged.filter(r => r.status === 'running').length;
     const nOpenIncMachines = merged.filter(r => Number(r.open_incidents_count) > 0).length;
     const nLate = merged.filter(r => Number(r.overdue_checks_count) > 0).length;
+    const woRows = Array.isArray(workOrders) ? workOrders : [];
+    const isWoOpen = w => !['zavrsen', 'otkazan'].includes(String(w.status || '').toLowerCase());
+    const activeWo = woRows.filter(isWoOpen);
+    const nSafetyWo = activeWo.filter(w => !!w.safety_marker).length;
 
     const now = new Date();
     const sod = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const eod = new Date(sod); eod.setHours(23, 59, 59, 999);
-    const nextDueByCode = aggregateNextDueByMachine(Array.isArray(dues) ? dues : []);
+    const dueList = Array.isArray(dues) ? dues : [];
+    const nextDueByCode = aggregateNextDueByMachine(dueList);
     let nToday = 0;
     for (const iso of nextDueByCode.values()) {
       const t = new Date(iso);
       if (Number.isFinite(t.getTime()) && t >= sod && t <= eod) nToday += 1;
     }
+    const dueBuckets = bucketTaskDueDates(dueList);
 
     const kpiDef = [
       {
@@ -1247,6 +1257,34 @@ async function renderPanel(host, section, machineCode, tab, onNavigateToPath, on
         tone: 'today',
         nav: '/maintenance/machines?deadline=danas',
         title: 'Mašine kojima sledeći preventivni zadatak pada danas',
+      },
+      {
+        label: 'Aktivni WO',
+        val: activeWo.length,
+        tone: 'maintenance',
+        nav: '/maintenance/work-orders?open=1',
+        title: 'Radni nalozi koji nisu završeni ili otkazani',
+      },
+      {
+        label: 'Safety WO',
+        val: nSafetyWo,
+        tone: 'down',
+        nav: '/maintenance/work-orders?open=1',
+        title: 'Otvoreni radni nalozi sa safety markerom',
+      },
+      {
+        label: 'Radi normalno',
+        val: nRunning,
+        tone: 'running',
+        nav: '/maintenance/machines?status=radi',
+        title: 'Mašine bez zastoja u trenutnom statusu',
+      },
+      {
+        label: 'Smetnje',
+        val: nDegraded,
+        tone: 'degraded',
+        nav: '/maintenance/machines?status=smetnje',
+        title: 'Mašine koje rade otežano',
       },
     ];
     const kpiRowHtml = kpiDef.map(k => {
@@ -1281,23 +1319,84 @@ async function renderPanel(host, section, machineCode, tab, onNavigateToPath, on
         <button type="button" class="mnt-att-action" data-mnt-nav="${escHtml(path)}">Otvori →</button>
       </li>`;
     }).join('');
+    const woStatusSr = s => {
+      const m = {
+        novi: 'Novi',
+        potvrden: 'Potvrđen',
+        u_radu: 'U radu',
+        ceka_deo: 'Čeka deo',
+        ceka_izvodjaca: 'Čeka izvođača',
+        zavrsen: 'Završen',
+        otkazan: 'Otkazan',
+      };
+      return m[s] || s || '—';
+    };
+    const woRowsHtml = activeWo.slice(0, 8).map(w => {
+      const asset = w.maint_assets || {};
+      return `<li class="mnt-dash-mini-row">
+        <button type="button" class="mnt-linkish" data-mnt-nav="/maintenance/work-orders">${escHtml(w.wo_number || 'WO')}</button>
+        <span>${escHtml(w.title || '')}</span>
+        <span class="mnt-muted">${escHtml(asset.asset_code || '—')} · ${escHtml(woStatusSr(String(w.status || '')))}</span>
+      </li>`;
+    }).join('');
+    const dueRowsHtml = [...dueBuckets.overdue, ...dueBuckets.today].slice(0, 8).map(d => {
+      const path = buildMaintenanceMachinePath(d.machine_code, 'kontrole');
+      const disp = nameByCode.get(d.machine_code) || d.machine_code;
+      return `<li class="mnt-dash-mini-row">
+        <button type="button" class="mnt-linkish" data-mnt-nav="${escHtml(path)}">${escHtml(disp)}</button>
+        <span>${escHtml(d.title || '')}</span>
+        <span class="mnt-muted">${escHtml(relDate(d.next_due_at))}</span>
+      </li>`;
+    }).join('');
+    const downRowsHtml = merged
+      .filter(r => ['down', 'degraded', 'maintenance'].includes(String(r.status || '')))
+      .slice(0, 8)
+      .map(r => {
+        const path = buildMaintenanceMachinePath(r.machine_code, 'pregled');
+        return `<li class="mnt-dash-mini-row">
+          <button type="button" class="mnt-linkish" data-mnt-nav="${escHtml(path)}">${escHtml(r.display_name)}</button>
+          <span class="${statusBadgeClass(r.status)}">${escHtml(statusLabel(r.status))}</span>
+          <span class="mnt-muted">${escHtml(r.override_reason || '—')}</span>
+        </li>`;
+      })
+      .join('');
 
     const canEditCatalogDash = canManageMaintCatalog(prof);
     host.innerHTML = `
       ${profileInfoBannerHtml(prof)}
       <div class="mnt-kpi-row">${kpiRowHtml}</div>
-      <section class="mnt-attention" style="margin-top:20px">
-        <div class="mnt-att-head">
-          <h3>Zahtevaju pažnju</h3>
-          ${attention.length > 0 ? `<span class="mnt-muted mnt-att-count">${attention.length > 12 ? `prikazano 12 od ${attention.length}` : `${attention.length} ${attention.length === 1 ? 'stavka' : 'stavki'}`}</span>` : ''}
-        </div>
-        ${attRowsHtml
-          ? `<ul class="mnt-att-list" role="list">${attRowsHtml}</ul>`
-          : `<div class="mnt-att-empty">
-              <strong>Sve mašine rade normalno.</strong>
-              <span class="mnt-muted">Nema otvorenih kvarova ni kašnjenja po planu održavanja.</span>
-            </div>`}
-      </section>
+      <div class="mnt-dash-grid">
+        <section class="mnt-attention mnt-dash-card">
+          <div class="mnt-att-head">
+            <h3>Zahtevaju pažnju</h3>
+            ${attention.length > 0 ? `<span class="mnt-muted mnt-att-count">${attention.length > 12 ? `prikazano 12 od ${attention.length}` : `${attention.length} ${attention.length === 1 ? 'stavka' : 'stavki'}`}</span>` : ''}
+          </div>
+          ${attRowsHtml
+            ? `<ul class="mnt-att-list" role="list">${attRowsHtml}</ul>`
+            : `<div class="mnt-att-empty"><strong>Sve mašine rade normalno.</strong><span class="mnt-muted">Nema otvorenih kvarova ni kašnjenja.</span></div>`}
+        </section>
+        <section class="mnt-dash-card">
+          <div class="mnt-att-head">
+            <h3>Aktivni radni nalozi</h3>
+            <button type="button" class="mnt-catalog-link" data-mnt-nav="/maintenance/work-orders">Svi WO →</button>
+          </div>
+          <ul class="mnt-dash-mini-list">${woRowsHtml || '<li class="mnt-muted">Nema aktivnih radnih naloga.</li>'}</ul>
+        </section>
+        <section class="mnt-dash-card">
+          <div class="mnt-att-head">
+            <h3>Preventiva: kasni / danas</h3>
+            <button type="button" class="mnt-catalog-link" data-mnt-nav="/maintenance/preventive">Preventiva →</button>
+          </div>
+          <ul class="mnt-dash-mini-list">${dueRowsHtml || '<li class="mnt-muted">Nema rokova za akciju.</li>'}</ul>
+        </section>
+        <section class="mnt-dash-card">
+          <div class="mnt-att-head">
+            <h3>Zastoji i smetnje</h3>
+            <button type="button" class="mnt-catalog-link" data-mnt-nav="/maintenance/machines?status=zastoj">Lista →</button>
+          </div>
+          <ul class="mnt-dash-mini-list">${downRowsHtml || '<li class="mnt-muted">Nema zastoja ni smetnji.</li>'}</ul>
+        </section>
+      </div>
       <p style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
         <button type="button" class="btn" id="mntGoMachinesBtn">Otvori listu mašina →</button>
         ${canEditCatalogDash ? '<button type="button" class="btn" id="mntGoCatalogBtn" style="background:var(--surface3)">⚙ Katalog mašina (uredi/dodaj) →</button>' : ''}
