@@ -147,7 +147,9 @@ export async function wireEmployeesTab(panelEl, { onChange } = {}) {
   });
 
   panelEl.addEventListener('click', e => {
+    console.log('[EMP-CLICK] target:', e.target.tagName, e.target.className);
     const btn = e.target.closest('button[data-action]');
+    console.log('[EMP-BTN]', btn ? `action=${btn.dataset.action} disabled=${btn.disabled}` : 'null');
     if (!btn || btn.disabled) return;
     if (btn.dataset.action === 'edit') openEmployeeModal(btn.dataset.id);
     if (btn.dataset.action === 'delete') confirmDeleteEmployee(btn.dataset.id);
