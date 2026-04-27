@@ -146,10 +146,8 @@ export async function wireEmployeesTab(panelEl, { onChange } = {}) {
     });
   });
 
-  await Promise.all([
-    ensureEmployeesLoaded(true),
-    ensureOrgStructureLoaded(),
-  ]);
+  await ensureEmployeesLoaded(true);
+  try { await ensureOrgStructureLoaded(); } catch (e) { console.warn('[kadrovska] org structure load failed', e); }
   refreshEmployeesTab();
 }
 
