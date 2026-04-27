@@ -1,10 +1,10 @@
 # Supabase: šema baze (public)
 
-Generisano: 2026-04-27. **Ažuriranje:** CMMS objekti (`maint_locations`, `maint_assets`, radni nalozi, `work_order_id`/`asset_id` na incidentima, `maint_documents`) usklađeni su sa migracijama u `sql/migrations/` (`add_maint_locations.sql`, `add_maint_assets_supertable.sql`, `add_maint_work_orders.sql`, `link_maint_incidents_to_wo.sql`, `extend_maint_incidents_assets.sql`, `add_maint_documents.sql`). Originalni snimak žive baze: 2026-04-22.
+Generisano: 2026-04-27. **Ažuriranje:** CMMS objekti (`maint_locations`, `maint_assets`, radni nalozi, `work_order_id`/`asset_id` na incidentima, `maint_documents`, `maint_parts`, `maint_suppliers`, `maint_part_stock_movements`) usklađeni su sa migracijama u `sql/migrations/` (`add_maint_locations.sql`, `add_maint_assets_supertable.sql`, `add_maint_work_orders.sql`, `link_maint_incidents_to_wo.sql`, `extend_maint_incidents_assets.sql`, `add_maint_documents.sql`, `add_maint_inventory.sql`). Originalni snimak žive baze: 2026-04-22.
 
 ## Šta ovaj dokument pokriva
 
-- **Baze tabele (BASE TABLE)**: 66 tabela, kolone u jednoj flat tabeli (pogodno za pretragu).
+- **Baze tabele (BASE TABLE)**: 69 tabela, kolone u jednoj flat tabeli (pogodno za pretragu).
 - **Pregledi (views)**: 12 objekata u `public` (definicija SQL-a je u migracijama; ovde su samo imena).
 - **Enum vrednosti**: svi korisnički enum tipovi u `public` sa labelama.
 - **Strani ključevi (FOREIGN KEY)**: ograničenja koja referenciraju druge tabele (unutar `public`).
@@ -147,6 +147,14 @@ Ispod: **Pregledi**, **Enumi**, **Foreign keys**, zatim **flat tabela svih kolon
 | 3 | down |
 | 4 | maintenance |
 
+### maint_stock_movement_type
+| sort | value |
+|------|-------|
+| 1 | in |
+| 2 | out |
+| 3 | adjustment |
+| 4 | return |
+
 ### maint_task_severity
 | sort | value |
 |------|-------|
@@ -234,11 +242,15 @@ Ispod: **Pregledi**, **Enumi**, **Foreign keys**, zatim **flat tabela svih kolon
 | maint_incidents | work_order_id | maint_work_orders |
 | maint_locations | parent_location_id | maint_locations |
 | maint_machines | asset_id | maint_assets |
+| maint_part_stock_movements | part_id | maint_parts |
+| maint_part_stock_movements | wo_id | maint_work_orders |
+| maint_parts | supplier_id | maint_suppliers |
 | maint_work_orders | asset_id | maint_assets |
 | maint_work_orders | source_incident_id | maint_incidents |
 | maint_work_orders | source_preventive_task_id | maint_tasks |
 | maint_wo_events | wo_id | maint_work_orders |
 | maint_wo_labor | wo_id | maint_work_orders |
+| maint_wo_parts | part_id | maint_parts |
 | maint_wo_parts | wo_id | maint_work_orders |
 | phases | project_id | projects |
 | phases | work_package_id | work_packages |
@@ -773,6 +785,40 @@ Ispod: **Pregledi**, **Enumi**, **Foreign keys**, zatim **flat tabela svih kolon
 | maint_notification_log | last_attempt_at | timestamp with time zone(6) | YES |
 | maint_notification_log | attempts | integer(32,0) | NO |
 | maint_notification_log | payload | jsonb | YES |
+| maint_part_stock_movements | movement_id | uuid | NO |
+| maint_part_stock_movements | part_id | uuid | NO |
+| maint_part_stock_movements | wo_id | uuid | YES |
+| maint_part_stock_movements | movement_type | maint_stock_movement_type | NO |
+| maint_part_stock_movements | quantity | numeric(12,4) | NO |
+| maint_part_stock_movements | unit_cost | numeric(12,2) | YES |
+| maint_part_stock_movements | note | text | YES |
+| maint_part_stock_movements | created_at | timestamp with time zone(6) | NO |
+| maint_part_stock_movements | created_by | uuid | YES |
+| maint_parts | part_id | uuid | NO |
+| maint_parts | part_code | text | NO |
+| maint_parts | name | text | NO |
+| maint_parts | description | text | YES |
+| maint_parts | unit | text | NO |
+| maint_parts | supplier_id | uuid | YES |
+| maint_parts | manufacturer | text | YES |
+| maint_parts | model | text | YES |
+| maint_parts | min_stock | numeric(12,4) | NO |
+| maint_parts | current_stock | numeric(12,4) | NO |
+| maint_parts | unit_cost | numeric(12,2) | YES |
+| maint_parts | active | boolean | NO |
+| maint_parts | created_at | timestamp with time zone(6) | NO |
+| maint_parts | updated_at | timestamp with time zone(6) | NO |
+| maint_parts | updated_by | uuid | YES |
+| maint_suppliers | supplier_id | uuid | NO |
+| maint_suppliers | name | text | NO |
+| maint_suppliers | contact | text | YES |
+| maint_suppliers | email | text | YES |
+| maint_suppliers | phone | text | YES |
+| maint_suppliers | notes | text | YES |
+| maint_suppliers | active | boolean | NO |
+| maint_suppliers | created_at | timestamp with time zone(6) | NO |
+| maint_suppliers | updated_at | timestamp with time zone(6) | NO |
+| maint_suppliers | updated_by | uuid | YES |
 | maint_tasks | id | uuid | NO |
 | maint_tasks | machine_code | text | NO |
 | maint_tasks | title | text | NO |
@@ -848,6 +894,7 @@ Ispod: **Pregledi**, **Enumi**, **Foreign keys**, zatim **flat tabela svih kolon
 | maint_wo_parts | unit_cost | numeric(10,2) | YES |
 | maint_wo_parts | supplier | text | YES |
 | maint_wo_parts | created_at | timestamp with time zone(6) | NO |
+| maint_wo_parts | part_id | uuid | YES |
 | phases | id | uuid | NO |
 | phases | project_id | uuid | NO |
 | phases | work_package_id | uuid | NO |

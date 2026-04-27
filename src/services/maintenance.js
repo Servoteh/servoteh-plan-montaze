@@ -1263,6 +1263,161 @@ export async function deleteMaintDocument(doc) {
   return true;
 }
 
+/* ── Zalihe i dobavljači (maint_parts / maint_suppliers) ────────────────── */
+
+const MAINT_PART_COLS = [
+  'part_id', 'part_code', 'name', 'description', 'unit', 'supplier_id',
+  'manufacturer', 'model', 'min_stock', 'current_stock', 'unit_cost',
+  'active', 'created_at', 'updated_at',
+].join(',');
+
+/**
+ * @param {{ q?: string, includeInactive?: boolean, limit?: number }} [opts]
+ * @returns {Promise<Array<object>>}
+ */
+export async function fetchMaintParts(opts = {}) {
+  const limit = Math.min(opts.limit ?? 1000, 5000);
+  const q = String(opts.q || '').trim();
+  const parts = [
+    `select=${MAINT_PART_COLS},maint_suppliers(name)`,
+    'order=name.asc',
+    `limit=${limit}`,
+  ];
+  if (!opts.includeInactive) parts.push('active=eq.true');
+  if (q) {
+    const like = enc(`*${q.replace(/[,*]/g, ' ')}*`);
+    parts.push(`or=(part_code.ilike.${like},name.ilike.${like},manufacturer.ilike.${like},model.ilike.${like})`);
+  }
+  const rows = await sbReq(`maint_parts?${parts.join('&')}`).catch(() => null);
+  return Array.isArray(rows) ? rows : [];
+}
+
+/**
+ * @param {{ activeOnly?: boolean, limit?: number }} [opts]
+ * @returns {Promise<Array<object>>}
+ */
+export async function fetchMaintSuppliers(opts = {}) {
+  const limit = Math.min(opts.limit ?? 500, 2000);
+  const parts = [
+    'select=supplier_id,name,contact,email,phone,notes,active,created_at,updated_at',
+    'order=name.asc',
+    `limit=${limit}`,
+  ];
+  if (opts.activeOnly) parts.push('active=eq.true');
+  const rows = await sbReq(`maint_suppliers?${parts.join('&')}`).catch(() => null);
+  return Array.isArray(rows) ? rows : [];
+}
+
+/**
+ * @param {Record<string, unknown>} payload
+ * @returns {Promise<object|null>}
+ */
+export async function insertMaintSupplier(payload) {
+  const name = String(payload?.name || '').trim();
+  if (!name) return null;
+  const rows = await sbReq('maint_suppliers', 'POST', {
+    name,
+    contact: payload.contact || null,
+    email: payload.email || null,
+    phone: payload.phone || null,
+    notes: payload.notes || null,
+    active: payload.active ?? true,
+    updated_by: getCurrentUser()?.id || null,
+  }, { upsert: false }).catch(() => null);
+  return Array.isArray(rows) && rows[0] ? rows[0] : null;
+}
+
+/**
+ * @param {string} supplierId
+ * @param {Record<string, unknown>} fields
+ * @returns {Promise<boolean>}
+ */
+export async function patchMaintSupplier(supplierId, fields) {
+  if (!supplierId) return false;
+  const body = { ...fields, updated_by: getCurrentUser()?.id || null };
+  delete body.supplier_id;
+  delete body.created_at;
+  delete body.updated_at;
+  const rows = await sbReq(`maint_suppliers?supplier_id=eq.${encodeURIComponent(supplierId)}`, 'PATCH', body).catch(() => null);
+  return rows !== null;
+}
+
+/**
+ * @param {Record<string, unknown>} payload
+ * @returns {Promise<object|null>}
+ */
+export async function insertMaintPart(payload) {
+  const partCode = String(payload?.part_code || '').trim();
+  const name = String(payload?.name || '').trim();
+  if (!partCode || !name) return null;
+  const rows = await sbReq('maint_parts', 'POST', {
+    part_code: partCode,
+    name,
+    description: payload.description || null,
+    unit: payload.unit || 'kom',
+    supplier_id: payload.supplier_id || null,
+    manufacturer: payload.manufacturer || null,
+    model: payload.model || null,
+    min_stock: payload.min_stock ?? 0,
+    current_stock: payload.current_stock ?? 0,
+    unit_cost: payload.unit_cost ?? null,
+    active: payload.active ?? true,
+    updated_by: getCurrentUser()?.id || null,
+  }, { upsert: false }).catch(() => null);
+  return Array.isArray(rows) && rows[0] ? rows[0] : null;
+}
+
+/**
+ * @param {string} partId
+ * @param {Record<string, unknown>} fields
+ * @returns {Promise<boolean>}
+ */
+export async function patchMaintPart(partId, fields) {
+  if (!partId) return false;
+  const body = { ...fields, updated_by: getCurrentUser()?.id || null };
+  delete body.part_id;
+  delete body.created_at;
+  delete body.updated_at;
+  const rows = await sbReq(`maint_parts?part_id=eq.${encodeURIComponent(partId)}`, 'PATCH', body).catch(() => null);
+  return rows !== null;
+}
+
+/**
+ * @param {{ part_id: string, movement_type: 'in'|'out'|'adjustment'|'return', quantity: number, wo_id?: string|null, unit_cost?: number|null, note?: string|null }} payload
+ * @returns {Promise<object|null>}
+ */
+export async function insertMaintPartStockMovement(payload) {
+  const qty = Number(payload?.quantity);
+  if (!payload?.part_id || !Number.isFinite(qty) || qty === 0) return null;
+  const rows = await sbReq('maint_part_stock_movements', 'POST', {
+    part_id: payload.part_id,
+    wo_id: payload.wo_id || null,
+    movement_type: payload.movement_type || 'adjustment',
+    quantity: qty,
+    unit_cost: payload.unit_cost ?? null,
+    note: payload.note || null,
+    created_by: getCurrentUser()?.id || null,
+  }, { upsert: false }).catch(() => null);
+  return Array.isArray(rows) && rows[0] ? rows[0] : null;
+}
+
+/**
+ * @param {{ partId?: string, woId?: string, limit?: number }} [opts]
+ * @returns {Promise<Array<object>>}
+ */
+export async function fetchMaintPartStockMovements(opts = {}) {
+  const limit = Math.min(opts.limit ?? 300, 1000);
+  const parts = [
+    'select=movement_id,part_id,wo_id,movement_type,quantity,unit_cost,note,created_at,created_by,maint_parts(part_code,name,unit),maint_work_orders(wo_number,title)',
+    'order=created_at.desc',
+    `limit=${limit}`,
+  ];
+  if (opts.partId) parts.push(`part_id=eq.${encodeURIComponent(opts.partId)}`);
+  if (opts.woId) parts.push(`wo_id=eq.${encodeURIComponent(opts.woId)}`);
+  const rows = await sbReq(`maint_part_stock_movements?${parts.join('&')}`).catch(() => null);
+  return Array.isArray(rows) ? rows : [];
+}
+
 /* ── Radni nalozi (maint_work_orders) — add_maint_work_orders.sql ───────── */
 
 const MAINT_WO_LIST_COLS =
@@ -1345,7 +1500,7 @@ export async function fetchMaintWorkOrderEvents(woId) {
 export async function fetchMaintWorkOrderParts(woId) {
   if (!woId) return [];
   const rows = await sbReq(
-    `maint_wo_parts?select=*&wo_id=eq.${encodeURIComponent(woId)}&order=created_at.desc&limit=200`,
+    `maint_wo_parts?select=*,maint_parts(part_code,name,unit,unit_cost,current_stock)&wo_id=eq.${encodeURIComponent(woId)}&order=created_at.desc&limit=200`,
   ).catch(() => null);
   return Array.isArray(rows) ? rows : [];
 }
@@ -1363,7 +1518,7 @@ export async function fetchMaintWorkOrderLabor(woId) {
 }
 
 /**
- * @param {{ wo_id: string, part_name: string, quantity?: number|null, unit?: string|null, unit_cost?: number|null, supplier?: string|null }} payload
+ * @param {{ wo_id: string, part_name: string, part_id?: string|null, quantity?: number|null, unit?: string|null, unit_cost?: number|null, supplier?: string|null }} payload
  * @returns {Promise<object|null>}
  */
 export async function insertMaintWorkOrderPart(payload) {
@@ -1376,6 +1531,7 @@ export async function insertMaintWorkOrderPart(payload) {
     unit: payload.unit || null,
     unit_cost: payload.unit_cost ?? null,
     supplier: payload.supplier || null,
+    part_id: payload.part_id || null,
   }).catch(() => null);
   return Array.isArray(rows) && rows[0] ? rows[0] : null;
 }

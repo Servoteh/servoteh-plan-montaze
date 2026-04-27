@@ -13,6 +13,8 @@ import {
   fetchMaintWorkOrderLabor,
   insertMaintWorkOrderPart,
   insertMaintWorkOrderLabor,
+  fetchMaintParts,
+  insertMaintPartStockMovement,
   fetchMachineCodeByAssetId,
   patchMaintWorkOrder,
   insertMaintWorkOrderEvent,
@@ -352,11 +354,15 @@ export async function openMaintWorkOrderDetailModal(opts) {
       `<option value="${escHtml(s)}"${String(wo.status) === s ? ' selected' : ''}>${escHtml(woStatusLabelSr(s))}</option>`,
   ).join('');
 
-  const [events, parts, labor] = await Promise.all([
+  const [events, parts, labor, partCatalog] = await Promise.all([
     fetchMaintWorkOrderEvents(wo.wo_id),
     fetchMaintWorkOrderParts(wo.wo_id),
     fetchMaintWorkOrderLabor(wo.wo_id),
+    fetchMaintParts({ limit: 1000 }).catch(() => []),
   ]);
+  const partOptions = Array.isArray(partCatalog)
+    ? partCatalog.map(p => `<option value="${escHtml(`${p.part_code || ''} — ${p.name || ''}`)}"></option>`).join('')
+    : '';
   const eventsHtml = events.length
     ? events
         .map(
@@ -377,7 +383,7 @@ export async function openMaintWorkOrderDetailModal(opts) {
     ? parts
         .map(
           p => `<tr>
-            <td>${escHtml(p.part_name || '')}</td>
+            <td>${escHtml(p.part_name || '')}${p.maint_parts?.part_code ? `<div class="mnt-muted">${escHtml(p.maint_parts.part_code)}</div>` : ''}</td>
             <td>${escHtml(p.quantity ?? '—')}</td>
             <td>${escHtml(p.unit || '—')}</td>
             <td>${escHtml(p.supplier || '—')}</td>
@@ -454,7 +460,8 @@ export async function openMaintWorkOrderDetailModal(opts) {
         ${
           canEdit
             ? `<form id="mntWoPartForm" class="mnt-wo-inline-form">
-          <input class="form-input" name="part_name" placeholder="Naziv dela" required>
+          <input class="form-input" name="part_name" list="mntWoPartCatalog" placeholder="Naziv dela ili šifra iz kataloga" required>
+          <datalist id="mntWoPartCatalog">${partOptions}</datalist>
           <input class="form-input" name="quantity" type="number" min="0" step="0.0001" placeholder="Količina">
           <input class="form-input" name="unit" placeholder="Jedinica">
           <input class="form-input" name="supplier" placeholder="Dobavljač">
@@ -526,23 +533,39 @@ export async function openMaintWorkOrderDetailModal(opts) {
     const fd = new FormData(/** @type {HTMLFormElement} */ (e.currentTarget));
     const partName = String(fd.get('part_name') || '').trim();
     const quantityRaw = String(fd.get('quantity') || '').trim();
-    const unit = String(fd.get('unit') || '').trim();
-    const supplier = String(fd.get('supplier') || '').trim();
+    const selectedPart = Array.isArray(partCatalog)
+      ? partCatalog.find(p => partName === `${p.part_code || ''} — ${p.name || ''}` || partName.toLowerCase() === String(p.part_code || '').toLowerCase())
+      : null;
+    const unit = String(fd.get('unit') || '').trim() || selectedPart?.unit || '';
+    const supplier = String(fd.get('supplier') || '').trim() || selectedPart?.maint_suppliers?.name || '';
+    const qty = quantityRaw ? Number(quantityRaw) : null;
     const row = await insertMaintWorkOrderPart({
       wo_id: wo.wo_id,
-      part_name: partName,
-      quantity: quantityRaw ? Number(quantityRaw) : null,
+      part_id: selectedPart?.part_id || null,
+      part_name: selectedPart?.name || partName,
+      quantity: qty,
       unit: unit || null,
+      unit_cost: selectedPart?.unit_cost ?? null,
       supplier: supplier || null,
     });
     if (!row) {
       showToast('⚠ Deo nije dodat');
       return;
     }
+    if (selectedPart?.part_id && qty && qty > 0) {
+      await insertMaintPartStockMovement({
+        part_id: selectedPart.part_id,
+        wo_id: wo.wo_id,
+        movement_type: 'out',
+        quantity: qty,
+        unit_cost: selectedPart.unit_cost ?? null,
+        note: `WO ${wo.wo_number || wo.wo_id}: ${selectedPart.name}`,
+      });
+    }
     await insertMaintWorkOrderEvent({
       wo_id: wo.wo_id,
       event_type: 'user_note',
-      comment: `Dodat deo: ${partName}`,
+      comment: `Dodat deo: ${selectedPart?.name || partName}`,
     });
     showToast('✅ Deo dodat');
     reloadDrawer();

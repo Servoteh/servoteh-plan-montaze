@@ -712,6 +712,20 @@ button.mnt-kpi:active {
   margin: 12px 0;
 }
 
+.mnt-inventory-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.mnt-inventory-form-grid .form-label {
+  margin: 0;
+}
+
+.mnt-inventory-form-full {
+  grid-column: 1 / -1;
+}
+
 @media (max-width: 719px) {
   .mnt-dash-grid {
     grid-template-columns: 1fr;
@@ -731,7 +745,8 @@ button.mnt-kpi:active {
   .mnt-doc-upload-grid,
   .mnt-preventive-toolbar,
   .mnt-cal-layout,
-  .mnt-report-grid {
+  .mnt-report-grid,
+  .mnt-inventory-form-grid {
     grid-template-columns: 1fr;
   }
   .mnt-cal-weekdays {
