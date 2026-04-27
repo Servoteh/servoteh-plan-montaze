@@ -546,6 +546,54 @@ export async function patchMaintAsset(assetId, fields) {
   return r !== null;
 }
 
+/* ── Specijalizovani detalji za vozila ───────────────────────────────────── */
+
+const MAINT_VEHICLE_DETAIL_COLS = [
+  'asset_id', 'registration_plate', 'vin', 'odometer_km', 'fuel_type',
+  'registration_expires_at', 'insurance_expires_at', 'service_due_at',
+  'service_interval_km', 'next_service_mileage_km', 'notes',
+  'created_at', 'updated_at', 'updated_by',
+].join(',');
+
+/**
+ * @param {string[]} assetIds
+ * @returns {Promise<Array<object>>}
+ */
+export async function fetchMaintVehicleDetails(assetIds = []) {
+  const ids = [...new Set(assetIds.filter(Boolean).map(String))];
+  if (!ids.length) return [];
+  const inList = ids.map(id => encodeURIComponent(id)).join(',');
+  const rows = await sbReq(
+    `maint_vehicle_details?select=${MAINT_VEHICLE_DETAIL_COLS}&asset_id=in.(${inList})`,
+  ).catch(() => null);
+  return Array.isArray(rows) ? rows : [];
+}
+
+/**
+ * @param {string} assetId
+ * @param {Record<string, unknown>} fields
+ * @returns {Promise<object|null>}
+ */
+export async function upsertMaintVehicleDetails(assetId, fields) {
+  if (!assetId) return null;
+  const body = {
+    asset_id: assetId,
+    registration_plate: fields.registration_plate || null,
+    vin: fields.vin || null,
+    odometer_km: fields.odometer_km ?? null,
+    fuel_type: fields.fuel_type || null,
+    registration_expires_at: fields.registration_expires_at || null,
+    insurance_expires_at: fields.insurance_expires_at || null,
+    service_due_at: fields.service_due_at || null,
+    service_interval_km: fields.service_interval_km ?? null,
+    next_service_mileage_km: fields.next_service_mileage_km ?? null,
+    notes: fields.notes || null,
+    updated_by: getCurrentUser()?.id || null,
+  };
+  const rows = await sbReq('maint_vehicle_details', 'POST', body).catch(() => null);
+  return Array.isArray(rows) && rows[0] ? rows[0] : (rows || null);
+}
+
 /* ── Katalog mašina (maint_machines) ─────────────────────────────────────── */
 
 /* `responsible_user_id` NIJE u ovoj listi namerno — dodat je u posebnoj

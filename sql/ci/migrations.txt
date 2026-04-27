@@ -35,6 +35,7 @@ sql/migrations/link_maint_incidents_to_wo.sql
 sql/migrations/extend_maint_incidents_assets.sql
 sql/migrations/add_maint_documents.sql
 sql/migrations/add_maint_inventory.sql
+sql/migrations/add_maint_vehicle_details.sql
 
 # Faza 1 security hardening (2026-04-23). Migracija je idempotentna i
 # preživljava izvrsavanje cak i ako v_production_operations ne postoji
