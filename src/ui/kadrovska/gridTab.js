@@ -3,8 +3,8 @@
  *
  * Funkcionalnost (paritetno sa legacy/index.html renderGrid):
  *   - Mesečni grid: 1 kolona po danu, 4 reda po radniku (Redovni / Prekov. /
- *     Teren / 2 maš.) + 4 footer reda (UKUPNO). Jedna lista radnika — opadajuće
- *     po prezimenu; ispod imena prikaz odeljenja (bez grupisanja po odeljenju).
+ *     Teren / 2 maš.) + 4 footer reda (UKUPNO). Jedna lista radnika — rastuće
+ *     po prezimenu (A–Z); ispod imena prikaz odeljenja (bez grupisanja po odeljenju).
  *   - Vikend i današnji dan vizuelno markirani; ćelije sa neisaved izmenama
  *     dobijaju "cell-dirty" klasu.
  *   - Svi unosi prihvataju brojeve 0..24 (sa zarezom ili tačkom). Reg ćelija
@@ -256,13 +256,13 @@ function _gridSurnameKey(emp) {
   return parts.length ? parts[parts.length - 1] : '';
 }
 
-/** Opadajuće po prezimenu (sr), zatim po punom imenu za stabilan redosled. */
-function _gridCompareBySurnameDesc(a, b) {
+/** Rastuće po prezimenu A–Z (sr), zatim po punom imenu za stabilan redosled. */
+function _gridCompareBySurnameAsc(a, b) {
   const sa = _gridSurnameKey(a);
   const sb = _gridSurnameKey(b);
-  const c = sb.localeCompare(sa, 'sr', { sensitivity: 'base' });
+  const c = sa.localeCompare(sb, 'sr', { sensitivity: 'base' });
   if (c !== 0) return c;
-  return String(b.fullName || '').localeCompare(String(a.fullName || ''), 'sr', { sensitivity: 'base' });
+  return String(a.fullName || '').localeCompare(String(b.fullName || ''), 'sr', { sensitivity: 'base' });
 }
 
 /** Aktivni + firma (filter) + sort; bez pretrage — za čip, badge, XLSX. */
@@ -271,7 +271,7 @@ function _gridEmployeesCompanyOnly() {
   return kadrovskaState.employees
     .filter(e => e.isActive)
     .filter(e => !company || e.department === company)
-    .sort(_gridCompareBySurnameDesc);
+    .sort(_gridCompareBySurnameAsc);
 }
 
 function _gridCurrentSearchQuery() {
@@ -437,7 +437,7 @@ function _renderGridBody() {
     empty.textContent = 'Nema aktivnih radnika za izbrane filtere.';
   }
 
-  const sortedEmps = [...emps].sort(_gridCompareBySurnameDesc);
+  const sortedEmps = [...emps].sort(_gridCompareBySurnameAsc);
   const today = _gridIsoToday();
   const editable = canEditKadrovskaGrid();
 
@@ -906,7 +906,7 @@ async function _exportToXlsx() {
 
   try {
     const days = _gridDaysInMonth(yyyymm);
-    const sortedEmps = [...emps].sort(_gridCompareBySurnameDesc);
+    const sortedEmps = [...emps].sort(_gridCompareBySurnameAsc);
     const monthLabel = (() => {
       const [y, m] = yyyymm.split('-');
       const names = ['Januar', 'Februar', 'Mart', 'April', 'Maj', 'Jun', 'Jul', 'Avgust', 'Septembar', 'Oktobar', 'Novembar', 'Decembar'];
