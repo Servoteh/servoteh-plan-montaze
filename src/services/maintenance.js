@@ -644,6 +644,54 @@ export async function upsertMaintItAssetDetails(assetId, fields) {
   return Array.isArray(rows) && rows[0] ? rows[0] : (rows || null);
 }
 
+/* ── Specijalizovani detalji za objekte / facility sredstva ──────────────── */
+
+const MAINT_FACILITY_DETAIL_COLS = [
+  'asset_id', 'facility_type', 'floor_area_m2', 'floor_or_zone', 'criticality',
+  'inspection_due_at', 'fire_safety_due_at', 'service_contract',
+  'service_provider', 'last_inspection_at', 'notes',
+  'created_at', 'updated_at', 'updated_by',
+].join(',');
+
+/**
+ * @param {string[]} assetIds
+ * @returns {Promise<Array<object>>}
+ */
+export async function fetchMaintFacilityDetails(assetIds = []) {
+  const ids = [...new Set(assetIds.filter(Boolean).map(String))];
+  if (!ids.length) return [];
+  const inList = ids.map(id => encodeURIComponent(id)).join(',');
+  const rows = await sbReq(
+    `maint_facility_details?select=${MAINT_FACILITY_DETAIL_COLS}&asset_id=in.(${inList})`,
+  ).catch(() => null);
+  return Array.isArray(rows) ? rows : [];
+}
+
+/**
+ * @param {string} assetId
+ * @param {Record<string, unknown>} fields
+ * @returns {Promise<object|null>}
+ */
+export async function upsertMaintFacilityDetails(assetId, fields) {
+  if (!assetId) return null;
+  const body = {
+    asset_id: assetId,
+    facility_type: fields.facility_type || null,
+    floor_area_m2: fields.floor_area_m2 ?? null,
+    floor_or_zone: fields.floor_or_zone || null,
+    criticality: fields.criticality || null,
+    inspection_due_at: fields.inspection_due_at || null,
+    fire_safety_due_at: fields.fire_safety_due_at || null,
+    service_contract: fields.service_contract || null,
+    service_provider: fields.service_provider || null,
+    last_inspection_at: fields.last_inspection_at || null,
+    notes: fields.notes || null,
+    updated_by: getCurrentUser()?.id || null,
+  };
+  const rows = await sbReq('maint_facility_details', 'POST', body).catch(() => null);
+  return Array.isArray(rows) && rows[0] ? rows[0] : (rows || null);
+}
+
 /* ── Katalog mašina (maint_machines) ─────────────────────────────────────── */
 
 /* `responsible_user_id` NIJE u ovoj listi namerno — dodat je u posebnoj

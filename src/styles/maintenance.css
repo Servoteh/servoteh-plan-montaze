@@ -727,19 +727,22 @@ button.mnt-kpi:active {
 }
 
 .mnt-vehicle-form-grid,
-.mnt-it-form-grid {
+.mnt-it-form-grid,
+.mnt-facility-form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
 .mnt-vehicle-form-grid .form-label,
-.mnt-it-form-grid .form-label {
+.mnt-it-form-grid .form-label,
+.mnt-facility-form-grid .form-label {
   margin: 0;
 }
 
 .mnt-vehicle-form-full,
-.mnt-it-form-full {
+.mnt-it-form-full,
+.mnt-facility-form-full {
   grid-column: 1 / -1;
 }
 
@@ -765,7 +768,8 @@ button.mnt-kpi:active {
   .mnt-report-grid,
   .mnt-inventory-form-grid,
   .mnt-vehicle-form-grid,
-  .mnt-it-form-grid {
+  .mnt-it-form-grid,
+  .mnt-facility-form-grid {
     grid-template-columns: 1fr;
   }
   .mnt-cal-weekdays {
