@@ -21,7 +21,7 @@ import {
   compareEmployeesByLastFirst,
   employeeDisplayName,
 } from '../../lib/employeeNames.js';
-import { canEditKadrovska, canViewEmployeePii, getIsOnline, isAdmin, getCurrentRole } from '../../state/auth.js';
+import { canEditKadrovska, canViewEmployeePii, getIsOnline, isAdmin } from '../../state/auth.js';
 import {
   hasSupabaseConfig,
   KADR_EDU_LEVEL_LABELS,
@@ -146,6 +146,13 @@ export async function wireEmployeesTab(panelEl, { onChange } = {}) {
     });
   });
 
+  panelEl.addEventListener('click', e => {
+    const btn = e.target.closest('button[data-action]');
+    if (!btn || btn.disabled) return;
+    if (btn.dataset.action === 'edit') openEmployeeModal(btn.dataset.id);
+    if (btn.dataset.action === 'delete') confirmDeleteEmployee(btn.dataset.id);
+  });
+
   await ensureEmployeesLoaded(true);
   try { await ensureOrgStructureLoaded(); } catch (e) { console.warn('[kadrovska] org structure load failed', e); }
   refreshEmployeesTab();
@@ -176,7 +183,6 @@ function applyFilters(list) {
 }
 
 export function refreshEmployeesTab() {
-  console.error('[kadrovska-diag] role=', getCurrentRole(), 'edit=', canEditKadrovska(), 'online=', getIsOnline(), 'employees=', kadrovskaState.employees.length); console.trace('[kadrovska-trace]');
   if (!panelRef) return;
   const tbody = panelRef.querySelector('#kadrovskaTbody');
   const emptyBox = panelRef.querySelector('#kadrovskaEmpty');
@@ -295,18 +301,12 @@ export function refreshEmployeesTab() {
       <td class=”col-hide-sm”>${medBadge}</td>
       <td><span class=”emp-status-badge ${statusCls}”>${statusTxt}</span></td>
       <td class=”col-actions”>
-        <button class=”btn-row-act” data-action=”edit” data-id=”${rowId}” ${edit ? '' : 'disabled'} onclick=”console.error('ONCLICK-DIREKTNO',this.dataset.id,this.disabled)” title=”${edit ? 'Izmeni' : 'Samo pregled'}”>Izmeni</button>
+        <button class=”btn-row-act” data-action=”edit” data-id=”${rowId}” ${edit ? '' : 'disabled'} title=”${edit ? 'Izmeni' : 'Samo pregled'}”>Izmeni</button>
         <button class=”btn-row-act danger” data-action=”delete” data-id=”${rowId}” ${edit ? '' : 'disabled'} title=”${edit ? 'Obriši' : 'Samo pregled'}”>Obriši</button>
       </td>
     </tr>`;
   }).join('');
 
-  tbody.querySelectorAll('button[data-action="edit"]').forEach(btn => {
-    btn.addEventListener('click', () => { console.error('[btn-click] edit id=', btn.dataset.id); openEmployeeModal(btn.dataset.id); });
-  });
-  tbody.querySelectorAll('button[data-action="delete"]').forEach(btn => {
-    btn.addEventListener('click', () => confirmDeleteEmployee(btn.dataset.id));
-  });
 
   onChangeCb?.();
 }
@@ -566,7 +566,6 @@ function closeEmployeeModal() {
 }
 
 async function openEmployeeModal(id) {
-  console.error('[openEmployeeModal] id=', id, 'edit=', canEditKadrovska());
   if (!canEditKadrovska()) {
     showToast('⚠ Nemate prava za izmenu');
     return;
