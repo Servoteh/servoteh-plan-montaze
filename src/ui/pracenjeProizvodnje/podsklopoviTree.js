@@ -51,7 +51,7 @@ function childrenOf(flat, rootRnId, parentRnId) {
 }
 
 function rootsOf(flat) {
-  const rs = flat.filter((r) => r.parent_rn_id == null && Number(r.nivo) === 0);
+  const rs = flat.filter((r) => r.parent_rn_id == null && Number(r.nivo ?? 0) === 0);
   const seen = new Set();
   const out = [];
   for (const r of rs) {

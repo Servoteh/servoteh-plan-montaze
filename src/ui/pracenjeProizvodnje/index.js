@@ -186,15 +186,22 @@ function predmetShellHtml(state) {
 
 function rnLoaderHtml(state) {
   if (state.aktivniPredmetiState?.selectedItemId && !state.rnId) return '';
+  const dev = import.meta.env.DEV;
+  const rnPlaceholder = dev
+    ? `npr. RN-PRAC-TEST-001 ili ${TEST_RN_ID}`
+    : 'npr. RN-PRAC-TEST-001';
+  const seedBtn = dev
+    ? '<button type="button" class="pp-refresh-btn" id="pracenjeSeedBtn" title="Test RN iz Inkrementa 1">Test RN</button>'
+    : '';
   return `
     <section class="form-card" style="margin-bottom:14px">
       <div class="pp-toolbar" style="margin:0">
         <label class="pp-rn-filter">
           <span>RN broj ili UUID</span>
-          <input type="text" id="pracenjeRnInput" value="${escHtml(state.rnId || '')}" placeholder="npr. RN-PRAC-TEST-001 ili ${TEST_RN_ID}">
+          <input type="text" id="pracenjeRnInput" value="${escHtml(state.rnId || '')}" placeholder="${escHtml(rnPlaceholder)}">
         </label>
         <button type="button" class="pp-refresh-btn" id="pracenjeLoadBtn">${state.loading ? 'Učitavanje…' : 'Učitaj RN'}</button>
-        <button type="button" class="pp-refresh-btn" id="pracenjeSeedBtn" title="Test RN iz Inkrementa 1">Test RN</button>
+        ${seedBtn}
         <div class="pp-toolbar-spacer"></div>
         ${state.live?.active ? `<span class="pp-counter">Live: ${escHtml(state.live.mode || 'polling')}</span>` : ''}
         ${state.saving ? '<span class="pp-counter">Snimanje u toku…</span>' : ''}
@@ -247,7 +254,9 @@ function wireShell(container, state) {
   container.querySelector('#pracenjeRnInput')?.addEventListener('keydown', (ev) => {
     if (ev.key === 'Enter') loadFromInput(ev.target.value?.trim());
   });
-  container.querySelector('#pracenjeSeedBtn')?.addEventListener('click', () => loadFromInput(TEST_RN_ID));
+  if (import.meta.env.DEV) {
+    container.querySelector('#pracenjeSeedBtn')?.addEventListener('click', () => loadFromInput(TEST_RN_ID));
+  }
   wireTabSwitcher(container, renderShell);
   if (state.activeTab === 'operativni_plan') {
     wireTab2OperativniPlan(container, state, renderShell);

@@ -1,4 +1,5 @@
 import { escHtml } from '../../lib/dom.js';
+import { getBigtehnDrawingSignedUrl } from '../../services/drawings.js';
 import { statusBadgeHtml } from './statusBadge.js';
 import { openOperacijaSidePanel } from './tab1OperacijaSidePanel.js';
 
@@ -44,6 +45,29 @@ export function wireTab1Pozicije(root, state) {
       if (pos && op) openOperacijaSidePanel({ position: pos, operation: op });
     });
   });
+  root.querySelectorAll('.pp-tab1-drawing').forEach((btn) => {
+    btn.addEventListener('click', async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const d = btn.getAttribute('data-drawing');
+      if (!d) return;
+      try {
+        const url = await getBigtehnDrawingSignedUrl(d);
+        if (url) window.open(url, '_blank', 'noopener,noreferrer');
+      } catch (e) {
+        window.alert(e?.message || String(e));
+      }
+    });
+  });
+}
+
+function drawingCellHtml(p) {
+  const no = (p.drawing_no && String(p.drawing_no).trim()) ? String(p.drawing_no).trim() : '';
+  const fallback = String(p.sifra_pozicije || p.id || '—');
+  if (no) {
+    return `<button type="button" class="btn btn-ghost pp-tab1-drawing" style="padding:2px 6px;font-size:inherit" data-drawing="${escHtml(no)}" title="Otvori crtež u novom tabu">${escHtml(no)}</button>`;
+  }
+  return `<span class="pp-cell-muted">${escHtml(fallback)}</span>`;
 }
 
 function positionRowHtml(node, depth) {
@@ -60,7 +84,7 @@ function positionRowHtml(node, depth) {
           <summary style="display:grid;grid-template-columns:minmax(160px,1.2fr) minmax(220px,2fr) minmax(120px,.8fr) 100px 180px;gap:8px;align-items:center;padding:10px 8px;cursor:${hasDetails ? 'pointer' : 'default'}">
             <span style="padding-left:${indent}px;font-weight:700">${escHtml(p.sifra_pozicije || p.id || '—')}</span>
             <span>${escHtml(p.naziv || '—')}</span>
-            <span class="pp-cell-muted">${escHtml(p.drawing_no || p.sifra_pozicije || '—')}</span>
+            ${drawingCellHtml(p)}
             <span class="pp-cell-num">${escHtml(p.kolicina_plan ?? '—')}</span>
             ${progressHtml(p.progress_pct)}
           </summary>

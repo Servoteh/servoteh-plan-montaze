@@ -53,16 +53,33 @@ async function resolveDrawingUrls(rows) {
     if (r.crtez_drawing_no) nos.add(String(r.crtez_drawing_no));
     if (r.sklop_drawing_no) nos.add(String(r.sklop_drawing_no));
   }
+  const entries = await Promise.all(
+    [...nos].map(async (n) => {
+      try {
+        const u = await getBigtehnDrawingSignedUrl(n);
+        return u ? [n, u] : null;
+      } catch {
+        return null;
+      }
+    }),
+  );
   const map = new Map();
-  for (const n of nos) {
-    try {
-      const u = await getBigtehnDrawingSignedUrl(n);
-      if (u) map.set(n, u);
-    } catch {
-      /* ostavi bez linka */
-    }
+  for (const e of entries) {
+    if (e) map.set(e[0], e[1]);
   }
   return map;
+}
+
+/** Ista agregacija kao u tabeli praćenja (ne skraćivati na N operacija). */
+function formatOpsSummaryForPdf(ops) {
+  const list = Array.isArray(ops) ? ops : [];
+  if (!list.length) return '—';
+  const fin = list.filter((o) => o.is_final_control);
+  const lastFin = fin.length ? fin[fin.length - 1] : null;
+  const tail = lastFin
+    ? ` · završna ${lastFin.completed_qty ?? ''}/${lastFin.planned_qty ?? ''}`
+    : '';
+  return `${list.length} operacija${tail}`;
 }
 
 export async function exportPracenjeIzvestajExcel(state) {
@@ -236,8 +253,8 @@ export async function exportPracenjeIzvestajPdf(state) {
     doc.text(`${r.datum_lansiranja_tp || '—'} / ${r.datum_izrade || '—'}`, m + 6 * colW, y);
     doc.text(`${(r.materijal || '').slice(0, 10)} ${(r.dimenzije || '').slice(0, 10)}`, m + 7 * colW, y);
     doc.text(`${(r.korisnicka_napomena || r.sistemska_napomena || '').slice(0, 28)}`, m + 8 * colW, y);
-    const os = (r.operations || []).slice(0, 4).map(o => `${o.naziv}:${o.completed_qty}/${o.planned_qty}`).join('; ');
-    doc.text(os.slice(0, 36), m + 9 * colW, y);
+    const os = formatOpsSummaryForPdf(r.operations);
+    doc.text(os.slice(0, 72), m + 9 * colW, y);
     if (drawL) {
       doc.link(m + colW, y - 4, colW, line, { url: drawL });
     }

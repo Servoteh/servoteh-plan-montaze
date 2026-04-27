@@ -2,7 +2,7 @@
  * URL stanje za Praćenje proizvodnje: ?rn= | ?predmet= | ?root= | lista (bez query).
  */
 
-export const PREDMET_TAB_IDS = ['stablo', 'tabela_pracenja'];
+import { PREDMET_TAB_IDS } from '../../state/pracenjeProizvodnjeState.js';
 
 export function getPracenjeUrlState() {
   if (typeof window === 'undefined') {

@@ -27,12 +27,12 @@ import {
   upsertOperativnaAktivnost,
   zatvoriAktivnost,
 } from '../services/pracenjeProizvodnje.js';
-import { canEdit as authCanEditApp, getCurrentRole, isAdminOrMenadzment } from '../state/auth.js';
+import { getCurrentRole, isAdminOrMenadzment } from '../state/auth.js';
 import { showToast } from '../lib/dom.js';
 
-/** UI edit: RPC can_edit_pracenje + fallback na app ulogu (isti pattern kao Plan Montaže). */
+/** RN / operativni plan: samo `can_edit_pracenje` (bez UI širenja na pm/leadpm). */
 function effectiveCanEditPracenje(rpcAllowed) {
-  return !!rpcAllowed || authCanEditApp();
+  return !!rpcAllowed;
 }
 
 export const PRACENJE_TABS = ['po_pozicijama', 'operativni_plan'];
@@ -510,13 +510,13 @@ export async function loadPracenje(rnId, options = {}) {
         hydrateFilters(resolvedRnId);
       }
     }
-    const [tab1, tab2, departments, radnici] = await Promise.all([
+    const [tab1, tab2, departments, radnici, rawActivities] = await Promise.all([
       fetchPracenjeRn(resolvedRnId),
       fetchOperativniPlan({ rnId: resolvedRnId }),
       listOdeljenja(),
       listRadnici(),
+      fetchOperativneAktivnostiRaw(resolvedRnId),
     ]);
-    const rawActivities = await fetchOperativneAktivnostiRaw(resolvedRnId);
     const activities = mergeActivityDetails(tab2?.activities || [], rawActivities);
     const header = { ...(tab1?.header || {}), ...(tab2?.header || {}) };
     const rpcCanEdit = await canEditPracenje(header.projekat_id || null, resolvedRnId);
@@ -535,6 +535,13 @@ export async function loadPracenje(rnId, options = {}) {
   } catch (e) {
     pracenjeState.loading = false;
     pracenjeState.error = e?.message || String(e);
+    pracenjeState.header = null;
+    pracenjeState.tab1Data = null;
+    pracenjeState.tab2Data = { activities: [] };
+    pracenjeState.dashboard = null;
+    pracenjeState.canEdit = false;
+    pracenjeState.departments = [];
+    pracenjeState.radnici = [];
     emit();
     return false;
   }
@@ -591,11 +598,11 @@ export function stopRealtime() {
 export async function silentRefreshPracenje() {
   if (!pracenjeState.rnId) return false;
   try {
-    const [tab1, tab2] = await Promise.all([
+    const [tab1, tab2, rawActivities] = await Promise.all([
       fetchPracenjeRn(pracenjeState.rnId),
       fetchOperativniPlan({ rnId: pracenjeState.rnId }),
+      fetchOperativneAktivnostiRaw(pracenjeState.rnId),
     ]);
-    const rawActivities = await fetchOperativneAktivnostiRaw(pracenjeState.rnId);
     const activities = mergeActivityDetails(tab2?.activities || [], rawActivities);
     const header = { ...(tab1?.header || {}), ...(tab2?.header || {}) };
     pracenjeState.header = header;

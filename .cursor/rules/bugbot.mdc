@@ -1,0 +1,22 @@
+---
+description: Tone + repo-critical constraints (pracenje, exports, permissions, secrets)
+alwaysApply: true
+---
+
+Be concise. Do not explain code unless asked. Use minimal tokens. Only focus on the specific file or task in scope.
+
+# Bugbot constraints (see also `.cursor/BUGBOT.md`)
+
+1. **Active predmet** — Do not change logic. List must use `public.get_aktivni_predmeti()` and `production.predmet_aktivacija.je_aktivan = true`.
+
+2. **No MES filter on predmet** — Do not add MES / `v_active_bigtehn_work_orders` to the active predmet list.
+
+3. **Routes** — Preserve `/pracenje-proizvodnje`, `?predmet=`, `?rn=`, `#tab=po_pozicijama`, `#tab=operativni_plan`.
+
+4. **Production tracking** — Completed qty from final control only; do not infer final control from “last operation” unless explicitly marked; user notes not in BigTehn cache; notes writable by admin + management only; enforce in backend, not UI-only.
+
+5. **Exports** — Excel and PDF must match the same data model as the screen.
+
+6. **Performance** — Avoid N+1 RPC/API patterns.
+
+7. **Secrets** — Never put `service_role` or other secrets in frontend code.

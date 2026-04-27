@@ -1,0 +1,35 @@
+﻿# Veliki izvozi / generisani artefakti — manje indeksa i slučajnog konteksta
+docs/migration/QBigTehn_MSSQL_full_ssms_export*.sql
+docs/reports/_*.sql
+docs/reports/_batch_queries/
+docs/reports/_mcp_chunks/
+docs/reports/_employees_batches/
+sql/manual/_emp_*
+sql/manual/_emp_sync_chunks/
+**/_mcp_*.json
+**/_mcp_*.sql
+**/_chunk_line_*.sql
+**/_apply_*.sql
+**/_exec_maint*.sql
+**/_mwo_*.sql
+**/_smoke*.sql
+**/_wrapped*.sql
+**/_b64_*.json
+**/_p1*.sql
+**/_p2*.sql
+**/_ichunk_*.sql
+**/_i1.sql
+**/_i2.sql
+**/._*.sql
+**/._*.json
+**/._*.txt
+legacy/
+public/legacy/
+
+# Build / deps
+node_modules/
+dist/
+.vite/
+android/app/build/
+android/build/
+ios/App/Pods/
