@@ -446,6 +446,80 @@ button.mnt-kpi:active {
   grid-column: 1 / -1;
 }
 
+.mnt-doc-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.8fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.mnt-doc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mnt-doc-row {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  padding: 10px;
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-sm);
+  background: var(--surface2);
+}
+
+.mnt-doc-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  background: var(--surface3);
+  border: 1px solid var(--border2);
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--text2);
+}
+
+.mnt-doc-main {
+  min-width: 0;
+}
+
+.mnt-doc-desc {
+  margin-top: 4px;
+  color: var(--text2);
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+
+.mnt-doc-actions {
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.mnt-doc-upload h3 {
+  margin: 0 0 10px;
+  font-size: 15px;
+}
+
+.mnt-doc-upload-grid {
+  display: grid;
+  grid-template-columns: 1fr 150px;
+  gap: 10px;
+}
+
+.mnt-doc-upload-full {
+  grid-column: 1 / -1;
+}
+
 @media (max-width: 719px) {
   .mnt-dash-grid {
     grid-template-columns: 1fr;
@@ -460,6 +534,16 @@ button.mnt-kpi:active {
   .mnt-asset-toolbar,
   .mnt-asset-form-grid {
     grid-template-columns: 1fr;
+  }
+  .mnt-doc-layout,
+  .mnt-doc-upload-grid {
+    grid-template-columns: 1fr;
+  }
+  .mnt-doc-row {
+    grid-template-columns: 1fr;
+  }
+  .mnt-doc-actions {
+    justify-content: flex-start;
   }
   .mnt-att-row {
     grid-template-columns: 1fr auto;

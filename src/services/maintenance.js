@@ -1114,6 +1114,143 @@ export async function patchMaintMachineFile(id, patch) {
   return Array.isArray(res) ? (res[0] || null) : (res || null);
 }
 
+/* ── CMMS dokumenti (maint_documents + isti privatni Storage bucket) ─────── */
+
+const MAINT_DOCUMENT_COLS = [
+  'document_id', 'entity_type', 'entity_id', 'asset_id', 'wo_id', 'incident_id',
+  'preventive_task_id', 'file_name', 'storage_path', 'mime_type', 'size_bytes',
+  'category', 'description', 'uploaded_at', 'uploaded_by', 'deleted_at',
+].join(',');
+
+/**
+ * @param {{ entityType?: string, assetId?: string, woId?: string, incidentId?: string, includeDeleted?: boolean, limit?: number }} [opts]
+ * @returns {Promise<Array<object>>}
+ */
+export async function fetchMaintDocuments(opts = {}) {
+  const limit = Math.min(opts.limit ?? 500, 2000);
+  const parts = [
+    `select=${MAINT_DOCUMENT_COLS},maint_assets(asset_code,name,asset_type),maint_work_orders(wo_number,title,status),maint_incidents(title,severity,status)`,
+    'order=uploaded_at.desc',
+    `limit=${limit}`,
+  ];
+  if (opts.entityType) parts.push(`entity_type=eq.${enc(opts.entityType)}`);
+  if (opts.assetId) parts.push(`asset_id=eq.${encodeURIComponent(opts.assetId)}`);
+  if (opts.woId) parts.push(`wo_id=eq.${encodeURIComponent(opts.woId)}`);
+  if (opts.incidentId) parts.push(`incident_id=eq.${encodeURIComponent(opts.incidentId)}`);
+  if (!opts.includeDeleted) parts.push('deleted_at=is.null');
+  const rows = await sbReq(`maint_documents?${parts.join('&')}`).catch(() => null);
+  return Array.isArray(rows) ? rows : [];
+}
+
+/**
+ * Upload dokumenta i upis metadata reda.
+ * @param {{ entityType: 'asset'|'work_order'|'incident'|'preventive_task', entityId: string, file: File|Blob, fileName?: string, category?: string|null, description?: string|null }} opts
+ * @returns {Promise<{ ok: boolean, row?: object, error?: string }>}
+ */
+export async function uploadMaintDocument(opts) {
+  const { entityType, entityId, file, fileName, category, description } = opts || {};
+  if (!entityType || !entityId || !file) return { ok: false, error: 'Nedostaju podaci.' };
+  const user = getCurrentUser();
+  const token = user?._token || getSupabaseAnonKey();
+  const apiKey = getSupabaseAnonKey();
+  const baseUrl = getSupabaseUrl();
+  const origName = String(fileName || file.name || 'document');
+  const safeName = origName
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Za-z0-9._-]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 90) || 'document';
+  const uuid = (crypto?.randomUUID?.() || String(Date.now())).replace(/-/g, '').slice(0, 16);
+  const storagePath = `documents/${entityType}/${entityId}/${uuid}_${safeName}`;
+
+  try {
+    const r = await fetch(
+      `${baseUrl}/storage/v1/object/${MAINT_FILES_BUCKET}/${encodeURI(storagePath)}`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + token,
+          'apikey': apiKey,
+          'Content-Type': file.type || 'application/octet-stream',
+          'x-upsert': 'false',
+        },
+        body: file,
+      },
+    );
+    if (!r.ok) {
+      const txt = await r.text().catch(() => '');
+      return { ok: false, error: `Storage upload (${r.status}): ${txt || 'fail'}` };
+    }
+  } catch {
+    return { ok: false, error: 'Mreža/Storage greška.' };
+  }
+
+  const payload = {
+    entity_type: entityType,
+    entity_id: entityId,
+    asset_id: entityType === 'asset' ? entityId : null,
+    wo_id: entityType === 'work_order' ? entityId : null,
+    incident_id: entityType === 'incident' ? entityId : null,
+    preventive_task_id: entityType === 'preventive_task' ? entityId : null,
+    file_name: origName,
+    storage_path: storagePath,
+    mime_type: file.type || null,
+    size_bytes: file.size || null,
+    category: category ? String(category).slice(0, 40) : null,
+    description: description ? String(description).slice(0, 500) : null,
+    uploaded_by: user?.id || null,
+  };
+  const res = await sbReq('maint_documents', 'POST', payload, { upsert: false });
+  const row = Array.isArray(res) ? (res[0] || null) : (res || null);
+  if (!row) {
+    try {
+      await fetch(
+        `${baseUrl}/storage/v1/object/${MAINT_FILES_BUCKET}/${encodeURI(storagePath)}`,
+        { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token, 'apikey': apiKey } },
+      );
+    } catch { /* ignore cleanup failure */ }
+    return { ok: false, error: 'Metadata upis nije uspeo (RLS?).' };
+  }
+  return { ok: true, row };
+}
+
+/**
+ * @param {string} storagePath
+ * @param {number} [expiresSec]
+ * @returns {Promise<string|null>}
+ */
+export async function getMaintDocumentSignedUrl(storagePath, expiresSec = 300) {
+  return getMaintMachineFileSignedUrl(storagePath, expiresSec);
+}
+
+/**
+ * @param {{ document_id: string, storage_path?: string }} doc
+ * @returns {Promise<boolean>}
+ */
+export async function deleteMaintDocument(doc) {
+  if (!doc?.document_id) return false;
+  const ok = await sbReq(
+    `maint_documents?document_id=eq.${encodeURIComponent(doc.document_id)}`,
+    'PATCH',
+    { deleted_at: new Date().toISOString() },
+  );
+  if (ok === null) return false;
+  if (doc.storage_path) {
+    const user = getCurrentUser();
+    const token = user?._token || getSupabaseAnonKey();
+    const apiKey = getSupabaseAnonKey();
+    const baseUrl = getSupabaseUrl();
+    try {
+      await fetch(
+        `${baseUrl}/storage/v1/object/${MAINT_FILES_BUCKET}/${encodeURI(doc.storage_path)}`,
+        { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token, 'apikey': apiKey } },
+      );
+    } catch { /* best-effort */ }
+  }
+  return true;
+}
+
 /* ── Radni nalozi (maint_work_orders) — add_maint_work_orders.sql ───────── */
 
 const MAINT_WO_LIST_COLS =

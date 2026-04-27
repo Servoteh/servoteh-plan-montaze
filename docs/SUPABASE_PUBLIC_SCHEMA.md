@@ -1,10 +1,10 @@
 # Supabase: šema baze (public)
 
-Generisano: 2026-04-27. **Ažuriranje:** CMMS objekti (`maint_locations`, `maint_assets`, radni nalozi, `work_order_id`/`asset_id` na incidentima) usklađeni su sa migracijama u `sql/migrations/` (`add_maint_locations.sql`, `add_maint_assets_supertable.sql`, `add_maint_work_orders.sql`, `link_maint_incidents_to_wo.sql`, `extend_maint_incidents_assets.sql`). Originalni snimak žive baze: 2026-04-22.
+Generisano: 2026-04-27. **Ažuriranje:** CMMS objekti (`maint_locations`, `maint_assets`, radni nalozi, `work_order_id`/`asset_id` na incidentima, `maint_documents`) usklađeni su sa migracijama u `sql/migrations/` (`add_maint_locations.sql`, `add_maint_assets_supertable.sql`, `add_maint_work_orders.sql`, `link_maint_incidents_to_wo.sql`, `extend_maint_incidents_assets.sql`, `add_maint_documents.sql`). Originalni snimak žive baze: 2026-04-22.
 
 ## Šta ovaj dokument pokriva
 
-- **Baze tabele (BASE TABLE)**: 65 tabela, kolone u jednoj flat tabeli (pogodno za pretragu).
+- **Baze tabele (BASE TABLE)**: 66 tabela, kolone u jednoj flat tabeli (pogodno za pretragu).
 - **Pregledi (views)**: 12 objekata u `public` (definicija SQL-a je u migracijama; ovde su samo imena).
 - **Enum vrednosti**: svi korisnički enum tipovi u `public` sa labelama.
 - **Strani ključevi (FOREIGN KEY)**: ograničenja koja referenciraju druge tabele (unutar `public`).
@@ -162,6 +162,14 @@ Ispod: **Pregledi**, **Enumi**, **Foreign keys**, zatim **flat tabela svih kolon
 | 3 | it |
 | 4 | facility |
 
+### maint_document_entity_type
+| sort | value |
+|------|-------|
+| 1 | asset |
+| 2 | work_order |
+| 3 | incident |
+| 4 | preventive_task |
+
 ### maint_wo_type
 | sort | value |
 |------|-------|
@@ -217,6 +225,10 @@ Ispod: **Pregledi**, **Enumi**, **Foreign keys**, zatim **flat tabela svih kolon
 | loc_locations | parent_id | loc_locations |
 | maint_assets | location_id | maint_locations |
 | maint_checks | task_id | maint_tasks |
+| maint_documents | asset_id | maint_assets |
+| maint_documents | incident_id | maint_incidents |
+| maint_documents | preventive_task_id | maint_tasks |
+| maint_documents | wo_id | maint_work_orders |
 | maint_incident_events | incident_id | maint_incidents |
 | maint_incidents | asset_id | maint_assets |
 | maint_incidents | work_order_id | maint_work_orders |
@@ -634,6 +646,22 @@ Ispod: **Pregledi**, **Enumi**, **Foreign keys**, zatim **flat tabela svih kolon
 | maint_checks | created_at | timestamp with time zone(6) | NO |
 | maint_checks | updated_at | timestamp with time zone(6) | NO |
 | maint_checks | updated_by | uuid | YES |
+| maint_documents | document_id | uuid | NO |
+| maint_documents | entity_type | maint_document_entity_type | NO |
+| maint_documents | entity_id | uuid | NO |
+| maint_documents | asset_id | uuid | YES |
+| maint_documents | wo_id | uuid | YES |
+| maint_documents | incident_id | uuid | YES |
+| maint_documents | preventive_task_id | uuid | YES |
+| maint_documents | file_name | text | NO |
+| maint_documents | storage_path | text | NO |
+| maint_documents | mime_type | text | YES |
+| maint_documents | size_bytes | bigint(64,0) | YES |
+| maint_documents | category | text | YES |
+| maint_documents | description | text | YES |
+| maint_documents | uploaded_at | timestamp with time zone(6) | NO |
+| maint_documents | uploaded_by | uuid | YES |
+| maint_documents | deleted_at | timestamp with time zone(6) | YES |
 | maint_incident_events | id | uuid | NO |
 | maint_incident_events | incident_id | uuid | NO |
 | maint_incident_events | actor | uuid | YES |

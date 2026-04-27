@@ -52,6 +52,7 @@ import { renderMaintLocationsPanel } from './maintLocationsTab.js';
 import { renderMaintFilesTab } from './maintFilesTab.js';
 import { renderMaintWorkOrdersPanel } from './maintWorkOrdersPanel.js';
 import { renderMaintAssetsPanel } from './maintAssetsPanel.js';
+import { renderMaintDocumentsPanel } from './maintDocumentsPanel.js';
 
 let mountRef = null;
 let disposeRef = { disposed: false };
@@ -1067,18 +1068,23 @@ async function renderPanel(host, section, machineCode, tab, onNavigateToPath, on
     section = 'board';
   }
 
-  if (['calendar', 'inventory', 'documents', 'reports', 'settings'].includes(section)) {
+  if (section === 'documents') {
+    const prof = await fetchMaintUserProfile();
+    if (disposeRef.disposed || !host.isConnected) return;
+    await renderMaintDocumentsPanel(host, { prof });
+    return;
+  }
+
+  if (['calendar', 'inventory', 'reports', 'settings'].includes(section)) {
     const titleMap = {
       calendar: 'Kalendar',
       inventory: 'Zalihe i dobavljači',
-      documents: 'Dokumenta',
       reports: 'Izveštaji',
       settings: 'Podešavanja održavanja',
     };
     const hintMap = {
       calendar: ['Sprint 5: preventivne kontrole, rokovi WO, registracije, licence i inspekcije u jednom kalendaru.'],
       inventory: ['Sprint 5+: potrošni delovi, dobavljači, cene i veza sa maint_wo_parts.'],
-      documents: ['Sprint 2: polimorfni maint_documents za assete, WO, incidente i preventivu.'],
       reports: ['Sprint 5: troškovi, najčešći kvarovi, vreme rešavanja, rad po tehničaru i CSV export.'],
       settings: ['Kasnije: šabloni statusa, notifikacije, default uloge i CMMS podešavanja.'],
     };
