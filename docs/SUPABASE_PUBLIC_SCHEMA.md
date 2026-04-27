@@ -1,11 +1,11 @@
 # Supabase: šema baze (public)
 
-Generisano: 2026-04-27. **Ažuriranje:** CMMS objekti (`maint_locations`, `maint_assets`, radni nalozi, `work_order_id`/`asset_id` na incidentima, `maint_documents`, `maint_parts`, `maint_suppliers`, `maint_part_stock_movements`, `maint_vehicle_details`, `maint_it_asset_details`, `maint_facility_details`, `maint_settings`, `maint_notification_rules`, preventive auto-WO RPC) usklađeni su sa migracijama u `sql/migrations/` (`add_maint_locations.sql`, `add_maint_assets_supertable.sql`, `add_maint_work_orders.sql`, `link_maint_incidents_to_wo.sql`, `extend_maint_incidents_assets.sql`, `add_maint_documents.sql`, `add_maint_inventory.sql`, `add_maint_vehicle_details.sql`, `add_maint_it_asset_details.sql`, `add_maint_facility_details.sql`, `add_maint_settings.sql`, `integrate_maint_settings_behavior.sql`, `add_maint_preventive_auto_wo.sql`). Originalni snimak žive baze: 2026-04-22.
+Generisano: 2026-04-27. **Ažuriranje:** CMMS objekti (`maint_locations`, `maint_assets`, radni nalozi, `work_order_id`/`asset_id` na incidentima, `maint_documents`, `maint_parts`, `maint_suppliers`, `maint_part_stock_movements`, `maint_vehicle_details`, `maint_it_asset_details`, `maint_facility_details`, `maint_settings`, `maint_notification_rules`, preventive auto-WO RPC, view `v_maint_cmms_daily_summary`) usklađeni su sa migracijama u `sql/migrations/` (`add_maint_locations.sql`, `add_maint_assets_supertable.sql`, `add_maint_work_orders.sql`, `link_maint_incidents_to_wo.sql`, `extend_maint_incidents_assets.sql`, `add_maint_documents.sql`, `add_maint_inventory.sql`, `add_maint_vehicle_details.sql`, `add_maint_it_asset_details.sql`, `add_maint_facility_details.sql`, `add_maint_settings.sql`, `integrate_maint_settings_behavior.sql`, `add_maint_preventive_auto_wo.sql`, `add_maint_daily_ops_view.sql`). Originalni snimak žive baze: 2026-04-22.
 
 ## Šta ovaj dokument pokriva
 
 - **Baze tabele (BASE TABLE)**: 74 tabela, kolone u jednoj flat tabeli (pogodno za pretragu).
-- **Pregledi (views)**: 12 objekata u `public` (definicija SQL-a je u migracijama; ovde su samo imena).
+- **Pregledi (views)**: 13 objekata u `public` (definicija SQL-a je u migracijama; ovde su samo imena).
 - **Enum vrednosti**: svi korisnički enum tipovi u `public` sa labelama.
 - **Strani ključevi (FOREIGN KEY)**: ograničenja koja referenciraju druge tabele (unutar `public`).
 
@@ -23,6 +23,7 @@ Ispod: **Pregledi**, **Enumi**, **Foreign keys**, zatim **flat tabela svih kolon
 - `v_maint_machines_importable`
 - `v_maint_machines_with_responsible`
 - `v_maint_task_due_dates`
+- `v_maint_cmms_daily_summary`
 - `v_pm_teme_pregled`
 - `v_production_operations`
 - `v_salary_payroll_month`

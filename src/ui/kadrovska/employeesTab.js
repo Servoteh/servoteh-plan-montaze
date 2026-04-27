@@ -21,7 +21,7 @@ import {
   compareEmployeesByLastFirst,
   employeeDisplayName,
 } from '../../lib/employeeNames.js';
-import { canEditKadrovska, canViewEmployeePii, getIsOnline, isAdmin } from '../../state/auth.js';
+import { canEditKadrovska, canViewEmployeePii, getIsOnline, isAdmin, getCurrentRole } from '../../state/auth.js';
 import {
   hasSupabaseConfig,
   KADR_EDU_LEVEL_LABELS,
@@ -176,6 +176,7 @@ function applyFilters(list) {
 }
 
 export function refreshEmployeesTab() {
+  console.log('[kadrovska-diag] role=', getCurrentRole(), 'edit=', canEditKadrovska(), 'online=', getIsOnline(), 'employees=', kadrovskaState.employees.length);
   if (!panelRef) return;
   const tbody = panelRef.querySelector('#kadrovskaTbody');
   const emptyBox = panelRef.querySelector('#kadrovskaEmpty');

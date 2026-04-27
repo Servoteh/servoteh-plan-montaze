@@ -1,5 +1,7 @@
 # CMMS Kratko Uputstvo
 
+**Produkcioni uvod:** detaljan checklist — [`CMMS_GO_LIVE_CHECKLIST.md`](CMMS_GO_LIVE_CHECKLIST.md) · pilot — [`CMMS_PILOT.md`](CMMS_PILOT.md) · šablon povratnih informacija — [`CMMS_PILOT_FEEDBACK.md`](CMMS_PILOT_FEEDBACK.md) · automatizacija — [`CMMS_AUTOMATION_ROADMAP.md`](CMMS_AUTOMATION_ROADMAP.md) · SQL seed šabloni — [`sql/seeds/README.md`](../sql/seeds/README.md).
+
 ## Osnovni Tok
 
 1. Operator prijavljuje kvar iz modula `Održavanje` ili sa detalja mašine/sredstva.
