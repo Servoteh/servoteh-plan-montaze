@@ -115,6 +115,12 @@ Kompletan spisak triggera na živoj bazi dobija se SQL-om (kao u MCP): `pg_trigg
 - **Uloga:** `src/services/userRoles.js` + `loadAndApplyUserRole` pri bootstrap-u (`main.js`).
 - **Sesija:** localStorage (ključevi u `src/lib/constants.js`), kompatibilno sa starijim shell-om.
 
+### `sbReq` (error handling)
+
+- `sbReq` vraća **`null`** na HTTP/pars/mrežnu grešku (i odgovarajući oblik za `withCount` varijantu).
+- **Pravilo:** u servisima, **odmah posle** `await sbReq(...)` uvek generisati rano izlaz ako nema podataka, npr. `if (data == null) return null;` / `if (!rows) { showToast?; return; }` — da se izbegne `Uncaught TypeError: cannot read properties of null` u lancu poziva.
+- Isti pattern za **lance** (više `sbReq` zaredom): proveri svaki korak pre pristupa poljima.
+
 ---
 
 ## 6. Authentication Flow
@@ -130,8 +136,12 @@ Kompletan spisak triggera na živoj bazi dobija se SQL-om (kao u MCP): `pg_trigg
 ## 7. Development Standards
 
 - **Moduli:** UI po folderima ispod `src/ui/`; zajednička logika u `src/services/` i `src/lib/`.
+- **Konvencija novih UI delova (vanilla):** novi modul = **novi folder** ispod `src/ui/`. Folder **mora** imati `index.js` kao entry (mount/render). Stil: po potrebi **CSS fajl istog bazičnog imena** kao modul (npr. `planMontaze.css`) uvezen **na vrhu** entry fajla (uskladiti sa susednim modulima u repou).
 - **Supabase:** koristi **`sbReq`** i postojeće servise; ne uvodi `supabase-js` u glavni bundle bez razloga (worker je izuzetak).
-- **Tipovi:** gde postoji, koristi generisane tipove iz **`gen:db-types`** / ručne `src/types/*`; izbegavaj “magične” stringove za RPC bez centralizacije.
+- **BigTehn cache vs upis:** tabele `bigtehn_*_cache` tretirati kao **read-only** sa klijenta — **nema** `INSERT`/`UPDATE` direktno u te tabele iz frontenda. Sinhronizacija je van app-a (worker/backfill). Lokalne izmene MES modela idu kroz **`production_overlays`**, **`production_drawings`**, druge dozvoljene tabele ili **RPC** funkcije, ne kroz cache.
+- **JSDoc i tipovi:** u `src/services/*.js` za **svaku novu** izvezenu funkciju dodati JSDoc sa **`@param`** i **`@returns`**, referencirajući tipove iz `src/types/supabase-generated.d.ts` (i postojeće `src/types/*.js` gde treba) — npr. `/** @param {import('...').Row} x */` ili `Database['public']['Tables']['...']` u `.d.ts`.
+- **Mobilni shell (`/m`, `src/ui/mobile/`):** ne oslanjati se na `window.open` niti na kompleksne hover interakcije kao primarni UX. Za skeniranje u native (Capacitor) koristiti postojeći sloj: **`src/services/nativeBarcode.js`** (`@capacitor-mlkit/barcode-scanning`); web skener u ostatku app-a ostaje odvojen (npr. ZXing u modulima kao `scanModal`).
+- **Tipovi (opšte):** gde postoji, koristi generisane tipove iz **`gen:db-types`** / ručne `src/types/*`; izbegavaj “magične” stringove za RPC bez centralizacije.
 - **RBAC:** provere i na backend-u (RLS/RPC); UI samo odražava.
 - **Rute:** ne lomi `/pracenje-proizvodnje`, `?predmet=`, `?rn=`, hash tabove za praćenje.
 - **Tajne:** nikad `service_role` u frontendu.
@@ -145,7 +155,7 @@ Kompletan spisak triggera na živoj bazi dobija se SQL-om (kao u MCP): `pg_trigg
 1. **Aktivni predmeti** — lista mora ići kroz **`get_aktivni_predmeti()`** i **`predmet_aktivacija.je_aktivan`**; ne mešati automatski MES listu aktivnih RN (`v_active_bigtehn_work_orders`) u tu listu.
 2. **Praćenje — završne količine** — samo iz finalne kontrole; ne zaključivati iz “poslednje operacije” osim ako eksplicitno označeno.
 3. **Napomene u praćenju** — ne pišu se u BigTehn cache; **admin + menadžment**; validacija na backend-u.
-4. **`sbReq` vraća `null` na grešku** — pozivaoci moraju da rukuju null path-om.
+4. **`sbReq` vraća `null` na grešku** — odmah nakon poziva: `if (!data) return ...`; nikad pristup poljima bez provere (izbegni `TypeError` na `null`).
 5. **Triggeri** — insert u `bigtehn_items_cache` i mnoge maint/lokacije tabele pokreću side-effecte; testiraj i Edge/cron obaveštenja.
 6. **Dva izvora istine za Edge funkcije** — MCP lista deployovanih funkcija može da se razlikuje od `supabase/functions/` u gitu; pre izmene frontenda koji zove funkciju, proveri oba.
 7. **Worker `loc-sync-mssql`** — koristi **service role** samo u secure okruženju; ne kopiraj pattern u Vite klijent.
