@@ -392,7 +392,7 @@ export async function insertMaintIncident(payload) {
     status: 'open',
     attachment_urls: [],
   };
-  const rows = await sbReq('maint_incidents', 'POST', body);
+  const rows = await sbReq('maint_incidents', 'POST', body, { upsert: false });
   return Array.isArray(rows) && rows[0] ? rows[0] : rows;
 }
 
