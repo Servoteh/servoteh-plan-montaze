@@ -100,6 +100,33 @@ export function isAndroidWebCameraTorchZoomHidden() {
 }
 
 /**
+ * Mobilni / tablet: niži ideal (1280×720) → brži `getUserMedia` i `video.play`
+ * nego 1080p; i dalje dovoljno za Code128 na nalepnici. Desktop zadržava 1080p.
+ * @returns {boolean}
+ */
+function prefersFastCameraConstraints() {
+  try {
+    if (typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches) return true;
+  } catch {
+    /* ignore */
+  }
+  if (isAndroidWebCameraTorchZoomHidden()) return true;
+  const ua = typeof navigator !== 'undefined' ? navigator.userAgent || '' : '';
+  if (/iPhone|iPod|iPad/i.test(ua)) return true;
+  if (typeof navigator !== 'undefined' && navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) {
+    return true;
+  }
+  return false;
+}
+
+/** @zxing/browser podrazumevano 500 ms između NotFound pokušaja — previše spor „osećaj“. */
+const ZXING_READER_OPTIONS = {
+  delayBetweenScanAttempts: 80,
+  delayBetweenScanSuccess: 280,
+  tryPlayVideoTimeout: 5000,
+};
+
+/**
  * Pokreni kontinualno skeniranje. Callback `onResult` se poziva sa SVAKIM
  * validnim dekodiranjem; obično ga zaustavljaš (ctrl.stop()) čim dobiješ
  * prvi hit, ali ostavljamo klijentu da odluči (npr. double-read).
@@ -125,7 +152,7 @@ export async function startScan(videoEl, { onResult, onError, forceDeviceId }) {
   }
 
   /* Hints-aware reader → značajno brži i pouzdaniji za BigTehn Code128. */
-  const reader = new BrowserMultiFormatReader(SCAN_HINTS);
+  const reader = new BrowserMultiFormatReader(SCAN_HINTS, ZXING_READER_OPTIONS);
 
   const isAndroid = isAndroidWebCameraTorchZoomHidden();
 
@@ -134,14 +161,13 @@ export async function startScan(videoEl, { onResult, onError, forceDeviceId }) {
    *   - Inače → `facingMode: ideal`; scanModal.js detektuje front output i
    *     restart-uje sa `forceDeviceId`.
    *
-   * Rezolucija: iOS/desktop ideal 1920×1080 (više px/mm za Code128).
-   * Android: ideal 1280×720 + max do 1080p — mnogi OEM-i ne primenjuju torch/zoom
-   * na punom 1080p streamu; niži ideal često otključa oba u Chrome/Samsung/FF.
+   * Rezolucija: na telefonu/tabletu 1280×720 (brži start kamere od 1080p);
+   * desktop 1920×1080 za više px/mm na sitnim kodovima.
    */
-  const videoBase = isAndroid
+  const videoBase = prefersFastCameraConstraints()
     ? {
-        width: { ideal: 1280, max: 1920 },
-        height: { ideal: 720, max: 1080 },
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
         frameRate: { ideal: 30 },
       }
     : {
