@@ -64,6 +64,7 @@ export async function renderMobileBatch(mountEl, ctx) {
         <div class="m-batch-video-wrap" hidden id="mBatchVideoWrap">
           <video class="m-batch-video" id="mBatchVideo" playsinline autoplay muted></video>
           <div class="loc-scan-reticle" aria-hidden="true"></div>
+          <div class="loc-scan-laser" aria-hidden="true"></div>
           <button type="button" class="m-batch-torch" data-act="torch">💡</button>
           <button type="button" class="m-batch-stop" data-act="stop">PAUZIRAJ</button>
           <div class="m-batch-hint" id="mBatchHint">Usmeri na nalepnicu…</div>

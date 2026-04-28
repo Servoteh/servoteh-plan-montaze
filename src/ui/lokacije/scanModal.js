@@ -199,6 +199,7 @@ export async function openScanMoveModal({
            muted je preduslov za autoplay u bilo kom browser-u. -->
       <video class="loc-scan-video" id="locScanVideo" playsinline webkit-playsinline autoplay muted></video>
       <div class="loc-scan-reticle" aria-hidden="true"></div>
+      <div class="loc-scan-laser" aria-hidden="true"></div>
 
       <div class="loc-scan-topbar">
         <button type="button" class="loc-scan-btn" data-act="close" aria-label="Zatvori">✕</button>
@@ -307,6 +308,8 @@ export async function openScanMoveModal({
 
   const state = {
     scanCtrl: null,
+    /** Da li smo pokušali fullscreen + orientation.lock (samo coarse/mobile). */
+    scanPresentationActive: false,
     locs: [],
     locById: new Map(),
     currentPlacements: [],
@@ -322,7 +325,58 @@ export async function openScanMoveModal({
   const stageScan = overlay.querySelector('[data-stage="scan"]');
   const stageForm = overlay.querySelector('[data-stage="form"]');
 
+  function canUseAggressiveScanPresentation() {
+    try {
+      return (
+        window.matchMedia('(pointer: coarse)').matches ||
+        /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '')
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  /** Širi okvir + laser; na telefonu još fullscreen + landscape gde browser dozvoljava. */
+  function enterScanPresentation() {
+    overlay.classList.add('loc-scan-presentation');
+    if (!canUseAggressiveScanPresentation() || state.scanPresentationActive) return;
+    state.scanPresentationActive = true;
+    const root = stageScan;
+    try {
+      const req = root.requestFullscreen || /** @type {any} */ (root).webkitRequestFullscreen;
+      if (typeof req === 'function') void Promise.resolve(req.call(root)).catch(() => {});
+    } catch (_) {
+      /* ignore */
+    }
+    try {
+      const o = screen.orientation;
+      if (o && typeof o.lock === 'function') void o.lock('landscape').catch(() => {});
+    } catch (_) {
+      /* ignore */
+    }
+  }
+
+  function leaveScanPresentation() {
+    overlay.classList.remove('loc-scan-presentation');
+    state.scanPresentationActive = false;
+    try {
+      const fsEl = /** @type {any} */ (document).fullscreenElement || /** @type {any} */ (document).webkitFullscreenElement;
+      if (fsEl && (fsEl === overlay || fsEl === stageScan)) {
+        const ex = document.exitFullscreen || /** @type {any} */ (document).webkitExitFullscreen;
+        if (typeof ex === 'function') void Promise.resolve(ex.call(document)).catch(() => {});
+      }
+    } catch (_) {
+      /* ignore */
+    }
+    try {
+      screen.orientation?.unlock?.();
+    } catch (_) {
+      /* ignore */
+    }
+  }
+
   function cleanupScan() {
+    leaveScanPresentation();
     if (state.scanCtrl) {
       state.scanCtrl.stop();
       state.scanCtrl = null;
@@ -358,12 +412,14 @@ export async function openScanMoveModal({
   async function startWebScanner() {
     stageForm.hidden = true;
     stageScan.hidden = false;
+    enterScanPresentation();
     const videoEl = $('#locScanVideo');
 
     setScanStatus('📷 Tražim kameru…', 'info');
 
     const diag = detectIOSCameraPitfalls();
     if (diag.blocker) {
+      leaveScanPresentation();
       setScanStatus(diag.blocker, 'error');
       return;
     }
@@ -393,6 +449,7 @@ export async function openScanMoveModal({
       setTimeout(() => reportCameraDiag(videoEl), 600);
       setTimeout(() => setupZoomUI(), 800);
     } catch (err) {
+      leaveScanPresentation();
       const msg = formatCameraError(err);
       setScanStatus(msg, 'error');
       console.error('[scan] camera start failed', err);
@@ -512,6 +569,7 @@ export async function openScanMoveModal({
 
       /* Restart ZXing sa konkretnim deviceId-em. */
       cleanupScan();
+      enterScanPresentation();
       state.scanCtrl = await startScan(videoEl, {
         /* deviceId idemo pre nego facingMode, pa u startScan ovo mora i da bude
          * podržano. Dodajemo treći argument — vidi barcode.js promene. */
@@ -789,6 +847,7 @@ export async function openScanMoveModal({
    *   - object: BigTehn parsed `{ orderNo, drawingNo, raw }`
    */
   async function showForm(payload) {
+    leaveScanPresentation();
     stageScan.hidden = true;
     stageForm.hidden = false;
     $('#locScanErr').textContent = '';

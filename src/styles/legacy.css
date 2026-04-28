@@ -2808,6 +2808,50 @@ body.module-lokacije #module-lokacije { display:flex !important; flex:1; flex-di
   border-radius:10px;
   box-shadow:0 0 0 9999px rgba(0,0,0,.45);
   pointer-events:none;
+  z-index:1;
+}
+/* Crvena linija na sredini kadra (1D barkod poravnaj sa linijom skena). */
+.loc-scan-laser {
+  position:absolute; left:0; right:0; top:50%;
+  height:3px; margin-top:-1.5px;
+  z-index:3;
+  pointer-events:none;
+  background:linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255,50,50,.35) 10%,
+    rgba(255,90,90,.95) 42%,
+    #ff2020 50%,
+    rgba(255,90,90,.95) 58%,
+    rgba(255,50,50,.35) 90%,
+    transparent 100%
+  );
+  box-shadow:0 0 10px rgba(255,40,40,.95), 0 0 24px rgba(255,0,0,.5), 0 0 42px rgba(255,60,60,.22);
+  animation:loc-scan-laser-sweep 2.35s ease-in-out infinite;
+}
+@keyframes loc-scan-laser-sweep {
+  0%, 100% { opacity:0.8; transform:translateY(-7px); }
+  50% { opacity:1; transform:translateY(7px); }
+}
+/* Prezentacija: širi okvir + pokušaj landscape/fullscreen u JS (telefoni). */
+.loc-scan-overlay.loc-scan-presentation .loc-scan-reticle {
+  width:min(92vw, 720px);
+  aspect-ratio:4.2 / 1;
+  box-shadow:0 0 0 9999px rgba(0,0,0,.52);
+}
+@media (orientation:landscape) {
+  .loc-scan-overlay.loc-scan-presentation .loc-scan-reticle {
+    width:min(88vw, 860px);
+    aspect-ratio:5 / 1;
+  }
+}
+.loc-scan-overlay.loc-scan-presentation .loc-scan-hint {
+  bottom:max(10px, env(safe-area-inset-bottom, 0));
+  font-size:12px;
+  padding:0 10px;
+}
+.loc-scan-overlay.loc-scan-presentation .loc-scan-topbar {
+  padding-top:max(8px, env(safe-area-inset-top, 0));
 }
 .loc-scan-topbar {
   position:absolute; top:0; left:0; right:0;
