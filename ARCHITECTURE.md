@@ -162,4 +162,35 @@ Kompletan spisak triggera na živoj bazi dobija se SQL-om (kao u MCP): `pg_trigg
 
 ---
 
+## 9. Design Language & UI Patterns
+
+Vizuelna konzistentnost: **industrial** tema, IBM Plex, Servoteh akcent; izvor tokena u kodu je **`src/styles/legacy.css`** (`:root` / `[data-theme="light|dark"]`), uz dopunske fajlove `src/styles/planProizvodnje.css`, `maintenance.css`, `sastanci.css`, `mobile.css`. Ne postoji odvojen `vars.css` — nove promenljive dodavati uz postojeće imenovanje.
+
+### 9.1 CSS filozofija (globalno vs lokalno)
+
+- **Globalno:** boje, razmaci, senke, font — **isključivo preko CSS varijabli** iz `legacy.css` (npr. `var(--bg)`, `var(--surface)`, `var(--accent)`, `var(--text)`, `var(--border)`). Ne uvoditi nasumične HEX vrednosti u novom kodu ako već postoji token; modulski CSS sme da dodaje samo layout/modul-specifične pravila.
+- **Lokalno:** modulski `.css` fajl za posebne komponente (npr. sastanci), u skladu sa tokenima iznad.
+
+### 9.2 Layout struktura
+
+- Stranica modula: **header** (naslov + primarne akcije) → **tabovi** (ako postoje) **odmah ispod headera** → **main** (scrollabilan sadržaj, tabele, paneli) → **footer** po potrebi (status, sume, paginacija).
+- Unutar main-a često `.table-wrap` za horizontalni scroll širokih tabela (`legacy.css`).
+
+### 9.3 Komponente (standardi)
+
+- **Tabele:** semantički `<table>`; široki layout u **`.table-wrap`**; region-specifične klase već postoje (npr. `.kadrovska-table`, `.gantt-table`, `.grid-table`). **Akcije** (izmena / brisanje / …) držati u **poslednjoj koloni** (vidi npr. `.col-actions` u kadrovskoj). Za nove, dosledne MES tabele po uzoru na ostatak app-a — izbegavati “čisti” HTML table bez postojećih utility klasa.
+- **Dijalozi / potvrde:** izbegavati `window.alert` / `window.confirm` u **novom** kodu; koristiti postojeće obrasce (**`modal-overlay` / `modal-panel`**, **`kadr-modal`**, **`emp-modal`**, ili modulski modal kao u Plan montaže / Plan proizvodnje) i **`showToast()`** iz `src/lib/dom.js` za kratke poruke. (U legacy kodu još uvek postoje `alert` pozivi — novi moduli ih ne uvode.)
+- **Form polja:** svako polje sa **`<label>`** (ili `aria-label`) i smislenim **`placeholder`** gde pomaže; fokus stanje **jasno vidljivo** — npr. `outline` / `border-color` preko **`var(--accent)`** (ili postojećih input klasa iz legacy).
+
+### 9.4 Responzivnost (desktop-first i `/m`)
+
+- **Primarni cilj:** desktop (~**1920×1080**), hala/kancelarija — gust tabele, hover na redovima gde ima smisla.
+- **`/m/` (Capacitor):** odvojen UI u `src/ui/mobile/` + `mobile.css` — **jedna kolona**, veliki touch targeti; ne mešati desktop raspored u mobilni shell.
+
+### 9.5 Ikonice
+
+- Nema centralnog `icons.js` ni Font Awesome / Lucide u bundle-u. U praksi: **inline SVG** u šablonima, Unicode simboli gde je već urađeno (npr. hub kartice), ili **`/icons/`** statički asseti za PWA. **Ne dodavati** nove eksterne icon biblioteke u module bez potrebe — držati se istog stila kao susedni fajlovi.
+
+---
+
 *Poslednji put ažurirano na osnovu repoa i Supabase MCP (projekat `fniruhsuotwsrjsbhrxd`).*
