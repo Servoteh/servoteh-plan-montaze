@@ -9,22 +9,21 @@
   font-family: var(--font);
 }
 
+/* Širina/padding kao Plan montaže (.plan-main u legacy.css) — puna širina, bez max-width. */
 .mnt-main {
   flex: 1;
-  padding: 16px 20px 32px;
-  max-width: 1200px;
-  margin: 0 auto;
+  padding: 18px 24px 32px;
   width: 100%;
+  box-sizing: border-box;
 }
 
-/* Široki desktop: pun širinski koridor; <1200px ne diramo (telefon/tablet). */
-@media (min-width: 1200px) {
+@media (max-width: 767px) {
   .mnt-main {
-    max-width: none;
-    margin: 0;
-    padding: 16px 24px 32px;
+    padding: 14px 14px 24px;
   }
+}
 
+@media (min-width: 1200px) {
   .mnt-dash-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
