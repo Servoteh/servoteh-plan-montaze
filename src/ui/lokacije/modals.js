@@ -117,7 +117,13 @@ function bindEscClose(onClose) {
   return () => document.removeEventListener('keydown', handler);
 }
 
-function movementErrMsg(code, detail) {
+function movementErrMsg(code, res) {
+  if (!code) return 'Operacija nije uspela.';
+  const r = res && typeof res === 'object' ? res : {};
+  if (code === 'exception') {
+    const d = r.detail != null ? String(r.detail) : '';
+    return d ? `Greška na serveru: ${d}` : 'Greška na serveru (bez detalja).';
+  }
   const m = {
     missing_fields: 'Popuni sva obavezna polja.',
     bad_to_location: 'Odredišna lokacija nije validna ili nije aktivna.',
@@ -126,6 +132,7 @@ function movementErrMsg(code, detail) {
     bad_movement_type: 'Neispravan tip pokreta.',
     bad_quantity: 'Količina mora biti veća od 0.',
     bad_order_no: 'Broj naloga je predugačak (max 40 karaktera).',
+    bad_drawing_no: 'Broj crteža je predugačak (max 40 karaktera).',
     already_placed:
       'Stavka već ima postojeće placement-e — koristi TRANSFER (ili INVENTORY_ADJUSTMENT da dodaš još komada).',
     no_current_placement:
@@ -135,12 +142,13 @@ function movementErrMsg(code, detail) {
     from_ambiguous:
       'Stavka se trenutno nalazi na više lokacija — eksplicitno izaberi polaznu.',
     from_mismatch: 'Polazna lokacija ne odgovara trenutnoj.',
-    insufficient_quantity: detail?.available != null
-      ? `Tražena količina (${detail.requested ?? '?'}) je veća od raspoložive na polaznoj lokaciji (${detail.available}).`
-      : 'Tražena količina je veća od raspoložive na polaznoj lokaciji.',
+    insufficient_quantity:
+      r.available != null
+        ? `Tražena količina (${r.requested ?? '?'}) je veća od raspoložive na polaznoj lokaciji (${r.available}).`
+        : 'Tražena količina je veća od raspoložive na polaznoj lokaciji.',
     not_authenticated: 'Prijavi se ponovo.',
   };
-  return m[code] || code || 'Operacija nije uspela.';
+  return m[code] || String(code);
 }
 
 function removeModal(id) {
@@ -1003,6 +1011,18 @@ export function openQuickMoveModal({ onSuccess } = {}) {
       </form>`;
 
     const errEl = overlay.querySelector('#locModalQuickMoveErr');
+    /** Jasna povratna informacija: tekst u modalu + toast + konzola. */
+    const qmShowErr = msg => {
+      const t = String(msg || '').trim() || 'Nepoznata greška.';
+      errEl.textContent = t;
+      showToast(`⚠ ${t}`);
+      console.warn('[quickMove]', t);
+      try {
+        errEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      } catch (_) {
+        /* ignore */
+      }
+    };
     const submitBtn = overlay.querySelector('#locQmSubmit');
     const orderInput = overlay.querySelector('#locQmOrder');
     const tpInput = overlay.querySelector('#locQmTp');
@@ -1052,7 +1072,7 @@ export function openQuickMoveModal({ onSuccess } = {}) {
       if (!currentPlacements.length) {
         stateWrap.hidden = true;
         stateEl.innerHTML = '';
-        fromSel.innerHTML = '';
+        fromSel.innerHTML = '<option value="">— nema zabeleženog smeštaja za predmet/TP —</option>';
         /* Nove stavke default-uju na INITIAL_PLACEMENT. */
         if (tpInput.value.trim()) typeSel.value = 'INITIAL_PLACEMENT';
         applyTypeMode();
@@ -1222,29 +1242,44 @@ export function openQuickMoveModal({ onSuccess } = {}) {
       const note = overlay.querySelector('#locQmNote').value.trim();
       const qty = Number(qtyInput.value);
       const needsFrom = movement_type !== 'INITIAL_PLACEMENT' && movement_type !== 'INVENTORY_ADJUSTMENT';
-      const from_location_id = needsFrom ? fromSel.value : '';
+      const from_location_id = needsFrom ? String(fromSel.value || '').trim() : '';
 
       if (!order_no || !item_ref_id || !to_location_id || !movement_type) {
-        errEl.textContent = 'Popuni obavezna polja (predmet, TP, odredište).';
+        qmShowErr('Popuni obavezna polja: broj predmeta, broj TP i odredišna lokacija.');
         return;
       }
       if (!Number.isFinite(qty) || qty <= 0) {
-        errEl.textContent = 'Količina mora biti veća od 0.';
+        qmShowErr('Količina mora biti veća od 0.');
         return;
       }
-      if (needsFrom && !from_location_id) {
-        errEl.textContent = 'Izaberi polaznu lokaciju.';
-        return;
-      }
-      if (needsFrom && from_location_id === to_location_id) {
-        errEl.textContent = 'Polazna i odredišna lokacija moraju biti različite.';
-        return;
-      }
-      if (needsFrom && from_location_id) {
-        const row = currentPlacements.find(r => r.location_id === from_location_id);
-        const maxQ = row != null ? Number(row.quantity) : NaN;
+      if (needsFrom) {
+        if (!currentPlacements.length) {
+          qmShowErr(
+            'Za izabrani tip pokreta mora postojati zabeležen smeštaj u Lokacijama (predmet + TP). ' +
+              'Nema smeštaja — koristi INITIAL_PLACEMENT za prvi unos, ili proveri predmet i TP.',
+          );
+          return;
+        }
+        if (!from_location_id) {
+          qmShowErr(
+            'Polje „Sa lokacije“ je obavezno: izaberi lokaciju sa koje premeštaš (ili prebaci tip na INITIAL_PLACEMENT ako je prvi smeštaj).',
+          );
+          return;
+        }
+        const fromRow = currentPlacements.find(r => r.location_id === from_location_id);
+        if (!fromRow) {
+          qmShowErr(
+            'Polazna lokacija ne odgovara učitanom stanju. Sačekaj učitavanje ili ponovo izaberi „Sa lokacije“.',
+          );
+          return;
+        }
+        if (from_location_id === to_location_id) {
+          qmShowErr('Polazna i odredišna lokacija moraju biti različite.');
+          return;
+        }
+        const maxQ = Number(fromRow.quantity);
         if (Number.isFinite(maxQ) && qty > maxQ) {
-          errEl.textContent = `Količina ne sme biti veća od ${maxQ} kom. na polaznoj lokaciji.`;
+          qmShowErr(`Količina ne sme biti veća od ${maxQ} kom. na izabranoj polaznoj lokaciji.`);
           return;
         }
       }
@@ -1268,12 +1303,13 @@ export function openQuickMoveModal({ onSuccess } = {}) {
           note: noteCombined,
         });
         if (!res) {
-          errEl.textContent = 'Server nije odgovorio.';
+          qmShowErr('Server nije odgovorio (mreža ili sesija). Proveri konekciju i prijavu.');
           return;
         }
         if (!res.ok) {
-          errEl.textContent = movementErrMsg(res.error, res);
+          const human = movementErrMsg(res.error, res);
           console.warn('[quickMove] loc_create_movement', res.error, res);
+          qmShowErr(human);
           return;
         }
         if (drawing_no && order_no && item_ref_id) {
@@ -1284,10 +1320,8 @@ export function openQuickMoveModal({ onSuccess } = {}) {
         onSuccess?.();
       } catch (e) {
         console.error('[quickMove] submit', e);
-        errEl.textContent =
-          e && typeof e.message === 'string' && e.message.trim()
-            ? e.message.trim()
-            : 'Neočekivana greška pri slanju.';
+        const em = e && typeof e.message === 'string' && e.message.trim() ? e.message.trim() : 'Neočekivana greška pri slanju.';
+        qmShowErr(em);
       } finally {
         submitBtn.disabled = false;
       }
