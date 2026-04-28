@@ -1975,13 +1975,18 @@ body.module-kadrovska > #module-settings { display:none !important; }
   display:block;
   font-weight:600;
 }
-.grid-table td.col-name .grid-emp-dept {
+.grid-table td.col-name .grid-emp-meta {
   display:block;
   font-size:10px;
   font-weight:500;
   color:var(--text3);
   font-family:var(--font);
+}
+.grid-table td.col-name .grid-emp-name + .grid-emp-meta {
   margin-top:3px;
+}
+.grid-table td.col-name .grid-emp-meta + .grid-emp-meta {
+  margin-top:2px;
 }
 .grid-table th.col-kind, .grid-table td.col-kind {
   width:90px; min-width:90px;

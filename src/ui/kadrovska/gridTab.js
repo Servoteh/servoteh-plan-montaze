@@ -4,7 +4,7 @@
  * Funkcionalnost (paritetno sa legacy/index.html renderGrid):
  *   - Mesečni grid: 1 kolona po danu, 4 reda po radniku (Redovni / Prekov. /
  *     Teren / 2 maš.) + 4 footer reda (UKUPNO). Jedna lista radnika — rastuće
- *     po prezimenu (A–Z); ispod imena prikaz odeljenja (bez grupisanja po odeljenju).
+ *     po prezimenu (A–Z); ispod imena dva sitna reda: „odeljenje — pododeljenje“, pozicija.
  *   - Vikend i današnji dan vizuelno markirani; ćelije sa neisaved izmenama
  *     dobijaju "cell-dirty" klasu.
  *   - Svi unosi prihvataju brojeve 0..24 (sa zarezom ili tačkom). Reg ćelija
@@ -253,6 +253,19 @@ function _gridUpdateDirtyBadge() {
 }
 
 /** Rastuće po prezimenu A–Z (sr), zatim po punom imenu za stabilan redosled. */
+/** Drugi red ime-ćelije: „Odeljenje — pododeljenje“ (ili jedno ako drugo nedostaje). */
+function _gridEmpDeptSubLine(emp) {
+  const dept = String(emp?.department || '').trim();
+  const sub = String(emp?.subDepartmentName || '').trim();
+  if (dept && sub) return `${dept} — ${sub}`;
+  return dept || sub || '—';
+}
+
+function _gridEmpPositionLine(emp) {
+  const pos = String(emp?.position || emp?.positionName || '').trim();
+  return pos || '—';
+}
+
 function _gridCompareBySurnameAsc(a, b) {
   return compareEmployeesByLastFirst(a, b);
 }
@@ -543,10 +556,9 @@ function _renderGridBody() {
       grandTot.reg += sReg; grandTot.ot += sOt; grandTot.field += sField;
       grandTot.fdom += sFdom; grandTot.ffor += sFfor; grandTot.tm += sTm;
 
-      const deptLine = emp.department
-        ? `<span class="grid-emp-dept">${escHtml(emp.department)}</span>`
-        : `<span class="grid-emp-dept">${escHtml('—')}</span>`;
-      const nameCell = `<span class="grid-emp-name">${escHtml(employeeDisplayName(emp) || '—')}</span>${deptLine}`;
+      const deptSubLine = `<span class="grid-emp-meta">${escHtml(_gridEmpDeptSubLine(emp))}</span>`;
+      const posLine = `<span class="grid-emp-meta">${escHtml(_gridEmpPositionLine(emp))}</span>`;
+      const nameCell = `<span class="grid-emp-name">${escHtml(employeeDisplayName(emp) || '—')}</span>${deptSubLine}${posLine}`;
       html += `<tr class="row-emp-1"><td class="col-num" rowspan="4">${serialNo}.</td><td class="col-name" rowspan="4">${nameCell}</td><td class="col-kind">Redovni</td>${cellsReg.join('')}<td class="col-sum">${_gridFormatSum(sReg)}</td></tr>`;
       html += `<tr class="row-emp-2"><td class="col-kind">Prekov.</td>${cellsOt.join('')}<td class="col-sum">${_gridFormatSum(sOt)}</td></tr>`;
       html += `<tr class="row-emp-3"><td class="col-kind" title="Teren — domaći (D) / inostrani (I)">Teren</td>${cellsField.join('')}<td class="col-sum" title="Domaći ${_gridFormatSum(sFdom)}h / Inostrani ${_gridFormatSum(sFfor)}h">${_gridFormatSum(sField)}</td></tr>`;
@@ -922,10 +934,10 @@ async function _exportToXlsx() {
     })();
 
     const aoa = [];
-    aoa.push([monthLabel].concat(new Array(days.length + 4).fill('')));
+    aoa.push([monthLabel].concat(new Array(days.length + 6).fill('')));
     aoa.push([]);
-    aoa.push(['#', 'Ime i prezime', 'Odeljenje', 'Tip'].concat(days.map(d => d.day)).concat(['Σ']));
-    aoa.push(['', '', '', ''].concat(days.map(d => d.letter)).concat(['']));
+    aoa.push(['#', 'Ime i prezime', 'Odeljenje — pododeljenje', 'Pozicija', 'Tip'].concat(days.map(d => d.day)).concat(['Σ']));
+    aoa.push(['', '', '', '', ''].concat(days.map(d => d.letter)).concat(['']));
 
     let serialNo = 0;
     const grand = { reg: 0, ot: 0, field: 0, fdom: 0, ffor: 0, fdomDays: 0, fforDays: 0, tm: 0, tmDays: 0 };
@@ -934,11 +946,12 @@ async function _exportToXlsx() {
     sortedEmps.forEach(emp => {
         serialNo++;
         let sR = 0, sO = 0, sF = 0, sFd = 0, sFf = 0, sTm = 0;
-        const dept = emp.department || '';
-        const rowR = [serialNo + '.', employeeDisplayName(emp) || '—', dept, 'Redovni'];
-        const rowO = ['', '', '', 'Prekov.'];
-        const rowF = ['', '', '', 'Teren'];
-        const rowTm = ['', '', '', '2 maš.'];
+        const deptSub = _gridEmpDeptSubLine(emp);
+        const pos = _gridEmpPositionLine(emp);
+        const rowR = [serialNo + '.', employeeDisplayName(emp) || '—', deptSub, pos, 'Redovni'];
+        const rowO = ['', '', '', '', 'Prekov.'];
+        const rowF = ['', '', '', '', 'Teren'];
+        const rowTm = ['', '', '', '', '2 maš.'];
         days.forEach((d, i) => {
           const eff = _gridEffective(emp.id, d.ymd);
           const fH = Number(eff.field_hours || 0);
@@ -976,18 +989,18 @@ async function _exportToXlsx() {
         aoa.push(rowR); aoa.push(rowO); aoa.push(rowF); aoa.push(rowTm);
     });
     aoa.push([]);
-    aoa.push(['', 'UKUPNO', '', 'Redovni'].concat(colTotals.map(c => c.reg || 0)).concat([grand.reg || 0]));
-    aoa.push(['', '', '', 'Prekov.'].concat(colTotals.map(c => c.ot || 0)).concat([grand.ot || 0]));
-    aoa.push(['', '', '', 'Teren'].concat(colTotals.map(c => c.field || 0)).concat([grand.field || 0]));
-    aoa.push(['', '', '', '2 maš.'].concat(colTotals.map(c => c.tm || 0)).concat([grand.tm || 0]));
+    aoa.push(['', 'UKUPNO', '', '', 'Redovni'].concat(colTotals.map(c => c.reg || 0)).concat([grand.reg || 0]));
+    aoa.push(['', '', '', '', 'Prekov.'].concat(colTotals.map(c => c.ot || 0)).concat([grand.ot || 0]));
+    aoa.push(['', '', '', '', 'Teren'].concat(colTotals.map(c => c.field || 0)).concat([grand.field || 0]));
+    aoa.push(['', '', '', '', '2 maš.'].concat(colTotals.map(c => c.tm || 0)).concat([grand.tm || 0]));
     aoa.push([]);
     aoa.push(['', 'TEREN BREAKDOWN', 'Domaći (h)', grand.fdom || 0, '', '', 'Domaći (dani)', grand.fdomDays || 0]);
     aoa.push(['', '', 'Inostrani (h)', grand.ffor || 0, '', '', 'Inostrani (dani)', grand.fforDays || 0]);
     aoa.push(['', 'RAD NA 2 MAŠINE', 'Sati', grand.tm || 0, '', '', 'Dani', grand.tmDays || 0]);
 
     const ws = XLSX.utils.aoa_to_sheet(aoa);
-    ws['!cols'] = [{ wch: 5 }, { wch: 26 }, { wch: 18 }, { wch: 9 }].concat(days.map(() => ({ wch: 4 }))).concat([{ wch: 7 }]);
-    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: days.length + 4 } }];
+    ws['!cols'] = [{ wch: 5 }, { wch: 26 }, { wch: 28 }, { wch: 22 }, { wch: 9 }].concat(days.map(() => ({ wch: 4 }))).concat([{ wch: 7 }]);
+    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: days.length + 6 } }];
 
     const wb = XLSX.utils.book_new();
     const sheetName = monthLabel.length > 31 ? monthLabel.slice(0, 31) : monthLabel;
