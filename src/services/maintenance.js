@@ -302,7 +302,7 @@ export async function fetchMaintChecksForMachine(machineCode, opts = {}) {
 export async function fetchMaintIncidentsForMachine(machineCode, opts = {}) {
   const lim = opts.limit ?? 30;
   return await sbReq(
-    `maint_incidents?select=id,title,severity,status,reported_at,assigned_to,work_order_id,maint_work_orders(wo_id,wo_number,status,title,priority)&machine_code=eq.${enc(machineCode)}&order=reported_at.desc&limit=${lim}`,
+    `maint_incidents?select=id,title,severity,status,reported_at,assigned_to,work_order_id,maint_work_orders!work_order_id(wo_id,wo_number,status,title,priority)&machine_code=eq.${enc(machineCode)}&order=reported_at.desc&limit=${lim}`,
   );
 }
 
@@ -314,7 +314,7 @@ export async function fetchMaintIncidentsForMachine(machineCode, opts = {}) {
 export async function fetchMaintIncidents(opts = {}) {
   const lim = Math.min(opts.limit ?? 1000, 5000);
   return await sbReq(
-    `maint_incidents?select=id,machine_code,asset_id,asset_type,title,severity,status,reported_at,resolved_at,closed_at,downtime_minutes,work_order_id,safety_marker,maint_work_orders(wo_id,wo_number,status,title,priority)&order=reported_at.desc&limit=${lim}`,
+    `maint_incidents?select=id,machine_code,asset_id,asset_type,title,severity,status,reported_at,resolved_at,closed_at,downtime_minutes,work_order_id,safety_marker,maint_work_orders!work_order_id(wo_id,wo_number,status,title,priority)&order=reported_at.desc&limit=${lim}`,
   );
 }
 
@@ -420,7 +420,7 @@ export async function insertMaintIncidentEvent(payload) {
  */
 export async function fetchIncidentById(incidentId) {
   const rows = await sbReq(
-    `maint_incidents?select=*,maint_work_orders(wo_id,wo_number,status,title,priority)&id=eq.${encodeURIComponent(incidentId)}&limit=1`,
+    `maint_incidents?select=*,maint_work_orders!work_order_id(wo_id,wo_number,status,title,priority)&id=eq.${encodeURIComponent(incidentId)}&limit=1`,
   );
   return Array.isArray(rows) && rows[0] ? rows[0] : null;
 }
