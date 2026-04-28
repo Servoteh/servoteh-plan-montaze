@@ -1,6 +1,6 @@
--- Planiranje proizvodnje: RN čiji je tehnološki postupak završen kucanjem završne
--- kontrole (RJ 8.3* / ista heuristika kao praćenje izveštaja) više nije u
--- v_production_operations_effective — prati se po lokaciji, ne u planu.
+-- Fix: sum(komada) na KK liniji može biti >> komada_total zbog višestrukih prijava,
+-- pa je skoro svaki RN izgledao „pun“ i nestajao iz plana. Uslov sada:
+-- raw_sum >= komada_total AND raw_sum <= komada_total * 1.5
 
 DROP VIEW IF EXISTS public.v_production_operations_effective CASCADE;
 
@@ -38,7 +38,6 @@ LEFT JOIN LATERAL (
   WHERE c.work_order_id = s_inner.work_order_id AND c.operacija = s_inner.operacija
 ) g4 ON true
 LEFT JOIN LATERAL (
-  /* raw_sum + prag ×1.5: vidi 20260507100000__plan_final_qc_hide_fix_double_sum.sql */
   SELECT COALESCE((
     SELECT sum(t.komada)::numeric
     FROM public.bigtehn_work_order_lines_cache l
@@ -58,10 +57,10 @@ LEFT JOIN LATERAL (
 ) fc ON true;
 
 COMMENT ON VIEW public.v_production_operations IS
-  'Plan: pre_g4 + G4 + item_id; plan_rn_final_control_done = KK suma u [komada_total, 1.5×komada_total].';
+  'Plan: pre_g4 + G4 + item_id; plan_rn_final_control_done = KK pokriva lot, suma umerena (nema duplih).';
 
 COMMENT ON COLUMN public.v_production_operations.plan_rn_final_control_done IS
-  'TRUE ako suma KK prijava >= komada_total i <= komada_total×1.5 (zaštita od duplih prijava).';
+  'TRUE ako suma KK prijava >= komada_total i <= komada_total×1.5.';
 
 GRANT SELECT ON public.v_production_operations TO authenticated;
 REVOKE SELECT ON public.v_production_operations FROM anon;
