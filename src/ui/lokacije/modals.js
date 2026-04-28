@@ -951,7 +951,7 @@ export function openQuickMoveModal({ onSuccess } = {}) {
 
     body.innerHTML = `
       <div class="kadr-modal-err" id="locModalQuickMoveErr"></div>
-      <form id="locFormQuickMove">
+      <form id="locFormQuickMove" novalidate>
         <div class="emp-form-grid">
           <div class="emp-field">
             <label for="locQmOrder">Broj predmeta *</label>
@@ -1028,6 +1028,11 @@ export function openQuickMoveModal({ onSuccess } = {}) {
       if (row) {
         fromHint.textContent = `Trenutno na izabranoj polaznoj lokaciji: ${row.quantity} kom.`;
         qtyInput.max = row.quantity;
+        const maxQ = Number(row.quantity);
+        const cur = Number(qtyInput.value);
+        if (Number.isFinite(maxQ) && maxQ > 0 && Number.isFinite(cur) && cur > maxQ) {
+          qtyInput.value = String(maxQ);
+        }
       } else {
         fromHint.textContent = '';
         qtyInput.removeAttribute('max');
@@ -1235,6 +1240,14 @@ export function openQuickMoveModal({ onSuccess } = {}) {
         errEl.textContent = 'Polazna i odredišna lokacija moraju biti različite.';
         return;
       }
+      if (needsFrom && from_location_id) {
+        const row = currentPlacements.find(r => r.location_id === from_location_id);
+        const maxQ = row != null ? Number(row.quantity) : NaN;
+        if (Number.isFinite(maxQ) && qty > maxQ) {
+          errEl.textContent = `Količina ne sme biti veća od ${maxQ} kom. na polaznoj lokaciji.`;
+          return;
+        }
+      }
 
       const noteParts = [];
       if (note) noteParts.push(note);
@@ -1242,32 +1255,42 @@ export function openQuickMoveModal({ onSuccess } = {}) {
       const noteCombined = noteParts.length ? noteParts.join(' | ') : undefined;
 
       submitBtn.disabled = true;
-      const res = await locCreateMovement({
-        item_ref_table,
-        item_ref_id,
-        order_no,
-        drawing_no: drawing_no || undefined,
-        to_location_id,
-        from_location_id: from_location_id || undefined,
-        movement_type,
-        quantity: qty,
-        note: noteCombined,
-      });
-      submitBtn.disabled = false;
-      if (!res) {
-        errEl.textContent = 'Server nije odgovorio.';
-        return;
+      try {
+        const res = await locCreateMovement({
+          item_ref_table,
+          item_ref_id,
+          order_no,
+          drawing_no: drawing_no || undefined,
+          to_location_id,
+          from_location_id: from_location_id || undefined,
+          movement_type,
+          quantity: qty,
+          note: noteCombined,
+        });
+        if (!res) {
+          errEl.textContent = 'Server nije odgovorio.';
+          return;
+        }
+        if (!res.ok) {
+          errEl.textContent = movementErrMsg(res.error, res);
+          console.warn('[quickMove] loc_create_movement', res.error, res);
+          return;
+        }
+        if (drawing_no && order_no && item_ref_id) {
+          qmSetDrawingCache(order_no, item_ref_id, drawing_no);
+        }
+        showToast('✓ Premeštanje zabeleženo');
+        close();
+        onSuccess?.();
+      } catch (e) {
+        console.error('[quickMove] submit', e);
+        errEl.textContent =
+          e && typeof e.message === 'string' && e.message.trim()
+            ? e.message.trim()
+            : 'Neočekivana greška pri slanju.';
+      } finally {
+        submitBtn.disabled = false;
       }
-      if (!res.ok) {
-        errEl.textContent = movementErrMsg(res.error, res);
-        return;
-      }
-      if (drawing_no && order_no && item_ref_id) {
-        qmSetDrawingCache(order_no, item_ref_id, drawing_no);
-      }
-      showToast('✓ Premeštanje zabeleženo');
-      close();
-      onSuccess?.();
     });
   })();
 }
