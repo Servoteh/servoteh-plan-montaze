@@ -263,8 +263,9 @@ function attachBrowseActions(locs) {
  * Render klasične tabele lokacija. Koristi `depth` za indentaciju.
  * @param {object[]|null} locs
  * @param {boolean} canEditLocs
+ * @param {string} sortOptions
  */
-function renderLocationsTableHtml(locs, canEditLocs) {
+function renderLocationsTableHtml(locs, canEditLocs, sortOptions = '') {
   const colspan = canEditLocs ? 6 : 5;
   const rows = Array.isArray(locs)
     ? locs
@@ -285,10 +286,13 @@ function renderLocationsTableHtml(locs, canEditLocs) {
         .join('')
       : '';
   const headActions = canEditLocs ? '<th>Akcije</th>' : '';
+  const codeHead = sortOptions
+    ? `<th><label class="loc-th-sort"><span>Šifra</span><select id="locBrowseSortHead" data-loc-browse-sort>${sortOptions}</select></label></th>`
+    : '<th>Šifra</th>';
   return `
     <div class="loc-table-wrap">
       <table class="loc-table">
-        <thead><tr><th>Šifra</th><th>Naziv</th><th>Poslovno</th><th>Tehnički tip</th><th>Putanja</th>${headActions}</tr></thead>
+        <thead><tr>${codeHead}<th>Naziv</th><th>Poslovno</th><th>Tehnički tip</th><th>Putanja</th>${headActions}</tr></thead>
         <tbody>${rows || `<tr><td colspan="${colspan}" class="loc-muted">Nema lokacija. Unos master lokacija (admin/LeadPM/PM/menadžment) dolazi iz UI ili SQL.</td></tr>`}</tbody>
       </table>
     </div>`;
@@ -384,14 +388,16 @@ function attachBrowseSearch() {
   if (!host) return;
   const input = host.querySelector('#locBrowseSearch');
   const kindSel = host.querySelector('#locBrowseKind');
-  const sortSel = host.querySelector('#locBrowseSort');
+  const sortSelects = host.querySelectorAll('[data-loc-browse-sort]');
   kindSel?.addEventListener('change', () => {
     setBrowseKindFilter(kindSel.value || '');
     refreshLocPanel();
   });
-  sortSel?.addEventListener('change', () => {
-    setBrowseSort(sortSel.value || 'code_asc');
-    refreshLocPanel();
+  sortSelects.forEach(sel => {
+    sel.addEventListener('change', () => {
+      setBrowseSort(sel.value || 'code_asc');
+      refreshLocPanel();
+    });
   });
   if (!input) return;
   let t = null;
@@ -1110,7 +1116,7 @@ async function renderPanel(host, tabId) {
       </label>
       <label class="loc-inline-check loc-sort-control">
         <span>Sort:</span>
-        <select id="locBrowseSort">${sortOptions}</select>
+        <select id="locBrowseSort" data-loc-browse-sort>${sortOptions}</select>
       </label>
       <label class="loc-inline-check">
         <input type="checkbox" id="locBrowseShowInactive" ${showInactiveLocations ? 'checked' : ''}>
@@ -1124,7 +1130,7 @@ async function renderPanel(host, tabId) {
     const content =
       browseViewMode === 'tree'
         ? renderLocationsTreeHtml(sorted, canEditLocs)
-        : renderLocationsTableHtml(sorted, canEditLocs);
+        : renderLocationsTableHtml(sorted, canEditLocs, sortOptions);
 
     host.innerHTML = `
       <div class="kadr-panel active loc-panel">
