@@ -1,4 +1,8 @@
--- Faza 1 performansi: ne računati v_production_operations_effective za sve RN linije u bazi
+-- HISTORIJSKI: LATERAL telo funkcije je zamenjeno u 20260512100000 (ponavljanje view-a po liniji
+-- je bilo sporije od jednog scan-a i lomilo 180s timeout). U ovoj reviziji ostaju samo indeksi; ako
+-- ponovo primenjuješ stariju kopiju fajla, primeni i rever migraciju.
+--
+-- Faza 1 performansi (indeksi + bivša namera): ne računati v_production_operations_effective za sve RN linije u bazi
 -- pa tek onda filtrirati na mašinu. Prvo mali skup (line_id, work_order_id) gde je efektivna
 -- mašina = param, zatim LATERAL po jednoj liniji — predikat se spušta na osnovni scan.
 -- Indeksi pomažu grana l.machine_code = mc i o.assigned_machine_code = mc.
