@@ -115,7 +115,9 @@ function isJwtExpiringSoon(token) {
   const [, payload] = token.split('.');
   if (!payload) return false;
   try {
-    const json = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+    const b64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = b64.padEnd(b64.length + ((4 - (b64.length % 4)) % 4), '=');
+    const json = JSON.parse(atob(padded));
     const expMs = Number(json.exp) * 1000;
     return Number.isFinite(expMs) && expMs - Date.now() < 60 * 1000;
   } catch {
