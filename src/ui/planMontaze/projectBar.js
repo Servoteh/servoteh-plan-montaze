@@ -38,49 +38,54 @@ import { openWpAssemblyDrawingDialog } from './wpAssemblyDrawingDialog.js';
 let panelRoot = null;
 let onChangeCb = null;
 
-/** Render HTML za project bar (bez wire-ovanja). */
-export function projectBarHtml() {
+/** Jedna kartica: projekat + pozicije + glavni crtež sklopa (samo HTML). */
+export function projectContextCardHtml() {
   const p = getActiveProject();
   const opts = (allData.projects || [])
     .map(pr => `<option value="${escHtml(pr.id)}"${pr.id === planMontazeState.activeProjectId ? ' selected' : ''}>${escHtml(pr.code)} — ${escHtml(pr.name)}</option>`)
     .join('');
   const isAdmin = canEdit();
-  return `
-    <div class="project-bar" role="toolbar" aria-label="Projekat">
-      <label class="project-select-wrap">
-        <span class="project-select-label">Projekat</span>
-        <select id="projectSelect" aria-label="Izaberi projekat">${opts}</select>
-      </label>
-      <div class="project-bar-actions">
-        <button type="button" class="btn btn-ghost" id="projectMetaBtn" title="Uredi meta podatke projekta" ${isAdmin ? '' : 'disabled'}>✏️ Meta</button>
-        <button type="button" class="btn btn-ghost" id="projectAddBtn" title="Novi projekat" ${isAdmin ? '' : 'disabled'}>＋ Novi</button>
-        <button type="button" class="btn btn-ghost danger" id="projectDeleteBtn" title="Obriši aktivni projekat (samo LeadPM)" ${isLeadPM() ? '' : 'disabled'}>🗑 Obriši</button>
-      </div>
-      <div class="project-bar-meta">
-        <span class="project-bar-rok" title="Krajnji rok projekta">${p?.deadline ? '📅 Rok: ' + escHtml(p.deadline) : ''}</span>
-      </div>
-    </div>
-  `;
-}
+  const rok = p?.deadline ? `<span class="pm-project-rok" title="Krajnji rok projekta">📅 ${escHtml(p.deadline)}</span>` : '';
 
-/** Render HTML za WP tab strip (bez wire-ovanja). */
-export function wpTabsHtml() {
-  const p = getActiveProject();
-  if (!p) return '<div class="wp-tabs"></div>';
-  const tabs = (p.workPackages || [])
-    .map(w => `<button type="button" class="wp-tab${w.id === planMontazeState.activeWpId ? ' active' : ''}" data-wp-id="${escHtml(w.id)}">${escHtml(w.name)} <span class="wp-code">${escHtml(w.rnCode)}</span></button>`)
-    .join('');
-  const canAdd = canEdit();
-  const activeWp = getActiveWP();
+  let wpRow = '<div class="pm-row pm-row--wp pm-row--empty" aria-hidden="true"></div>';
+  let assemblyRow = '';
+  if (p) {
+    const tabs = (p.workPackages || [])
+      .map(w => `<button type="button" class="wp-tab wp-tab--pill${w.id === planMontazeState.activeWpId ? ' active' : ''}" data-wp-id="${escHtml(w.id)}">${escHtml(w.name)} <span class="wp-code">${escHtml(w.rnCode)}</span></button>`)
+      .join('');
+    const canAdd = canEdit();
+    wpRow = `
+      <div class="pm-row pm-row--wp">
+        <div class="wp-tabs-scroller" role="presentation">
+          <div class="wp-tabs wp-tabs--pills" role="tablist" aria-label="Pozicije projekta">${tabs}</div>
+        </div>
+        <div class="wp-tabs-actions wp-tabs-actions--sep">
+          <button type="button" class="btn btn-ghost" id="wpAddBtn" title="Nova pozicija (Work Package)" ${canAdd ? '' : 'disabled'}>＋ POZICIJA</button>
+          <button type="button" class="btn btn-ghost" id="wpMetaBtn" title="Uredi meta podatke pozicije" ${canAdd ? '' : 'disabled'}>META</button>
+        </div>
+      </div>`;
+    assemblyRow = `<div class="pm-row pm-row--assembly">${_wpAssemblyStripHtml(getActiveWP(), canAdd)}</div>`;
+  }
+
   return `
-    <div class="wp-tabs-wrap">
-      <div class="wp-tabs" role="tablist" aria-label="Pozicije projekta">${tabs}</div>
-      <div class="wp-tabs-actions">
-        <button type="button" class="btn btn-ghost" id="wpAddBtn" title="Nova pozicija (Work Package)" ${canAdd ? '' : 'disabled'}>＋ Pozicija</button>
-        <button type="button" class="btn btn-ghost" id="wpMetaBtn" title="Uredi meta podatke pozicije" ${canAdd ? '' : 'disabled'}>✏️ Meta</button>
+    <div class="pm-context-card" id="pmContextCard" aria-label="Kontekst projekta">
+      <div class="pm-row pm-row--project">
+        <div class="pm-project-left">
+          <label class="project-select-wrap">
+            <span class="project-select-label">Projekat</span>
+            <select id="projectSelect" aria-label="Izaberi projekat">${opts}</select>
+          </label>
+          ${rok}
+        </div>
+        <div class="project-bar-actions">
+          <button type="button" class="btn btn-ghost" id="projectMetaBtn" title="Uredi meta podatke projekta" ${isAdmin ? '' : 'disabled'}>META</button>
+          <button type="button" class="btn btn-ghost" id="projectAddBtn" title="Novi projekat" ${isAdmin ? '' : 'disabled'}>＋ NOVI</button>
+          <button type="button" class="btn btn-ghost danger" id="projectDeleteBtn" title="Obriši aktivni projekat (samo LeadPM)" ${isLeadPM() ? '' : 'disabled'}>OBRIŠI</button>
+        </div>
       </div>
+      ${wpRow}
+      ${assemblyRow}
     </div>
-    ${_wpAssemblyStripHtml(activeWp, canAdd)}
   `;
 }
 
@@ -95,7 +100,7 @@ function _wpAssemblyStripHtml(wp, editable) {
   const no = String(wp.assemblyDrawingNo || '').trim();
   const hasNo = no.length > 0;
   const editBtn = editable
-    ? `<button type="button" class="btn btn-ghost wp-assembly-edit" id="wpAssemblyEditBtn" title="${hasNo ? 'Izmeni glavni crtež sklopa' : 'Poveži glavni crtež sklopa'}">${hasNo ? '✏️ Izmeni' : '＋ Poveži'}</button>`
+    ? `<button type="button" class="btn btn-ghost wp-assembly-edit" id="wpAssemblyEditBtn" title="${hasNo ? 'Izmeni glavni crtež sklopa' : 'Poveži glavni crtež sklopa'}">${hasNo ? 'IZMENI' : '＋ POVEŽI'}</button>`
     : '';
   const chip = hasNo
     ? `<button type="button" class="wp-assembly-chip has-no" id="wpAssemblyOpenBtn" title="Otvori PDF u novom tabu">
@@ -105,8 +110,10 @@ function _wpAssemblyStripHtml(wp, editable) {
     : `<span class="wp-assembly-chip empty" title="Nije postavljen glavni crtež sklopa">— nije postavljeno —</span>`;
   return `
     <div class="wp-assembly-strip" aria-label="Glavni crtež sklopa">
-      <span class="wp-assembly-label">🔗 Glavni crtež sklopa:</span>
-      ${chip}
+      <div class="wp-assembly-left">
+        <span class="wp-assembly-label">Glavni crtež sklopa:</span>
+        ${chip}
+      </div>
       ${editBtn}
     </div>
   `;

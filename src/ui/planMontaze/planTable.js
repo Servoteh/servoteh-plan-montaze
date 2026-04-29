@@ -74,8 +74,7 @@ export function planSectionHtml() {
     `;
   }
   return `
-    ${_filterBarHtml()}
-    ${_addPhaseBarHtml()}
+    ${_planFiltersToolbarHtml()}
     <div class="plan-table-wrap" id="planTableWrap">
       <table class="plan-table">
         <thead>${_planTheadHtml()}</thead>
@@ -112,75 +111,72 @@ export function wirePlanSection(root, { onChange } = {}) {
 
 /* ── INTERNAL: HTML helpers ──────────────────────────────────────────── */
 
-function _filterBarHtml() {
+function _planFiltersToolbarHtml() {
   const locs = getProjectLocations();
   const ppl = VODJA.filter(v => v);
   const f = planMontazeState.filterValues || {};
-  return `
-    <div class="filter-bar" role="search" aria-label="Filteri faza">
-      <label class="fb-field">
-        <span>Pretraga</span>
-        <input type="search" id="fSearch" placeholder="Naziv faze…" value="${escHtml(f.search || '')}">
-      </label>
-      <label class="fb-field">
-        <span>Lokacija</span>
-        <select id="fLoc">
-          <option value="">Sve</option>
-          ${locs.map(l => `<option value="${escHtml(l)}"${f.loc === l ? ' selected' : ''}>${escHtml(l)}</option>`).join('')}
-        </select>
-      </label>
-      <label class="fb-field">
-        <span>Status</span>
-        <select id="fStatus">
-          <option value="">Sve</option>
-          ${STATUSES.map((s, i) => `<option value="${i}"${String(f.status) === String(i) ? ' selected' : ''}>${escHtml(s)}</option>`).join('')}
-        </select>
-      </label>
-      <label class="fb-field">
-        <span>Vođa</span>
-        <select id="fPerson">
-          <option value="">Svi</option>
-          <option value="__none__"${f.person === '__none__' ? ' selected' : ''}>— Bez vođe —</option>
-          ${ppl.map(p => `<option value="${escHtml(p)}"${f.person === p ? ' selected' : ''}>${escHtml(p)}</option>`).join('')}
-        </select>
-      </label>
-      <label class="fb-field">
-        <span>Spremnost</span>
-        <select id="fReady">
-          <option value="">Sve</option>
-          <option value="ready"${f.ready === 'ready' ? ' selected' : ''}>Spremno</option>
-          <option value="notready"${f.ready === 'notready' ? ' selected' : ''}>Nije spremno</option>
-        </select>
-      </label>
-      <label class="fb-field">
-        <span>Datumi</span>
-        <select id="fDates">
-          <option value="">Sve</option>
-          <option value="hasdate"${f.dates === 'hasdate' ? ' selected' : ''}>Ima datume</option>
-          <option value="nodate"${f.dates === 'nodate' ? ' selected' : ''}>Bez datuma</option>
-        </select>
-      </label>
-      <label class="fb-field">
-        <span>Rizik</span>
-        <select id="fRisk">
-          <option value="">Sve</option>
-          <option value="hasrisk"${f.risk === 'hasrisk' ? ' selected' : ''}>Sa rizikom</option>
-        </select>
-      </label>
-      <div class="fb-actions">
-        <span class="fb-count" id="filterCount">${_filterCountText()}</span>
-        <button type="button" class="btn btn-ghost" id="fReset" title="Resetuj filtere">↺</button>
-      </div>
-    </div>
-  `;
-}
-
-function _addPhaseBarHtml() {
   const dis = canEdit() ? '' : 'disabled';
   return `
-    <div class="add-phase-bar">
-      <input type="text" id="newPhaseInput" placeholder="Naziv nove faze…" ${dis}>
-      <button type="button" class="btn" id="newPhaseBtn" ${dis}>＋ Faza</button>
+    <div class="plan-filters-toolbar" role="search" aria-label="Filteri i nova faza">
+      <div class="pft-filters filter-bar">
+        <label class="fb-field">
+          <span>Pretraga</span>
+          <input type="search" id="fSearch" placeholder="Naziv faze…" value="${escHtml(f.search || '')}">
+        </label>
+        <label class="fb-field">
+          <span>Lokacija</span>
+          <select id="fLoc">
+            <option value="">Sve</option>
+            ${locs.map(l => `<option value="${escHtml(l)}"${f.loc === l ? ' selected' : ''}>${escHtml(l)}</option>`).join('')}
+          </select>
+        </label>
+        <label class="fb-field">
+          <span>Status</span>
+          <select id="fStatus">
+            <option value="">Sve</option>
+            ${STATUSES.map((s, i) => `<option value="${i}"${String(f.status) === String(i) ? ' selected' : ''}>${escHtml(s)}</option>`).join('')}
+          </select>
+        </label>
+        <label class="fb-field">
+          <span>Vođa</span>
+          <select id="fPerson">
+            <option value="">Svi</option>
+            <option value="__none__"${f.person === '__none__' ? ' selected' : ''}>— Bez vođe —</option>
+            ${ppl.map(p => `<option value="${escHtml(p)}"${f.person === p ? ' selected' : ''}>${escHtml(p)}</option>`).join('')}
+          </select>
+        </label>
+        <label class="fb-field">
+          <span>Spremnost</span>
+          <select id="fReady">
+            <option value="">Sve</option>
+            <option value="ready"${f.ready === 'ready' ? ' selected' : ''}>Spremno</option>
+            <option value="notready"${f.ready === 'notready' ? ' selected' : ''}>Nije spremno</option>
+          </select>
+        </label>
+        <label class="fb-field">
+          <span>Datumi</span>
+          <select id="fDates">
+            <option value="">Sve</option>
+            <option value="hasdate"${f.dates === 'hasdate' ? ' selected' : ''}>Ima datume</option>
+            <option value="nodate"${f.dates === 'nodate' ? ' selected' : ''}>Bez datuma</option>
+          </select>
+        </label>
+        <label class="fb-field">
+          <span>Rizik</span>
+          <select id="fRisk">
+            <option value="">Sve</option>
+            <option value="hasrisk"${f.risk === 'hasrisk' ? ' selected' : ''}>Sa rizikom</option>
+          </select>
+        </label>
+        <div class="fb-actions">
+          <span class="fb-count" id="filterCount">${_filterCountText()}</span>
+          <button type="button" class="btn btn-ghost" id="fReset" title="Resetuj filtere">↺</button>
+        </div>
+      </div>
+      <div class="pft-new-phase add-phase-bar">
+        <input type="text" id="newPhaseInput" placeholder="Naziv nove faze…" ${dis}>
+        <button type="button" class="btn btn-primary" id="newPhaseBtn" ${dis}>＋ FAZA</button>
+      </div>
     </div>
   `;
 }

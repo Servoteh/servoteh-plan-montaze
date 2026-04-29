@@ -1,16 +1,7 @@
 /**
- * Plan Montaže — Reminder zone.
+ * Plan Montaže — Reminder zone (kompaktna traka).
  *
- * Skenira sve faze SVIH WP-ova aktivnog projekta. Prikazuje karticu za svaku
- * fazu koja:
- *   - nije završena (status !== 2)
- *   - ima zakazan start_date
- *   - počinje za 0..7 dana od danas
- *   - nije ready (calcReadiness(row).ready === false)
- *
- * Klasifikacija:
- *   - urgentno (≤3 dana): rc-red
- *   - upozorenje (4..7 dana): rc-yellow
+ * Ista logika filtriranja faza kao ranije; prikaz je jedan red + dismiss (session).
  */
 
 import { escHtml } from '../../lib/dom.js';
@@ -20,10 +11,20 @@ import { getActiveProject } from '../../state/planMontaze.js';
 import { canEdit } from '../../state/auth.js';
 import { openReminderDialog } from './reminderModal.js';
 
-/** @returns {string} HTML — niz reminder cards ili prazan div. */
+function _dismissStorageKey(projectId) {
+  return `pm_rz_dismiss_${projectId}`;
+}
+
+/** @returns {string} HTML — kompaktna traka ili prazan div. */
 export function reminderZoneHtml() {
   const p = getActiveProject();
   if (!p) return '<div class="reminder-zone" id="reminderZone"></div>';
+  try {
+    if (sessionStorage.getItem(_dismissStorageKey(p.id)) === '1') {
+      return '<div class="reminder-zone reminder-zone--dismissed" id="reminderZone"></div>';
+    }
+  } catch (_) { /* ignore */ }
+
   const cards = [];
   (p.workPackages || []).forEach(wp => {
     (wp.phases || []).forEach(row => {
@@ -45,32 +46,47 @@ export function reminderZoneHtml() {
     });
   });
   if (!cards.length) return '<div class="reminder-zone" id="reminderZone"></div>';
+
   const sendBtn = canEdit() && p.reminderEnabled
-    ? `<button type="button" class="btn btn-primary rz-send-btn" id="rzSendBtn">📧 Pošalji email podsetnike (${cards.length})</button>`
+    ? `<button type="button" class="btn btn-primary rz-send-btn" id="rzSendBtn">📧 Pošalji</button>`
     : '';
+
+  const inline = cards.map(c => {
+    const dot = c.urg ? '🔴' : '🟡';
+    const line = `${escHtml(c.title)} — Za ${c.days}d`;
+    return `<span class="rs-item${c.urg ? ' rs-item--urg' : ' rs-item--warn'}" title="${escHtml(c.projectCode)} / ${escHtml(c.wpName)} · ${escHtml(formatDate(c.start))} · ${escHtml(c.reasons.slice(0, 3).join(', '))}">${dot} ${line}</span>`;
+  }).join('<span class="rs-sep" aria-hidden="true">·</span>');
+
   return `
-    <div class="reminder-zone" id="reminderZone">
-      <div class="reminder-zone-head">
-        <span class="rz-title">⚠ Podsetnici (${cards.length})</span>
+    <div class="reminder-strip reminder-zone" id="reminderZone" role="region" aria-label="Podsetnici">
+      <span class="rs-warn-icon" aria-hidden="true">⚠</span>
+      <span class="rs-label">PODSETNICI (${cards.length}):</span>
+      <div class="rs-inline">${inline}</div>
+      <div class="rs-actions">
         ${sendBtn}
-      </div>
-      <div class="reminder-zone-body">
-        ${cards.map(c => `
-          <div class="reminder-card ${c.urg ? 'rc-red' : 'rc-yellow'}">
-            <div class="rc-title">${c.urg ? '🔴' : '🟡'} ${escHtml(c.title)}</div>
-            <div class="rc-sub">${escHtml(c.projectCode)} / ${escHtml(c.wpName)} · ${escHtml(formatDate(c.start))} · Za ${c.days}d</div>
-            <div class="rc-sub">${escHtml(c.reasons.slice(0, 3).join(', '))}</div>
-          </div>
-        `).join('')}
+        <button type="button" class="rs-dismiss" id="rzDismissBtn" title="Sakrij traku do sledeće navigacije" aria-label="Zatvori podsetnike">×</button>
       </div>
     </div>
   `;
 }
 
-/** Wire-uje "Pošalji" dugme u reminder zone. Idempotentan. */
+/** Wire-uje dugmad u reminder zoni. */
 export function wireReminderZone(root) {
-  const btn = root?.querySelector('#rzSendBtn');
-  if (!btn || btn.dataset.wired) return;
-  btn.dataset.wired = '1';
-  btn.addEventListener('click', () => openReminderDialog());
+  const send = root?.querySelector('#rzSendBtn');
+  if (send && !send.dataset.wired) {
+    send.dataset.wired = '1';
+    send.addEventListener('click', () => openReminderDialog());
+  }
+  const dismiss = root?.querySelector('#rzDismissBtn');
+  if (dismiss && !dismiss.dataset.wired) {
+    dismiss.dataset.wired = '1';
+    dismiss.addEventListener('click', () => {
+      const p = getActiveProject();
+      if (p?.id) {
+        try { sessionStorage.setItem(_dismissStorageKey(p.id), '1'); } catch (_) { /* ignore */ }
+      }
+      const z = root.querySelector('#reminderZone');
+      if (z) z.remove();
+    });
+  }
 }

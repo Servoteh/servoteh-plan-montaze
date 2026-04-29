@@ -47,16 +47,17 @@ export function planHeaderHtml() {
 /** View tab strip: Plan / Gantt / Total. */
 export function viewTabsHtml(activeView) {
   const tabs = [
-    { id: 'plan', label: '📋 Plan' },
-    { id: 'gantt', label: '📊 Gantt' },
-    { id: 'total', label: '🌐 Ukupan Gant' },
+    { id: 'plan', icon: '📋', label: 'Plan' },
+    { id: 'gantt', icon: '📊', label: 'Gantt' },
+    { id: 'total', icon: '🌐', label: 'Ukupan Gant' },
   ];
   return `
-    <div class="kadrovska-tabs" role="tablist" aria-label="Plan Montaže — pogled">
+    <div class="kadrovska-tabs plan-view-tabs" role="tablist" aria-label="Plan Montaže — pogled">
       ${tabs.map(t => `
-        <button class="kadrovska-tab view-tab${t.id === activeView ? ' active' : ''}" role="tab"
+        <button class="kadrovska-tab view-tab plan-view-tab${t.id === activeView ? ' active' : ''}" role="tab"
                 aria-selected="${t.id === activeView}" data-view="${t.id}">
-          ${escHtml(t.label)}
+          <span class="plan-view-tab-ic" aria-hidden="true">${t.icon}</span>
+          <span class="plan-view-tab-lbl">${escHtml(t.label)}</span>
         </button>
       `).join('')}
     </div>`;

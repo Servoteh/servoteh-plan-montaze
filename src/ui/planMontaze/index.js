@@ -30,7 +30,7 @@ import {
 } from '../../state/planMontaze.js';
 import { fetchAllProjectsHierarchy } from '../../services/plan.js';
 import { planHeaderHtml, viewTabsHtml } from './shared.js';
-import { projectBarHtml, wpTabsHtml, wireProjectBar } from './projectBar.js';
+import { projectContextCardHtml, wireProjectBar } from './projectBar.js';
 import { openProjectMetaModal, openWpMetaModal } from './metaModals.js';
 import { planSectionHtml, wirePlanSection } from './planTable.js';
 import { mobileCardsHtml, wireMobileCards } from './mobileCards.js';
@@ -102,8 +102,7 @@ function _renderShell() {
     ${planHeaderHtml()}
     <main class="plan-main" id="planMain">
       <section class="plan-toolbar" id="planToolbar">
-        ${projectBarHtml()}
-        ${wpTabsHtml()}
+        ${projectContextCardHtml()}
         ${viewTabsHtml(planMontazeState.activeView)}
       </section>
       <section class="plan-body" id="planBody">
