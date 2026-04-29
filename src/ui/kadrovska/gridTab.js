@@ -51,10 +51,6 @@ const GRID_BO_SUBTYPE_MAP = {
   bop: 'povreda_na_radu',
   bot: 'odrzavanje_trudnoce',
 };
-/* Tipovi rada koji NEMAJU pravo na plaćeno odsustvo. */
-const GRID_NO_PAID_LEAVE_WORKTYPES = new Set(['praksa', 'dualno', 'penzioner']);
-/* Šifre koje su zabranjene za radnike bez prava na plaćeno odsustvo. */
-const GRID_PAID_ONLY_CODES = new Set(['go', 'bo', 'bop', 'bot', 'sp', 'sl']);
 /** Dani u nedelji — index 0 = Sunday. */
 const GRID_DAY_LETTERS = ['N', 'P', 'U', 'S', 'Č', 'P', 'S'];
 const GRID_FIELD_SUBTYPE_DEFAULT = 'domestic';
@@ -125,11 +121,14 @@ function _gridDirtyKey(empId, ymd) {
   return empId + '|' + ymd;
 }
 
-function _gridEmpWorkType(empOrId) {
-  const id = empOrId && typeof empOrId === 'object' ? empOrId.id : empOrId;
-  if (id == null || id === '') return 'ugovor';
-  const e = kadrovskaState.employees.find(x => String(x.id) === String(id));
-  return e?.workType || 'ugovor';
+function _gridDayClasses(day, holidayYmdSet, extra = []) {
+  const cls = ['col-day'];
+  if (day?.isWeekend) cls.push('cell-weekend');
+  if (day?.dow === 6) cls.push('cell-weekend-sat');
+  if (day?.dow === 0) cls.push('cell-weekend-sun');
+  if (holidayYmdSet?.has?.(day?.ymd)) cls.push('cell-holiday');
+  if (extra?.length) cls.push(...extra.filter(Boolean));
+  return cls;
 }
 
 /** Effective vrednost ćelije: dirty override → DB row → defaults. */
@@ -483,16 +482,13 @@ function _renderGridBody() {
   html += '<th class="col-name" rowspan="2">Ime i prezime</th>';
   html += '<th class="col-kind" rowspan="2">Tip</th>';
   days.forEach(d => {
-    const cls = ['col-day'];
-    if (d.isWeekend) cls.push('cell-weekend');
-    if (d.ymd === today) cls.push('cell-today');
+    const cls = _gridDayClasses(d, holSet, d.ymd === today ? ['cell-today'] : []);
     html += `<th class="${cls.join(' ')}">${d.day}</th>`;
   });
   html += '<th class="col-sum" rowspan="2">Σ</th>';
   html += '</tr><tr class="row-day-letter">';
   days.forEach(d => {
-    const cls = ['col-day'];
-    if (d.isWeekend) cls.push('cell-weekend');
+    const cls = _gridDayClasses(d, holSet);
     html += `<th class="${cls.join(' ')}">${d.letter}</th>`;
   });
   html += '</tr></thead><tbody>';
@@ -514,7 +510,7 @@ function _renderGridBody() {
           hours: eff.hours,
           absence_code: eff.absence_code,
           absence_subtype: eff.absence_subtype,
-        }, holSet, _gridEmpWorkType(emp));
+        }, holSet);
         sOt += Number(eff.overtime_hours || 0);
         sField += fH;
         sTm += tmH;
@@ -527,7 +523,7 @@ function _renderGridBody() {
           hours: eff.hours,
           absence_code: eff.absence_code,
           absence_subtype: eff.absence_subtype,
-        }, holSet, _gridEmpWorkType(emp));
+        }, holSet);
         colTotals[di].ot += Number(eff.overtime_hours || 0);
         colTotals[di].field += fH;
         if (fH > 0) {
@@ -538,9 +534,9 @@ function _renderGridBody() {
 
         const dk = _gridDirtyKey(emp.id, d.ymd);
         const isDirty = gridState.dirty.has(dk);
-        const dayBase = ['col-day'];
-        if (d.isWeekend) dayBase.push('cell-weekend');
-        if (d.ymd === today) dayBase.push('cell-today');
+        const extraDayCls = [];
+        if (d.ymd === today) extraDayCls.push('cell-today');
+        const dayBase = _gridDayClasses(d, holSet, extraDayCls);
         if (isDirty) dayBase.push('cell-dirty');
 
         let regVal, regCls = ['grid-cell'];
@@ -590,19 +586,19 @@ function _renderGridBody() {
 
   /* Footer totals */
   const ftReg = colTotals.map((c, i) => {
-    const cls = ['col-day']; if (days[i].isWeekend) cls.push('cell-weekend');
+    const cls = _gridDayClasses(days[i], holSet);
     return `<td class="${cls.join(' ')}">${_gridFormatSum(c.reg)}</td>`;
   }).join('');
   const ftOt = colTotals.map((c, i) => {
-    const cls = ['col-day']; if (days[i].isWeekend) cls.push('cell-weekend');
+    const cls = _gridDayClasses(days[i], holSet);
     return `<td class="${cls.join(' ')}">${_gridFormatSum(c.ot)}</td>`;
   }).join('');
   const ftField = colTotals.map((c, i) => {
-    const cls = ['col-day']; if (days[i].isWeekend) cls.push('cell-weekend');
+    const cls = _gridDayClasses(days[i], holSet);
     return `<td class="${cls.join(' ')}" title="DOM ${_gridFormatSum(c.fdom)} / INO ${_gridFormatSum(c.ffor)}">${_gridFormatSum(c.field)}</td>`;
   }).join('');
   const ftTm = colTotals.map((c, i) => {
-    const cls = ['col-day']; if (days[i].isWeekend) cls.push('cell-weekend');
+    const cls = _gridDayClasses(days[i], holSet);
     return `<td class="${cls.join(' ')}">${_gridFormatSum(c.tm)}</td>`;
   }).join('');
   html += `<tr class="row-totals"><td class="col-num"></td><td class="col-name">UKUPNO</td><td class="col-kind">Redovni</td>${ftReg}<td class="col-sum">${_gridFormatSum(grandTot.reg)}</td></tr>`;
@@ -647,7 +643,7 @@ function _renderSummary(emps, days, gt, companyCount) {
           hours: eff.hours,
           absence_code: eff.absence_code,
           absence_subtype: eff.absence_subtype,
-        }, holSet, _gridEmpWorkType(e));
+        }, holSet);
         g.ot += Number(eff.overtime_hours || 0);
         g.field += fH;
         if (fH > 0) {
@@ -689,19 +685,6 @@ function _gridOnCellInput(e) {
       e.target.title = 'Nevažeća vrednost: broj 0–24';
     }
     return;
-  }
-  /* Faza K3.3 — validacija plaćenog odsustva po tipu rada. */
-  if (kind === 'reg' && parsed.kind === 'abs') {
-    const emp = kadrovskaState.employees.find(x => x.id === empId);
-    const wt = emp?.workType || 'ugovor';
-    const code = parsed.code;
-    /* Sve osim 'np' i 'pr' su plaćena odsustva. */
-    if (GRID_NO_PAID_LEAVE_WORKTYPES.has(wt) && GRID_PAID_ONLY_CODES.has(code)) {
-      td.classList.add('cell-error');
-      e.target.title = `Šifra "${code}" nije dozvoljena za tip rada "${wt}". Dozvoljeno: np / pr.`;
-      showToast(`⚠ ${code.toUpperCase()} nije dozvoljeno za ${wt}`);
-      return;
-    }
   }
   e.target.title = '';
   if (kind === 'reg') {
@@ -820,7 +803,7 @@ function _gridRefreshSums(empId) {
       hours: eff.hours,
       absence_code: eff.absence_code,
       absence_subtype: eff.absence_subtype,
-    }, holSet, _gridEmpWorkType(empId));
+    }, holSet);
     sOt += Number(eff.overtime_hours || 0);
     const fH = Number(eff.field_hours || 0);
     sField += fH;
@@ -1018,7 +1001,7 @@ async function _exportToXlsx() {
             hours: eff.hours,
             absence_code: eff.absence_code,
             absence_subtype: eff.absence_subtype,
-          }, holSet, _gridEmpWorkType(emp));
+          }, holSet);
           sR += ru;
           sO += Number(eff.overtime_hours || 0);
           sF += fH;

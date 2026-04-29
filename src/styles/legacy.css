@@ -2037,16 +2037,30 @@ body.module-kadrovska > #module-settings { display:none !important; }
 .grid-cell:disabled { color:var(--text3); cursor:not-allowed; background:transparent; }
 .grid-cell::placeholder { color:transparent; }
 
-/* Cell states — subota/nedelja (tokeni tema — jasan kontrast sa radnim danom) */
-.grid-table thead th.col-day.cell-weekend,
-.grid-table thead tr.row-day-letter th.col-day.cell-weekend {
-  background: var(--surface4) !important;
+/* Cell states — subota/nedelja/državni praznik. */
+.grid-table thead th.col-day.cell-weekend-sat,
+.grid-table thead tr.row-day-letter th.col-day.cell-weekend-sat,
+.grid-table tbody tr:not(.row-totals) td.col-day.cell-weekend-sat:not(.cell-dirty):not(.cell-error),
+.grid-table tr.row-totals td.col-day.cell-weekend-sat {
+  background:
+    repeating-linear-gradient(135deg, transparent 0 7px, color-mix(in srgb, var(--text3) 8%, transparent) 7px 9px),
+    var(--surface3) !important;
 }
-.grid-table tbody tr:not(.row-totals) td.col-day.cell-weekend:not(.cell-dirty):not(.cell-error) {
-  background: var(--surface3) !important;
+.grid-table thead th.col-day.cell-weekend-sun,
+.grid-table thead tr.row-day-letter th.col-day.cell-weekend-sun,
+.grid-table tbody tr:not(.row-totals) td.col-day.cell-weekend-sun:not(.cell-dirty):not(.cell-error),
+.grid-table tr.row-totals td.col-day.cell-weekend-sun {
+  background:
+    repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--red) 13%, transparent) 6px 9px),
+    color-mix(in srgb, var(--red) 8%, var(--surface3)) !important;
 }
-.grid-table tr.row-totals td.col-day.cell-weekend {
-  background: var(--surface4) !important;
+.grid-table thead th.col-day.cell-holiday,
+.grid-table thead tr.row-day-letter th.col-day.cell-holiday,
+.grid-table tbody tr:not(.row-totals) td.col-day.cell-holiday:not(.cell-dirty):not(.cell-error),
+.grid-table tr.row-totals td.col-day.cell-holiday {
+  background:
+    repeating-linear-gradient(45deg, transparent 0 5px, color-mix(in srgb, var(--accent) 18%, transparent) 5px 8px),
+    color-mix(in srgb, var(--accent) 10%, var(--surface3)) !important;
 }
 td.col-day.cell-today   { box-shadow:inset 0 0 0 1px var(--accent); }
 td.col-day.cell-dirty   { background:color-mix(in srgb, #F2994A 18%, var(--surface)) !important; }

@@ -86,6 +86,14 @@ export const kadrPayrollState = {
   byPeriod: new Map(),
 };
 
+/* Državni praznici / neradni dani za mesečni grid i obračun. */
+export const kadrHolidaysState = {
+  /** Map<'YYYY-MM-DD', holidayRow> */
+  byDate: new Map(),
+  /** Set<year> koji su već učitani iz kadr_holidays. */
+  loadedYears: new Set(),
+};
+
 /* ── Aktivni tab (sessionStorage, traje koliko i tab browsera) ── */
 export function getActiveKadrTab() {
   return ssGet(SESSION_KEYS.KADR_TAB, 'grid');
@@ -145,4 +153,6 @@ export function resetKadrovskaState() {
   kadrPayrollState.byPeriod.clear();
   kadrPayrollState.selectedYear = new Date().getFullYear();
   kadrPayrollState.selectedMonth = new Date().getMonth() + 1;
+  kadrHolidaysState.byDate.clear();
+  kadrHolidaysState.loadedYears.clear();
 }

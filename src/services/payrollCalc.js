@@ -464,12 +464,12 @@ export function gridRedovniSumUnitsForMonth(year, month, rowsByYmd, holidayYmdSe
 }
 
 /**
- * Doprinos jednog dana zbiru „Redovni” reda u gridu (uključuje GO/praznik/bol. kao 8h gde važi).
- * `row` je oblik kao _gridEffective (absence_code, absence_subtype, hours).
- * `workType`: za tipove bez punih prava (praksa/dualno/penzioner) plaćena odsustva i
- * automatski plaćeni državni praznik daju 0 u Σ — usklađeno sa obračunom zarade.
+ * Doprinos jednog dana zbiru „Redovni” reda u mesečnom gridu.
+ * Ovo je prikazni zbir: GO / bolovanje / plaćeno odsustvo / državni praznik
+ * prikazuju 8h bez obzira na work_type. Obračun zarade prava se primenjuje
+ * odvojeno kroz aggregateWorkHoursForMonth + sanitizeHoursForWorkType.
  */
-export function gridRedovniUnitsOneDay(ymd, row, holidayYmdSet, workType = 'ugovor') {
+export function gridRedovniUnitsOneDay(ymd, row, holidayYmdSet) {
   const hol = holidayYmdSet instanceof Set
     ? holidayYmdSet
     : new Set(Array.isArray(holidayYmdSet) ? holidayYmdSet : []);
@@ -477,11 +477,6 @@ export function gridRedovniUnitsOneDay(ymd, row, holidayYmdSet, workType = 'ugov
   const h = NUM(eff.hours);
   const abs = normAbsCode(eff.absence_code || eff.absenceCode);
   const sub = normAbsCode(eff.absence_subtype || eff.absenceSubtype);
-  const wt = workType || 'ugovor';
-
-  if (!FULL_RIGHTS_WORK_TYPES.has(wt)) {
-    if (abs === 'go' || abs === 'bo' || abs === 'sp' || abs === 'sl') return 0;
-  }
 
   const [yStr, mStr, dStr] = (ymd || '').split('-');
   const y = parseInt(yStr, 10);
@@ -517,7 +512,6 @@ export function gridRedovniUnitsOneDay(ymd, row, holidayYmdSet, workType = 'ugov
     if (abs === 'sp') return REGULAR_DAY_HOURS;
     if (abs === 'sl') return REGULAR_DAY_HOURS;
     if (abs === 'np' || abs === 'pr') return 0;
-    if (!FULL_RIGHTS_WORK_TYPES.has(wt)) return 0;
     return REGULAR_DAY_HOURS;
   }
   if (abs === 'go' || abs === 'sp' || abs === 'sl' || abs === 'bo') {
