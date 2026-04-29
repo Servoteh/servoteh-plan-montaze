@@ -175,11 +175,11 @@ export async function loadMachines() {
  */
 export async function loadOperationsForMachine(machineCode) {
   if (!getIsOnline() || !machineCode) return [];
-  /* Sigurnosni limit — RPC plan_pp_open_ops_for_machine (migracija 20260508120000). */
+  /* Jedan arg: PostgREST PGRST202 ako funkcija ima (p_machine_code, p_limit) u „pogrešnom“ redosledu. */
   const data = await sbReq(
     'rpc/plan_pp_open_ops_for_machine',
     'POST',
-    { p_machine_code: String(machineCode).trim(), p_limit: 2500 },
+    { p_machine_code: String(machineCode).trim() },
     { upsert: false },
   );
   return sortProductionOperations(nonNullRows(data, 'plan_pp_open_ops_for_machine'));

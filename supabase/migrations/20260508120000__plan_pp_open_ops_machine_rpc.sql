@@ -1,5 +1,6 @@
 -- Plan „Po mašini”: otvorene operacije bez PostgREST URL filtera (tačka u 8.2, kodiranje, prazni odgovori).
 -- Isti uslovi kao u src/services/planProizvodnje.js loadOperationsForMachine (GET na view).
+-- Napomena: PostgREST ne mapira pouzdano dva parametra (vidi migraciju 20260508121000).
 
 CREATE OR REPLACE FUNCTION public.plan_pp_open_ops_for_machine(
   p_machine_code text,
