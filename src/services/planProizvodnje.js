@@ -175,14 +175,25 @@ export async function loadMachines() {
  */
 export async function loadOperationsForMachine(machineCode) {
   if (!getIsOnline() || !machineCode) return [];
-  /* Jedan arg: PostgREST PGRST202 ako funkcija ima (p_machine_code, p_limit) u „pogrešnom“ redosledu. */
+  /* RPC vraća SETOF jsonb (PostgREST ne izlaže pouzdano SETOF view). */
   const data = await sbReq(
     'rpc/plan_pp_open_ops_for_machine',
     'POST',
     { p_machine_code: String(machineCode).trim() },
     { upsert: false },
   );
-  return sortProductionOperations(nonNullRows(data, 'plan_pp_open_ops_for_machine'));
+  const raw = nonNullRows(data, 'plan_pp_open_ops_for_machine');
+  const rows = raw.map(r => {
+    if (typeof r === 'string') {
+      try {
+        return JSON.parse(r);
+      } catch {
+        return r;
+      }
+    }
+    return r;
+  });
+  return sortProductionOperations(rows);
 }
 
 /**
