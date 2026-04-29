@@ -25,6 +25,8 @@ import {
   computeMonthlyFond,
   deriveCompensationModel,
   sanitizeHoursForWorkType,
+  aggregateWorkHoursForMonth,
+  gridRedovniUnitsOneDay,
   BOLOVANJE_OBICNO_FACTOR,
 } from '../../src/services/payrollCalc.js';
 
@@ -271,5 +273,33 @@ describe('payrollCalc — teren i edge cases', () => {
     const noHol = computeMonthlyFond(2026, 1, new Set());
     const withHol = computeMonthlyFond(2026, 1, new Set(['2026-01-01']));
     expect(noHol.fondSati - withHol.fondSati).toBe(8);
+  });
+
+  it('aggregateWorkHoursForMonth: GO na radni dan = 8h godišnjeg', () => {
+    const m = new Map([['2026-04-01', { hours: 0, absenceCode: 'go', absenceSubtype: null }]]);
+    const h = aggregateWorkHoursForMonth(2026, 4, m, new Set());
+    expect(h.godisnjiSati).toBe(8);
+    expect(h.redovanRadSati).toBe(0);
+  });
+
+  it('aggregateWorkHoursForMonth: državni praznik bez unosa = 8h plaćenog praznika', () => {
+    const m = new Map();
+    const h = aggregateWorkHoursForMonth(2026, 1, m, new Set(['2026-01-01']));
+    expect(h.praznikPlaceniSati).toBe(8);
+  });
+
+  it('aggregateWorkHoursForMonth: bolovanje obično / povreda = 8h u bucket 65 / 100', () => {
+    const m = new Map([
+      ['2026-04-01', { hours: 0, absenceCode: 'bo', absenceSubtype: 'obicno' }],
+      ['2026-04-02', { hours: 0, absenceCode: 'bo', absenceSubtype: 'povreda_na_radu' }],
+    ]);
+    const h = aggregateWorkHoursForMonth(2026, 4, m, new Set());
+    expect(h.bolovanje65Sati).toBe(8);
+    expect(h.bolovanje100Sati).toBe(8);
+  });
+
+  it('gridRedovniUnitsOneDay: subota bez šifre = 0 čak i uz državni praznik', () => {
+    const u = gridRedovniUnitsOneDay('2026-04-11', { hours: 0 }, new Set(['2026-04-11']));
+    expect(u).toBe(0);
   });
 });

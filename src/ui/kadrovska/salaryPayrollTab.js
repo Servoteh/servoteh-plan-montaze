@@ -26,14 +26,15 @@ import {
 } from '../../lib/employeeNames.js';
 import { canAccessSalary, getIsOnline } from '../../state/auth.js';
 import { hasSupabaseConfig } from '../../lib/constants.js';
-import { kadrPayrollState, kadrovskaState } from '../../state/kadrovska.js';
-import { ensureEmployeesLoaded } from '../../services/kadrovska.js';
+import { kadrPayrollState, kadrovskaState, kadrSalaryState } from '../../state/kadrovska.js';
+import { ensureEmployeesLoaded, ensureCurrentSalariesLoaded } from '../../services/kadrovska.js';
 import {
   loadPayrollByMonth,
   upsertPayroll,
   deletePayroll,
   initPayrollMonth,
-  computeTotals,
+  computeDisplayTotals,
+  refreshPayrollComputationContext,
 } from '../../services/salaryPayroll.js';
 import { renderSummaryChips } from './shared.js';
 import { loadXlsx } from '../../lib/xlsx.js';
@@ -93,7 +94,7 @@ export function renderPayrollSubtab() {
       </div>
       <div class="payroll-hint">
         <strong>Prvi deo</strong> = akontacija (do 5. u mesecu). <strong>Drugi deo</strong> = ukupno − prvi deo (15–20. u mesecu).
-        Satničari: sati × satnica. Fiksni (ugovor/dogovor): fiksna plata.
+        Za aktivne uslove K3.3 ukupno se računa iz <strong>mesečnog grida</strong> (GO i državni praznici = 8h radnog dana, bol.: bo 0,65× / bop 1×) + ova polja za prevoz i dnevnice.
       </div>
       <main class="kadrovska-main payroll-main">
         <div class="payroll-grid-wrap">
@@ -181,6 +182,14 @@ async function reloadPeriod(force = false) {
       kadrPayrollState.byPeriod.set(key, rows || []);
     }
   }
+  if (getIsOnline() && hasSupabaseConfig()) {
+    await ensureCurrentSalariesLoaded();
+    await refreshPayrollComputationContext(
+      kadrPayrollState.selectedYear,
+      kadrPayrollState.selectedMonth,
+      kadrSalaryState.current,
+    );
+  }
   refreshRows();
 }
 
@@ -222,10 +231,19 @@ function refreshRows() {
     : rows;
   const sorted = filtered.slice().sort(comparePayrollRows);
 
-  const sumRsd = rows.reduce((a, r) => a + (r.totalRsd || 0), 0);
-  const sumEur = rows.reduce((a, r) => a + (r.totalEur || 0), 0);
+  const sumRsd = rows.reduce((a, r) => {
+    const p = computeDisplayTotals(r);
+    return a + (p.payrollK33 ? p.totalRsd : (r.totalRsd || 0));
+  }, 0);
+  const sumEur = rows.reduce((a, r) => {
+    const p = computeDisplayTotals(r);
+    return a + (p.payrollK33 ? p.totalEur : (r.totalEur || 0));
+  }, 0);
   const sumAdv = rows.reduce((a, r) => a + (r.advanceAmount || 0), 0);
-  const sumSec = rows.reduce((a, r) => a + (r.secondPartRsd || 0), 0);
+  const sumSec = rows.reduce((a, r) => {
+    const p = computeDisplayTotals(r);
+    return a + (p.payrollK33 ? p.secondPartRsd : (r.secondPartRsd || 0));
+  }, 0);
   const countDraft = rows.filter(r => r.status === 'draft').length;
   const countFinal = rows.filter(r => r.status === 'finalized' || r.status === 'paid').length;
 
@@ -257,6 +275,11 @@ function rowHtml(r) {
   const isHourly = r.salaryType === 'satnica';
   const locked = r.status === 'paid';
   const dis = locked ? 'disabled' : '';
+
+  const preview = computeDisplayTotals(r);
+  const dispRsd = preview.payrollK33 ? preview.totalRsd : r.totalRsd;
+  const dispEur = preview.payrollK33 ? preview.totalEur : r.totalEur;
+  const dispSec = preview.payrollK33 ? preview.secondPartRsd : r.secondPartRsd;
 
   const baseCell = isHourly
     ? `<div class="payr-cell-dual">
@@ -291,9 +314,9 @@ function rowHtml(r) {
           <input type="number" class="payr-inp w-sm" data-f="perDiemEur" data-emp="${escHtml(r.employeeId)}" min="0" step="0.01" value="${r.perDiemEur || 0}" title="Devizna dnevnica EUR" ${dis}>
         </div>
       </td>
-      <td class="num"><strong data-out="totalRsd">${fmtRsd(r.totalRsd)}</strong></td>
-      <td class="num"><strong data-out="totalEur">${fmtNum(r.totalEur)} EUR</strong></td>
-      <td class="num"><strong data-out="secondPartRsd">${fmtRsd(r.secondPartRsd)}</strong></td>
+      <td class="num"><strong data-out="totalRsd">${fmtRsd(dispRsd)}</strong></td>
+      <td class="num"><strong data-out="totalEur">${fmtNum(dispEur)} EUR</strong></td>
+      <td class="num"><strong data-out="secondPartRsd">${fmtRsd(dispSec)}</strong></td>
       <td><input type="date" class="payr-inp" data-f="finalPaidOn" data-emp="${escHtml(r.employeeId)}" value="${escHtml(r.finalPaidOn || '')}" ${dis}></td>
       <td>${statusBadge}</td>
       <td class="col-actions">
@@ -338,6 +361,8 @@ function collectRowPayload(tr) {
     out.periodMonth = existing.periodMonth;
     out.status = existing.status;
     out.note = existing.note;
+    out.employeeWorkType = existing.employeeWorkType;
+    out.compensationModel = existing.compensationModel;
   }
   return out;
 }
@@ -346,7 +371,7 @@ function onRowInput(inp) {
   const tr = inp.closest('tr');
   if (!tr) return;
   const payload = collectRowPayload(tr);
-  const t = computeTotals(payload);
+  const t = computeDisplayTotals(payload);
   const rsdEl = tr.querySelector('[data-out="totalRsd"]');
   const eurEl = tr.querySelector('[data-out="totalEur"]');
   const secEl = tr.querySelector('[data-out="secondPartRsd"]');
@@ -358,10 +383,33 @@ function onRowInput(inp) {
 
 /* ── Save / Status / Delete ──────────────────────────────── */
 
+function augmentPayloadWithPayrollK33(payload) {
+  const disp = computeDisplayTotals(payload);
+  if (!disp.payrollK33) return payload;
+  return {
+    ...payload,
+    hoursWorked: disp.payableHours,
+    compensationModel: disp.compensationModel || payload.compensationModel,
+    fondSatiMeseca: disp.fondSatiMeseca,
+    redovanRadSati: disp.redovanRadSati,
+    prekovremeniSati: disp.prekovremeniSati,
+    praznikPlaceniSati: disp.praznikPlaceniSati,
+    praznikRadSati: disp.praznikRadSati,
+    godisnjiSati: disp.godisnjiSati,
+    slobodniDaniSati: disp.slobodniDaniSati,
+    bolovanje65Sati: disp.bolovanje65Sati,
+    bolovanje100Sati: disp.bolovanje100Sati,
+    dveMasineSati: disp.dveMasineSati,
+    payableHours: disp.payableHours,
+    ukupnaZarada: disp.ukupnaZarada,
+    payrollWarnings: disp.payrollWarnings,
+  };
+}
+
 async function saveRow(tr) {
   if (!tr) return;
   const btn = tr.querySelector('button[data-act="save"]');
-  const payload = collectRowPayload(tr);
+  const payload = augmentPayloadWithPayrollK33(collectRowPayload(tr));
   btn.disabled = true;
   const txt = btn.textContent;
   btn.textContent = '⏳';
@@ -399,7 +447,7 @@ async function cycleStatus(tr) {
   const next = nextStatus(r.status);
   if (!next) { showToast('ℹ Već je u krajnjem statusu'); return; }
   if (next === 'paid' && !confirm('Obeležiti kao ISPLAĆENO? Nakon toga se red više ne može menjati.')) return;
-  const payload = collectRowPayload(tr);
+  const payload = augmentPayloadWithPayrollK33(collectRowPayload(tr));
   payload.status = next;
   const saved = await upsertPayroll(payload);
   if (!saved) { showToast('⚠ Nije sačuvano'); return; }

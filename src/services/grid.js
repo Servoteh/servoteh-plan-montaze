@@ -54,6 +54,7 @@ export async function batchUpsertGrid(dirty) {
       field_subtype: fH > 0 ? (d.field_subtype === 'foreign' ? 'foreign' : 'domestic') : null,
       two_machine_hours: tmH,
       absence_code: d.absence_code || null,
+      absence_subtype: d.absence_subtype || null,
       updated_at: nowIso,
     });
   });

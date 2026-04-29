@@ -298,6 +298,167 @@ export function computeMonthlyFond(year, month, holidayDates) {
   };
 }
 
+/** Ponedeljak–petak (lokalni kalendar). */
+export function isWeekdayYmd(ymd) {
+  if (!ymd || typeof ymd !== 'string') return false;
+  const [y, m, d] = ymd.split('-').map(n => parseInt(n, 10));
+  if (!y || !m || !d) return false;
+  const dow = new Date(y, m - 1, d).getDay();
+  return dow >= 1 && dow <= 5;
+}
+
+/**
+ * Jedan dan iz work_hours mapiran u agregat za obračun.
+ * @param {object} row  { hours, overtimeHours?, fieldHours?, twoMachineHours?, absenceCode?, absenceSubtype? }
+ */
+export function aggregateWorkHoursForMonth(year, month, rowsByYmd, holidayYmdSet) {
+  const hol = holidayYmdSet instanceof Set
+    ? holidayYmdSet
+    : new Set(Array.isArray(holidayYmdSet) ? holidayYmdSet : []);
+  const last = new Date(year, month, 0).getDate();
+  const out = {
+    redovanRadSati: 0,
+    prekovremeniSati: 0,
+    praznikRadSati: 0,
+    praznikPlaceniSati: 0,
+    godisnjiSati: 0,
+    slobodniDaniSati: 0,
+    bolovanje65Sati: 0,
+    bolovanje100Sati: 0,
+    dveMasineSati: 0,
+  };
+
+  for (let day = 1; day <= last; day++) {
+    const mm = String(month).padStart(2, '0');
+    const dd = String(day).padStart(2, '0');
+    const ymd = `${year}-${mm}-${dd}`;
+    const r = rowsByYmd?.get?.(ymd) || rowsByYmd?.[ymd] || null;
+    const h = r ? NUM(r.hours) : 0;
+    const ot = r ? NUM(r.overtimeHours ?? r.overtime_hours) : 0;
+    const tm = r ? NUM(r.twoMachineHours ?? r.two_machine_hours) : 0;
+    const abs = r?.absenceCode || r?.absence_code || null;
+    const sub = r?.absenceSubtype || r?.absence_subtype || null;
+
+    out.prekovremeniSati += ot;
+    out.dveMasineSati += tm;
+
+    const dow = new Date(year, month - 1, day).getDay();
+    const weekend = dow === 0 || dow === 6;
+    const isHol = hol.has(ymd);
+
+    if (weekend) {
+      if (!abs && h > 0) out.redovanRadSati += h;
+      if (isHol && h > 0) out.praznikRadSati += h;
+      continue;
+    }
+
+    /* Radni dan u smislu kalendara (pon–ned) koji nije vikend */
+    if (isHol) {
+      if (h > 0) {
+        out.praznikRadSati += h;
+        continue;
+      }
+      if (abs === 'go') {
+        out.godisnjiSati += REGULAR_DAY_HOURS;
+      } else if (abs === 'bo') {
+        if (sub === 'povreda_na_radu' || sub === 'odrzavanje_trudnoce') {
+          out.bolovanje100Sati += REGULAR_DAY_HOURS;
+        } else {
+          out.bolovanje65Sati += REGULAR_DAY_HOURS;
+        }
+      } else if (abs === 'sp') {
+        out.praznikPlaceniSati += REGULAR_DAY_HOURS;
+      } else if (abs === 'sl') {
+        out.slobodniDaniSati += REGULAR_DAY_HOURS;
+      } else if (abs === 'np' || abs === 'pr') {
+        /* ne plaća se */
+      } else {
+        /* Državni praznik, bez rada — 8h plaćenog praznika */
+        out.praznikPlaceniSati += REGULAR_DAY_HOURS;
+      }
+      continue;
+    }
+
+    /* Običan radni dan */
+    if (abs === 'go') {
+      out.godisnjiSati += REGULAR_DAY_HOURS;
+    } else if (abs === 'bo') {
+      if (sub === 'povreda_na_radu' || sub === 'odrzavanje_trudnoce') {
+        out.bolovanje100Sati += REGULAR_DAY_HOURS;
+      } else {
+        out.bolovanje65Sati += REGULAR_DAY_HOURS;
+      }
+    } else if (abs === 'sp') {
+      out.praznikPlaceniSati += REGULAR_DAY_HOURS;
+    } else if (abs === 'sl') {
+      out.slobodniDaniSati += REGULAR_DAY_HOURS;
+    } else if (abs === 'np' || abs === 'pr') {
+      /* 0 */
+    } else {
+      out.redovanRadSati += h;
+    }
+  }
+
+  return out;
+}
+
+/**
+ * Zbir za „Redovni” red u mesečnom gridu (vizuelno: puni sati za GO / praznik / bolovanje na radnim danima).
+ */
+export function gridRedovniSumUnitsForMonth(year, month, rowsByYmd, holidayYmdSet) {
+  const agg = aggregateWorkHoursForMonth(year, month, rowsByYmd, holidayYmdSet);
+  return agg.redovanRadSati
+    + agg.praznikPlaceniSati
+    + agg.godisnjiSati
+    + agg.slobodniDaniSati
+    + agg.bolovanje65Sati
+    + agg.bolovanje100Sati
+    + agg.praznikRadSati;
+}
+
+/**
+ * Doprinos jednog dana zbiru „Redovni” reda u gridu (uključuje GO/praznik/bol. kao 8h gde važi).
+ * `row` je oblik kao _gridEffective (absence_code, absence_subtype, hours).
+ */
+export function gridRedovniUnitsOneDay(ymd, row, holidayYmdSet) {
+  const hol = holidayYmdSet instanceof Set
+    ? holidayYmdSet
+    : new Set(Array.isArray(holidayYmdSet) ? holidayYmdSet : []);
+  const eff = row || {};
+  const h = NUM(eff.hours);
+  const abs = eff.absence_code || eff.absenceCode || null;
+  const sub = eff.absence_subtype || eff.absenceSubtype || null;
+
+  const [yStr, mStr, dStr] = (ymd || '').split('-');
+  const y = parseInt(yStr, 10);
+  const mo = parseInt(mStr, 10);
+  const d = parseInt(dStr, 10);
+  if (!y || !mo || !d) return 0;
+  const dow = new Date(y, mo - 1, d).getDay();
+  const weekend = dow === 0 || dow === 6;
+  const isHol = hol.has(ymd);
+
+  if (weekend) {
+    if (!abs && h > 0) return h;
+    if (isHol && h > 0) return h;
+    return 0;
+  }
+  if (isHol) {
+    if (h > 0) return h;
+    if (abs === 'go') return REGULAR_DAY_HOURS;
+    if (abs === 'bo') return REGULAR_DAY_HOURS;
+    if (abs === 'sp') return REGULAR_DAY_HOURS;
+    if (abs === 'sl') return REGULAR_DAY_HOURS;
+    if (abs === 'np' || abs === 'pr') return 0;
+    return REGULAR_DAY_HOURS;
+  }
+  if (abs === 'go' || abs === 'sp' || abs === 'sl' || abs === 'bo') {
+    return REGULAR_DAY_HOURS;
+  }
+  if (abs === 'np' || abs === 'pr') return 0;
+  return h;
+}
+
 export function ymdLocal(d) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');

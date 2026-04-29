@@ -2036,7 +2036,8 @@ body.module-kadrovska > #module-settings { display:none !important; }
 .grid-cell::placeholder { color:transparent; }
 
 /* Cell states */
-td.col-day.cell-weekend { background:var(--surface3); }
+.grid-table thead th.col-day.cell-weekend,
+td.col-day.cell-weekend { background:#f0f0f0; }
 td.col-day.cell-today   { box-shadow:inset 0 0 0 1px var(--accent); }
 td.col-day.cell-dirty   { background:color-mix(in srgb, #F2994A 18%, var(--surface)) !important; }
 td.col-day.cell-dirty .grid-cell { color:#F2994A; font-weight:600; }

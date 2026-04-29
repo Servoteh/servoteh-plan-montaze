@@ -33,6 +33,8 @@ import { renderSummaryChips } from './shared.js';
 import { loadXlsx } from '../../lib/xlsx.js';
 import { SESSION_KEYS } from '../../lib/constants.js';
 import { ssGet, ssSet } from '../../lib/storage.js';
+import { loadHolidaysForRange, holidayDateSet } from '../../services/holidays.js';
+import { gridRedovniUnitsOneDay } from '../../services/payrollCalc.js';
 
 /* ─── KONSTANTE ───────────────────────────────────────────────────────── */
 
@@ -63,6 +65,8 @@ const gridState = {
   saving: false,
   /** Sinhronizovano sa #gridSearch + sessionStorage (SESSION_KEYS.KADR_GRID_SEARCH) */
   searchQuery: '',
+  /** YMD državnih neradnih dana (keš posle loadHolidaysForRange) */
+  holidayYmdSet: new Set(),
 };
 
 let panelRoot = null;
@@ -461,6 +465,7 @@ function _renderGridBody() {
   const sortedEmps = [...emps].sort(_gridCompareBySurnameAsc);
   const today = _gridIsoToday();
   const editable = canEditKadrovskaGrid();
+  const holSet = gridState.holidayYmdSet instanceof Set ? gridState.holidayYmdSet : new Set();
 
   let html = '<table class="grid-table"><thead>';
   html += '<tr>';
@@ -495,7 +500,11 @@ function _renderGridBody() {
         const eff = _gridEffective(emp.id, d.ymd);
         const fH = Number(eff.field_hours || 0);
         const tmH = Number(eff.two_machine_hours || 0);
-        sReg += Number(eff.hours || 0);
+        sReg += gridRedovniUnitsOneDay(d.ymd, {
+          hours: eff.hours,
+          absence_code: eff.absence_code,
+          absence_subtype: eff.absence_subtype,
+        }, holSet);
         sOt += Number(eff.overtime_hours || 0);
         sField += fH;
         sTm += tmH;
@@ -504,7 +513,11 @@ function _renderGridBody() {
           else { sFdom += fH; grandTot.fdomDays++; }
         }
         if (tmH > 0) grandTot.tmDays++;
-        colTotals[di].reg += Number(eff.hours || 0);
+        colTotals[di].reg += gridRedovniUnitsOneDay(d.ymd, {
+          hours: eff.hours,
+          absence_code: eff.absence_code,
+          absence_subtype: eff.absence_subtype,
+        }, holSet);
         colTotals[di].ot += Number(eff.overtime_hours || 0);
         colTotals[di].field += fH;
         if (fH > 0) {
@@ -614,12 +627,17 @@ function _renderSummary(emps, days, gt, companyCount) {
   let g = gt;
   if (!g || g.fdom === undefined) {
     g = { reg: 0, ot: 0, field: 0, fdom: 0, ffor: 0, fdomDays: 0, fforDays: 0, tm: 0, tmDays: 0 };
+    const holSet = gridState.holidayYmdSet instanceof Set ? gridState.holidayYmdSet : new Set();
     emps.forEach(e => {
       days.forEach(d => {
         const eff = _gridEffective(e.id, d.ymd);
         const fH = Number(eff.field_hours || 0);
         const tmH = Number(eff.two_machine_hours || 0);
-        g.reg += Number(eff.hours || 0);
+        g.reg += gridRedovniUnitsOneDay(d.ymd, {
+          hours: eff.hours,
+          absence_code: eff.absence_code,
+          absence_subtype: eff.absence_subtype,
+        }, holSet);
         g.ot += Number(eff.overtime_hours || 0);
         g.field += fH;
         if (fH > 0) {
@@ -784,10 +802,15 @@ function _gridRefreshSums(empId) {
   const wrap = _gridQ('#gridWrap');
   if (!wrap) return;
   const days = _gridDaysInMonth(gridState.monthKey);
+  const holSet = gridState.holidayYmdSet instanceof Set ? gridState.holidayYmdSet : new Set();
   let sReg = 0, sOt = 0, sField = 0, sFdom = 0, sFfor = 0, sTm = 0;
   days.forEach(d => {
     const eff = _gridEffective(empId, d.ymd);
-    sReg += Number(eff.hours || 0);
+    sReg += gridRedovniUnitsOneDay(d.ymd, {
+      hours: eff.hours,
+      absence_code: eff.absence_code,
+      absence_subtype: eff.absence_subtype,
+    }, holSet);
     sOt += Number(eff.overtime_hours || 0);
     const fH = Number(eff.field_hours || 0);
     sField += fH;
@@ -882,9 +905,11 @@ async function _loadAndRender(yyyymm) {
     wrap.innerHTML = `<div style="padding:30px;color:var(--text3);font-size:12px;text-align:center">Učitavanje ${escHtml(yyyymm)}…</div>`;
   }
   if (getIsOnline() && hasSupabaseConfig()) {
-    try {
-      const days = _gridDaysInMonth(yyyymm);
-      gridState.rowsByEmpDate = await loadGridMonth(days);
+    const from = days[0].ymd;
+    const to = days[days.length - 1].ymd;
+    await loadHolidaysForRange(from, to);
+    gridState.holidayYmdSet = holidayDateSet();
+    gridState.rowsByEmpDate = await loadGridMonth(days);
     } catch (err) {
       console.error('[grid] load month failed', err);
       gridState.rowsByEmpDate = new Map();
@@ -926,6 +951,8 @@ async function _exportToXlsx() {
 
   try {
     const days = _gridDaysInMonth(yyyymm);
+    await loadHolidaysForRange(days[0].ymd, days[days.length - 1].ymd);
+    const holSet = holidayDateSet();
     const sortedEmps = [...emps].sort(_gridCompareBySurnameAsc);
     const monthLabel = (() => {
       const [y, m] = yyyymm.split('-');
@@ -974,11 +1001,16 @@ async function _exportToXlsx() {
           }
           rowTm.push(tmH || '');
           if (tmH > 0) grand.tmDays++;
-          sR += Number(eff.hours || 0);
+          const ru = gridRedovniUnitsOneDay(d.ymd, {
+            hours: eff.hours,
+            absence_code: eff.absence_code,
+            absence_subtype: eff.absence_subtype,
+          }, holSet);
+          sR += ru;
           sO += Number(eff.overtime_hours || 0);
           sF += fH;
           sTm += tmH;
-          colTotals[i].reg += Number(eff.hours || 0);
+          colTotals[i].reg += ru;
           colTotals[i].ot += Number(eff.overtime_hours || 0);
           colTotals[i].field += fH;
           colTotals[i].tm += tmH;

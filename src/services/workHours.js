@@ -25,6 +25,7 @@ export function mapDbWorkHour(d) {
     fieldSubtype: (d.field_subtype === 'domestic' || d.field_subtype === 'foreign') ? d.field_subtype : null,
     twoMachineHours: Number(d.two_machine_hours || 0),
     absenceCode: d.absence_code || null,
+    absenceSubtype: d.absence_subtype || null,
     projectRef: d.project_ref || '',
     note: d.note || '',
     createdAt: d.created_at || null,
@@ -46,6 +47,7 @@ export function buildWorkHourPayload(w) {
      backward compat sa starim modalom (Sati pojedinačno) pre migracija. */
   if (w.fieldHours !== undefined) p.field_hours = Number(w.fieldHours || 0);
   if (w.absenceCode !== undefined) p.absence_code = w.absenceCode || null;
+  if (w.absenceSubtype !== undefined) p.absence_subtype = w.absenceSubtype || null;
   if (w.fieldSubtype !== undefined) {
     p.field_subtype = (w.fieldSubtype === 'domestic' || w.fieldSubtype === 'foreign') ? w.fieldSubtype : null;
   }
