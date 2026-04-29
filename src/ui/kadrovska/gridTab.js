@@ -26,15 +26,15 @@ import {
 } from '../../lib/employeeNames.js';
 import { canEditKadrovskaGrid, getIsOnline } from '../../state/auth.js';
 import { hasSupabaseConfig } from '../../services/supabase.js';
-import { kadrovskaState, orgStructureState } from '../../state/kadrovska.js';
-import { ensureEmployeesLoaded, ensureOrgStructureLoaded } from '../../services/kadrovska.js';
+import { kadrovskaState, orgStructureState, kadrAbsencesState } from '../../state/kadrovska.js';
+import { ensureEmployeesLoaded, ensureOrgStructureLoaded, ensureAbsencesLoaded } from '../../services/kadrovska.js';
 import { loadGridMonth, batchUpsertGrid } from '../../services/grid.js';
 import { renderSummaryChips } from './shared.js';
 import { loadXlsx } from '../../lib/xlsx.js';
 import { SESSION_KEYS } from '../../lib/constants.js';
 import { ssGet, ssSet } from '../../lib/storage.js';
 import { loadHolidaysForRange, holidayDateSet } from '../../services/holidays.js';
-import { parseDateLocal } from '../../lib/date.js';
+import { parseDateLocal, ymdAddDays } from '../../lib/date.js';
 import { gridRedovniUnitsOneDay } from '../../services/payrollCalc.js';
 
 /* ─── KONSTANTE ───────────────────────────────────────────────────────── */
@@ -123,13 +123,44 @@ function _gridDirtyKey(empId, ymd) {
   return empId + '|' + ymd;
 }
 
+/** Da li je ymd (YYYY-MM-DD) u [dateFrom, dateTo] iz absences (stringovi). */
+function _ymdInInclusiveRange(ymd, dateFrom, dateTo) {
+  if (!ymd || !dateFrom || !dateTo) return false;
+  const a = String(ymd).slice(0, 10);
+  const f = String(dateFrom).slice(0, 10);
+  const t = String(dateTo).slice(0, 10);
+  return a >= f && a <= t;
+}
+
+/** Godišnji po zapisima u tabu Odsustva (type=godisnji) — work_hours često nema absence_code='go'. */
+function _gridGodisnjiFromAbsences(empId, ymd) {
+  if (!empId || !ymd) return false;
+  const items = kadrAbsencesState.items || [];
+  for (let i = 0; i < items.length; i++) {
+    const a = items[i];
+    if (a.employeeId !== empId) continue;
+    if (a.type !== 'godisnji') continue;
+    let dateTo = a.dateTo;
+    if (!dateTo && a.dateFrom && a.daysCount != null && a.daysCount >= 1) {
+      const end = ymdAddDays(String(a.dateFrom).slice(0, 10), a.daysCount - 1);
+      if (end) dateTo = end;
+    }
+    if (!dateTo) dateTo = a.dateFrom;
+    if (_ymdInInclusiveRange(ymd, a.dateFrom, dateTo)) return true;
+  }
+  return false;
+}
+
 /** Effective vrednost ćelije: dirty override → DB row → defaults. */
 function _gridEffective(empId, ymd) {
   const dk = _gridDirtyKey(empId, ymd);
   const db = gridState.rowsByEmpDate.get(empId)?.get(ymd);
-  if (gridState.dirty.has(dk)) {
+  const hasDirty = gridState.dirty.has(dk);
+
+  let out;
+  if (hasDirty) {
     const d = gridState.dirty.get(dk);
-    return {
+    out = {
       hours: d.hours != null ? d.hours : (db?.hours || 0),
       overtime_hours: d.overtime_hours != null ? d.overtime_hours : (db?.overtimeHours || 0),
       field_hours: d.field_hours != null ? d.field_hours : (db?.fieldHours || 0),
@@ -138,16 +169,29 @@ function _gridEffective(empId, ymd) {
       absence_code: 'absence_code' in d ? d.absence_code : (db?.absenceCode || null),
       absence_subtype: 'absence_subtype' in d ? d.absence_subtype : (db?.absenceSubtype || null),
     };
+  } else {
+    out = {
+      hours: db?.hours || 0,
+      overtime_hours: db?.overtimeHours || 0,
+      field_hours: db?.fieldHours || 0,
+      field_subtype: db?.fieldSubtype || null,
+      two_machine_hours: db?.twoMachineHours || 0,
+      absence_code: db?.absenceCode || null,
+      absence_subtype: db?.absenceSubtype || null,
+    };
   }
-  return {
-    hours: db?.hours || 0,
-    overtime_hours: db?.overtimeHours || 0,
-    field_hours: db?.fieldHours || 0,
-    field_subtype: db?.fieldSubtype || null,
-    two_machine_hours: db?.twoMachineHours || 0,
-    absence_code: db?.absenceCode || null,
-    absence_subtype: db?.absenceSubtype || null,
-  };
+
+  /* Prizemni GO iz Kadrovska → Odsustva kada u work_hours nema šifre (Σ i prikaz kao u ćeliji). */
+  if (!hasDirty && !out.absence_code && _gridGodisnjiFromAbsences(empId, ymd)) {
+    out = {
+      ...out,
+      hours: 0,
+      absence_code: 'go',
+      absence_subtype: null,
+    };
+  }
+
+  return out;
 }
 
 /**
@@ -921,6 +965,7 @@ async function _loadAndRender(yyyymm) {
     await loadHolidaysForRange(days[0].ymd, days[days.length - 1].ymd);
     gridState.holidayYmdSet = holidayDateSet();
   }
+  await ensureAbsencesLoaded();
   gridState.monthKey = yyyymm;
   gridState.loaded = true;
   _renderGridBody();
@@ -1121,6 +1166,7 @@ export async function wireGridTab(panel, toolbarHost = null) {
     await Promise.all([
       ensureEmployeesLoaded(true),
       ensureOrgStructureLoaded(),
+      ensureAbsencesLoaded(),
     ]);
   } catch (err) {
     console.warn('[grid] load failed', err);
