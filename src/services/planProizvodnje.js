@@ -60,6 +60,33 @@ function cmpTextAsc(a, b) {
 }
 
 /**
+ * PostgREST: vrednosti sa tačkom (8.2, 3.10) u filteru `eq.` moraju biti pod navodnicima,
+ * inače se `eq.8.2` tumači kao `eq.8` i rezultat je uvek prazan — „nema operacija” za sve mašine.
+ */
+function postgrestDoubleQuoted(val) {
+  const s = String(val ?? '');
+  return `"${s.replace(/"/g, '""')}"`;
+}
+
+/**
+ * `sbReq` na grešku vraća `null` (HTTP, mreža, parsiranje). To se ne sme tretirati
+ * kao prazan rezultat iz baze — inače UI prikazuje „nema operacija” umesto greške.
+ */
+function nonNullRows(data, context) {
+  if (data === null) {
+    const e = new Error(`Supabase čitanje nije uspelo (${context})`);
+    e.code = 'SUPABASE_READ_FAILED';
+    throw e;
+  }
+  if (!Array.isArray(data)) {
+    const e = new Error(`Supabase odgovor nije JSON niz (${context})`);
+    e.code = 'SUPABASE_UNEXPECTED_SHAPE';
+    throw e;
+  }
+  return data;
+}
+
+/**
  * G2 dvonivoski sort:
  * 1) ručni redosled/pin (`shift_sort_order`) uvek ide pre auto-sorta,
  * 2) zatim DB bucket spremnosti/hitnosti,
@@ -134,7 +161,7 @@ export async function loadMachines() {
   const data = await sbReq(
     'bigtehn_machines_cache?select=rj_code,name,no_procedure,department_id&order=name.asc',
   );
-  return Array.isArray(data) ? data : [];
+  return nonNullRows(data, 'bigtehn_machines_cache');
 }
 
 /**
@@ -150,7 +177,7 @@ export async function loadOperationsForMachine(machineCode) {
   if (!getIsOnline() || !machineCode) return [];
   const params = new URLSearchParams();
   params.set('select', '*');
-  params.set('effective_machine_code', `eq.${machineCode}`);
+  params.set('effective_machine_code', `eq.${postgrestDoubleQuoted(machineCode)}`);
   params.set('is_done_in_bigtehn', 'eq.false');
   params.set('rn_zavrsen', 'eq.false');
   params.set('is_cooperation_effective', 'eq.false');
@@ -166,7 +193,7 @@ export async function loadOperationsForMachine(machineCode) {
   params.set('limit', '2500');
 
   const data = await sbReq(`v_production_operations_effective?${params.toString()}`);
-  return sortProductionOperations(Array.isArray(data) ? data : []);
+  return sortProductionOperations(nonNullRows(data, 'v_production_operations_effective'));
 }
 
 /**
@@ -224,7 +251,7 @@ export async function loadOperationsForDept(dept) {
     /* Ostalo NE filtrira na effective_machine_code IS NOT NULL — operacije
        bez mašine sigurno spadaju u „Ostalo". */
     const data = await sbReq(`v_production_operations_effective?${p.toString()}`);
-    const all = Array.isArray(data) ? data : [];
+    const all = nonNullRows(data, 'v_production_operations_effective_ostalo');
     return sortProductionOperations(all.filter(op => operationFallsIntoOstalo(op)));
   }
 
@@ -243,7 +270,7 @@ export async function loadOperationsForDept(dept) {
     for (const raw of dept.operationPrefixes) {
       const p = String(raw).trim();
       if (!p) continue;
-      orParts.push(`effective_machine_code.eq.${p}`);
+      orParts.push(`effective_machine_code.eq.${postgrestDoubleQuoted(p)}`);
       orParts.push(`effective_machine_code.like.${p}.*`);
     }
   }
@@ -284,7 +311,7 @@ export async function loadOperationsForDept(dept) {
   finalParams.set('limit', '5000');
 
   const data = await sbReq(`v_production_operations_effective?${finalParams.toString()}`);
-  let rows = Array.isArray(data) ? data : [];
+  let rows = nonNullRows(data, 'v_production_operations_effective_dept');
 
   /* Client-side strip-dijakritika provera za name patterns — pokriva slučaj
      kad je server ILIKE bez `unaccent` propustio nešto („bravarÍja" → server
@@ -363,7 +390,7 @@ export async function loadAllOpenOperations() {
   params.set('limit', '10000');
 
   const data = await sbReq(`v_production_operations_effective?${params.toString()}`);
-  return sortProductionOperations(Array.isArray(data) ? data : []);
+  return sortProductionOperations(nonNullRows(data, 'v_production_operations_effective_all_open'));
 }
 
 /**
@@ -383,7 +410,7 @@ export async function listForCooperation(searchText = '') {
   params.set('limit', '5000');
 
   const data = await sbReq(`v_production_operations_effective?${params.toString()}`);
-  const rows = Array.isArray(data) ? data : [];
+  const rows = nonNullRows(data, 'v_production_operations_effective_coop');
   return filterOperationsByRnOrDrawing(rows, searchText);
 }
 
@@ -392,7 +419,7 @@ export async function listAutoCooperationGroups() {
   const data = await sbReq(
     'production_auto_cooperation_groups?select=rj_group_code,group_label,added_at,added_by,removed_at,removed_by,notes&order=rj_group_code.asc',
   );
-  return Array.isArray(data) ? data : [];
+  return nonNullRows(data, 'production_auto_cooperation_groups');
 }
 
 /**

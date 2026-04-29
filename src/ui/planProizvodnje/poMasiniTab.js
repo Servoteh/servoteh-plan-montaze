@@ -804,6 +804,20 @@ function renderTable({ allowDragDrop }) {
     })();
   if (!wrap) return;
 
+  if (state.error && state.rows.length === 0) {
+    wrap.innerHTML = `
+      <div class="pp-state">
+        <div class="pp-state-icon">⚠</div>
+        <div class="pp-state-title">Podaci nisu učitani</div>
+        <div class="pp-state-hint">
+          Proveri crvenu poruku iznad ili pokušaj <strong>Osveži</strong>.
+          Ako se ponavlja: mreža, sesija ili Supabase — u konzoli (F12) traži <code>SB err</code>.
+        </div>
+      </div>
+    `;
+    return;
+  }
+
   let filteredRows = filterOperationsByRnOrDrawing(state.rows, state.rnFilter);
   if (state.reworkOnly) {
     filteredRows = filteredRows.filter(r => r.is_rework || r.is_scrap);
