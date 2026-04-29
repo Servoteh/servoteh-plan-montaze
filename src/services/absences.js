@@ -4,7 +4,7 @@
  */
 
 import { sbReq } from './supabase.js';
-import { canEdit, getIsOnline } from '../state/auth.js';
+import { canEditKadrovska, getIsOnline } from '../state/auth.js';
 
 export function mapDbAbsence(d) {
   return {
@@ -45,19 +45,19 @@ export async function loadAbsencesFromDb() {
 }
 
 export async function saveAbsenceToDb(a) {
-  if (!getIsOnline() || !canEdit()) return null;
+  if (!getIsOnline() || !canEditKadrovska()) return null;
   const res = await sbReq('absences', 'POST', buildAbsencePayload(a));
   if (res === null) console.warn('[kadrovska] absences save failed — run sql/migrations/add_kadrovska_phase1.sql');
   return res;
 }
 
 export async function updateAbsenceInDb(a) {
-  if (!getIsOnline() || !canEdit() || !a.id) return null;
+  if (!getIsOnline() || !canEditKadrovska() || !a.id) return null;
   const { id, ...rest } = buildAbsencePayload(a);
   return await sbReq(`absences?id=eq.${encodeURIComponent(a.id)}`, 'PATCH', rest);
 }
 
 export async function deleteAbsenceFromDb(id) {
-  if (!getIsOnline() || !canEdit() || !id) return false;
+  if (!getIsOnline() || !canEditKadrovska() || !id) return false;
   return (await sbReq(`absences?id=eq.${encodeURIComponent(id)}`, 'DELETE')) !== null;
 }

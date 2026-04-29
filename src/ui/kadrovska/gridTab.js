@@ -15,6 +15,8 @@
  *   - Live re-summing na blur, batch upsert u Supabase preko
  *     `work_hours?on_conflict=employee_id,work_date`.
  *   - Export u .xlsx (lazy CDN load).
+ *   - Šifre odsustva u gridu (go/bo/sp/…) pri „Sačuvaj izmene" upisuju se u tab
+ *     Odsustva (absences) za taj mesec; grid je izvor istine za te tipove.
  *
  * Bez framework-a / inline handler-a — sve preko `addEventListener`.
  */
@@ -26,15 +28,16 @@ import {
 } from '../../lib/employeeNames.js';
 import { canEditKadrovskaGrid, getIsOnline } from '../../state/auth.js';
 import { hasSupabaseConfig } from '../../services/supabase.js';
-import { kadrovskaState, orgStructureState, kadrAbsencesState } from '../../state/kadrovska.js';
+import { kadrovskaState, orgStructureState } from '../../state/kadrovska.js';
 import { ensureEmployeesLoaded, ensureOrgStructureLoaded, ensureAbsencesLoaded } from '../../services/kadrovska.js';
 import { loadGridMonth, batchUpsertGrid } from '../../services/grid.js';
+import { syncAbsencesFromGridMonth } from '../../services/gridAbsencesSync.js';
 import { renderSummaryChips } from './shared.js';
 import { loadXlsx } from '../../lib/xlsx.js';
 import { SESSION_KEYS } from '../../lib/constants.js';
 import { ssGet, ssSet } from '../../lib/storage.js';
 import { loadHolidaysForRange, holidayDateSet } from '../../services/holidays.js';
-import { parseDateLocal, ymdAddDays } from '../../lib/date.js';
+import { parseDateLocal } from '../../lib/date.js';
 import { gridRedovniUnitsOneDay } from '../../services/payrollCalc.js';
 
 /* ─── KONSTANTE ───────────────────────────────────────────────────────── */
@@ -123,44 +126,13 @@ function _gridDirtyKey(empId, ymd) {
   return empId + '|' + ymd;
 }
 
-/** Da li je ymd (YYYY-MM-DD) u [dateFrom, dateTo] iz absences (stringovi). */
-function _ymdInInclusiveRange(ymd, dateFrom, dateTo) {
-  if (!ymd || !dateFrom || !dateTo) return false;
-  const a = String(ymd).slice(0, 10);
-  const f = String(dateFrom).slice(0, 10);
-  const t = String(dateTo).slice(0, 10);
-  return a >= f && a <= t;
-}
-
-/** Godišnji po zapisima u tabu Odsustva (type=godisnji) — work_hours često nema absence_code='go'. */
-function _gridGodisnjiFromAbsences(empId, ymd) {
-  if (!empId || !ymd) return false;
-  const items = kadrAbsencesState.items || [];
-  for (let i = 0; i < items.length; i++) {
-    const a = items[i];
-    if (a.employeeId !== empId) continue;
-    if (a.type !== 'godisnji') continue;
-    let dateTo = a.dateTo;
-    if (!dateTo && a.dateFrom && a.daysCount != null && a.daysCount >= 1) {
-      const end = ymdAddDays(String(a.dateFrom).slice(0, 10), a.daysCount - 1);
-      if (end) dateTo = end;
-    }
-    if (!dateTo) dateTo = a.dateFrom;
-    if (_ymdInInclusiveRange(ymd, a.dateFrom, dateTo)) return true;
-  }
-  return false;
-}
-
 /** Effective vrednost ćelije: dirty override → DB row → defaults. */
 function _gridEffective(empId, ymd) {
   const dk = _gridDirtyKey(empId, ymd);
   const db = gridState.rowsByEmpDate.get(empId)?.get(ymd);
-  const hasDirty = gridState.dirty.has(dk);
-
-  let out;
-  if (hasDirty) {
+  if (gridState.dirty.has(dk)) {
     const d = gridState.dirty.get(dk);
-    out = {
+    return {
       hours: d.hours != null ? d.hours : (db?.hours || 0),
       overtime_hours: d.overtime_hours != null ? d.overtime_hours : (db?.overtimeHours || 0),
       field_hours: d.field_hours != null ? d.field_hours : (db?.fieldHours || 0),
@@ -169,29 +141,16 @@ function _gridEffective(empId, ymd) {
       absence_code: 'absence_code' in d ? d.absence_code : (db?.absenceCode || null),
       absence_subtype: 'absence_subtype' in d ? d.absence_subtype : (db?.absenceSubtype || null),
     };
-  } else {
-    out = {
-      hours: db?.hours || 0,
-      overtime_hours: db?.overtimeHours || 0,
-      field_hours: db?.fieldHours || 0,
-      field_subtype: db?.fieldSubtype || null,
-      two_machine_hours: db?.twoMachineHours || 0,
-      absence_code: db?.absenceCode || null,
-      absence_subtype: db?.absenceSubtype || null,
-    };
   }
-
-  /* Prizemni GO iz Kadrovska → Odsustva kada u work_hours nema šifre (Σ i prikaz kao u ćeliji). */
-  if (!hasDirty && !out.absence_code && _gridGodisnjiFromAbsences(empId, ymd)) {
-    out = {
-      ...out,
-      hours: 0,
-      absence_code: 'go',
-      absence_subtype: null,
-    };
-  }
-
-  return out;
+  return {
+    hours: db?.hours || 0,
+    overtime_hours: db?.overtimeHours || 0,
+    field_hours: db?.fieldHours || 0,
+    field_subtype: db?.fieldSubtype || null,
+    two_machine_hours: db?.twoMachineHours || 0,
+    absence_code: db?.absenceCode || null,
+    absence_subtype: db?.absenceSubtype || null,
+  };
 }
 
 /**
@@ -917,15 +876,26 @@ async function _saveAllGrid() {
       gridState.rowsByEmpDate.get(m.employeeId).set(m.workDate, m);
     });
     const n = gridState.dirty.size;
+    const touchedEmpIds = [...new Set([...gridState.dirty.keys()].map(k => String(k).split('|')[0]))];
     gridState.dirty.clear();
-    showToast('✅ Sačuvano ' + n + ' izmena');
+    const syncRes = await syncAbsencesFromGridMonth(
+      touchedEmpIds,
+      gridState.monthKey,
+      gridState.rowsByEmpDate,
+    );
+    await ensureAbsencesLoaded(true);
+    if (!syncRes.ok) {
+      showToast('⚠ Sati sačuvani; odsustva možda nisu ažurirana (proveri ovlašćenja ili konzolu)');
+    } else {
+      showToast('✅ Sačuvano ' + n + ' izmena');
+    }
     _renderGridBody();
   } catch (err) {
     console.error('[grid] batch save error', err);
     showToast('⚠ Greška pri snimanju — vidi konzolu');
   } finally {
     gridState.saving = false;
-    if (btn) { btn.textContent = 'Sačuvaj izmene'; }
+    if (btn) { btn.disabled = false; btn.textContent = 'Sačuvaj izmene'; }
     _gridUpdateDirtyBadge();
   }
 }
