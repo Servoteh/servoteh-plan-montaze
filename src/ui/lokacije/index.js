@@ -10,15 +10,17 @@ import {
   getLocationKindLabel,
   getLocationTypeLabel,
 } from '../../lib/lokacijeTypes.js';
-import { logout } from '../../services/auth.js';
+import { logout, restoreSession } from '../../services/auth.js';
 import { getAuth, canViewLokacijeSync, isAdmin, canEdit } from '../../state/auth.js';
 import {
   loadLokacijeTabFromStorage,
+  loadBrowseSortFromStorage,
   loadPredmetStateFromStorage,
   setLokacijeActiveTab,
   getLokacijeUiState,
   setBrowseFilter,
   setBrowseKindFilter,
+  setBrowseSort,
   setItemsFilter,
   setItemsPage,
   setItemsPageSize,
@@ -32,7 +34,7 @@ import {
   setReportPageSize,
   toggleReportSort,
 } from '../../state/lokacije.js';
-import { filterLocationsHierarchical } from '../../lib/lokacijeFilters.js';
+import { filterLocationsHierarchical, sortLocations } from '../../lib/lokacijeFilters.js';
 import { rowsToCsv, CSV_BOM } from '../../lib/csv.js';
 import {
   fetchAllMovements,
@@ -106,6 +108,28 @@ let locPanelHost = null;
 let showInactiveLocations = false;
 /** @type {'table'|'tree'} */
 let browseViewMode = 'table';
+let lastSessionRefreshAt = 0;
+
+function isJwtExpiringSoon(token) {
+  if (!token || typeof token !== 'string') return false;
+  const [, payload] = token.split('.');
+  if (!payload) return false;
+  try {
+    const json = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+    const expMs = Number(json.exp) * 1000;
+    return Number.isFinite(expMs) && expMs - Date.now() < 60 * 1000;
+  } catch {
+    return false;
+  }
+}
+
+async function ensureFreshLokacijeSession() {
+  const token = getAuth().user?._token;
+  const now = Date.now();
+  if (!isJwtExpiringSoon(token) || now - lastSessionRefreshAt < 30 * 1000) return;
+  lastSessionRefreshAt = now;
+  await restoreSession();
+}
 
 /**
  * Banner upozorenje ako su BigTehn cache tabele zastarele.
@@ -358,8 +382,13 @@ function attachBrowseSearch() {
   if (!host) return;
   const input = host.querySelector('#locBrowseSearch');
   const kindSel = host.querySelector('#locBrowseKind');
+  const sortSel = host.querySelector('#locBrowseSort');
   kindSel?.addEventListener('change', () => {
     setBrowseKindFilter(kindSel.value || '');
+    refreshLocPanel();
+  });
+  sortSel?.addEventListener('change', () => {
+    setBrowseSort(sortSel.value || 'code_asc');
     refreshLocPanel();
   });
   if (!input) return;
@@ -953,6 +982,7 @@ async function renderPanel(host, tabId) {
     host.innerHTML = `<div class="kadr-panel active loc-panel"><p class="loc-muted">Supabase nije konfigurisan (VITE_SUPABASE_URL / ANON KEY).</p></div>`;
     return;
   }
+  await ensureFreshLokacijeSession();
 
   if (tabId === 'dashboard') {
     const [locs, plac, movs, syncStatus] = await Promise.all([
@@ -1038,9 +1068,10 @@ async function renderPanel(host, tabId) {
     const locs = await fetchLocations({ activeOnly: !showInactiveLocations });
     const canEditLocs = canEdit();
     const err = locs === null ? `<p class="loc-warn">Učitavanje neuspešno.</p>` : '';
-    const { browseFilter, browseKindFilter } = getLokacijeUiState();
+    const { browseFilter, browseKindFilter, browseSort } = getLokacijeUiState();
     const textFiltered = filterLocationsHierarchical(locs, browseFilter);
     const filtered = filterLocationsByKindHierarchical(textFiltered, browseKindFilter);
+    const sorted = sortLocations(filtered, browseSort);
     const matchCount = browseFilter
       ? `<span class="loc-muted loc-filter-hint">Pogodaka: ${Array.isArray(locs) ? filtered.length : 0} / ${Array.isArray(locs) ? locs.length : 0}</span>`
       : '';
@@ -1051,6 +1082,15 @@ async function renderPanel(host, tabId) {
       ['other', 'Ostalo'],
     ]
       .map(([v, label]) => `<option value="${escHtml(v)}"${browseKindFilter === v ? ' selected' : ''}>${escHtml(label)}</option>`)
+      .join('');
+    const sortOptions = [
+      ['code_asc', 'Šifra A→Z'],
+      ['code_desc', 'Šifra Z→A'],
+      ['name_asc', 'Naziv A→Z'],
+      ['name_desc', 'Naziv Z→A'],
+      ['kind', 'Tip'],
+    ]
+      .map(([v, label]) => `<option value="${escHtml(v)}"${browseSort === v ? ' selected' : ''}>${escHtml(label)}</option>`)
       .join('');
 
     const extraToolbar = `
@@ -1066,6 +1106,10 @@ async function renderPanel(host, tabId) {
         <span>Tip:</span>
         <select id="locBrowseKind">${kindOptions}</select>
       </label>
+      <label class="loc-inline-check loc-sort-control">
+        <span>Sort:</span>
+        <select id="locBrowseSort">${sortOptions}</select>
+      </label>
       <label class="loc-inline-check">
         <input type="checkbox" id="locBrowseShowInactive" ${showInactiveLocations ? 'checked' : ''}>
         <span>Prikaži neaktivne</span>
@@ -1077,8 +1121,8 @@ async function renderPanel(host, tabId) {
 
     const content =
       browseViewMode === 'tree'
-        ? renderLocationsTreeHtml(filtered, canEditLocs)
-        : renderLocationsTableHtml(filtered, canEditLocs);
+        ? renderLocationsTreeHtml(sorted, canEditLocs)
+        : renderLocationsTableHtml(sorted, canEditLocs);
 
     host.innerHTML = `
       <div class="kadr-panel active loc-panel">
@@ -1087,7 +1131,7 @@ async function renderPanel(host, tabId) {
         ${content}
       </div>`;
     attachLocToolbar();
-    attachBrowseActions(filtered);
+    attachBrowseActions(sorted);
     attachBrowseViewSwitch();
     attachBrowseSearch();
     return;
@@ -1813,6 +1857,7 @@ function wireTabs(container, initialTabId) {
  */
 export function renderLokacijeModule(mountEl, { onBackToHub, onLogout } = {}) {
   loadLokacijeTabFromStorage();
+  loadBrowseSortFromStorage();
   loadPredmetStateFromStorage();
   let { activeTab: tabId } = getLokacijeUiState();
   if (TABS.find(t => t.id === tabId && t.adminOnly) && !canViewLokacijeSync()) {

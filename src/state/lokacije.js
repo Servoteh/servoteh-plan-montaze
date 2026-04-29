@@ -21,6 +21,7 @@ const VALID_TABS = new Set([
 const DEFAULT_TAB = 'dashboard';
 
 const VALID_BROWSE_KIND_FILTERS = new Set(['', 'hall', 'shelf', 'other']);
+const VALID_BROWSE_SORTS = new Set(['code_asc', 'code_desc', 'name_asc', 'name_desc', 'kind']);
 const VALID_LOCATION_FILTERS = new Set(['all', 'with', 'without']);
 
 /* Veličine stranice za items paginator — striktan whitelist da se LS ne koristi kao XSS vektor. */
@@ -31,6 +32,7 @@ const state = {
   activeTab: DEFAULT_TAB,
   browseFilter: '',
   browseKindFilter: '',
+  browseSort: 'code_asc',
   itemsFilter: '',
   itemsPage: 0,
   itemsPageSize: DEFAULT_PAGE_SIZE,
@@ -108,6 +110,20 @@ export function setBrowseFilter(v) {
 
 export function setBrowseKindFilter(v) {
   state.browseKindFilter = VALID_BROWSE_KIND_FILTERS.has(v) ? v : '';
+}
+
+function normalizeBrowseSort(v) {
+  return VALID_BROWSE_SORTS.has(v) ? v : 'code_asc';
+}
+
+export function loadBrowseSortFromStorage() {
+  const v = lsGetJSON(STORAGE_KEYS.LOC_SORT, 'code_asc');
+  state.browseSort = normalizeBrowseSort(v);
+}
+
+export function setBrowseSort(v) {
+  state.browseSort = normalizeBrowseSort(v);
+  lsSetJSON(STORAGE_KEYS.LOC_SORT, state.browseSort);
 }
 
 export function setItemsFilter(v) {

@@ -3490,6 +3490,7 @@ body.module-lokacije #module-lokacije { display:flex !important; flex:1; flex-di
 .loc-tree-inactive > details > summary,
 .loc-tree-inactive { opacity:0.55; font-style:italic; }
 .loc-inline-check { display:inline-flex; align-items:center; gap:6px; font-size:11px; color:var(--text2); margin-left:auto; cursor:pointer; }
+.loc-sort-control { margin-left:0; }
 .loc-inline-check input { margin:0; }
 .loc-inline-check select {
   padding:4px 8px;
