@@ -21,6 +21,7 @@ import {
   setBrowseFilter,
   setBrowseKindFilter,
   setBrowseSort,
+  toggleBrowseSortDirection,
   setItemsFilter,
   setItemsPage,
   setItemsPageSize,
@@ -265,7 +266,7 @@ function attachBrowseActions(locs) {
  * @param {boolean} canEditLocs
  * @param {string} sortOptions
  */
-function renderLocationsTableHtml(locs, canEditLocs, sortOptions = '') {
+function renderLocationsTableHtml(locs, canEditLocs, sortOptions = '', sortDirButton = '') {
   const colspan = canEditLocs ? 6 : 5;
   const rows = Array.isArray(locs)
     ? locs
@@ -287,7 +288,7 @@ function renderLocationsTableHtml(locs, canEditLocs, sortOptions = '') {
       : '';
   const headActions = canEditLocs ? '<th>Akcije</th>' : '';
   const codeHead = sortOptions
-    ? `<th><label class="loc-th-sort"><span>Šifra</span><select id="locBrowseSortHead" data-loc-browse-sort>${sortOptions}</select></label></th>`
+    ? `<th><div class="loc-th-sort"><label><span>Šifra</span><select id="locBrowseSortHead" data-loc-browse-sort>${sortOptions}</select></label>${sortDirButton}</div></th>`
     : '<th>Šifra</th>';
   return `
     <div class="loc-table-wrap">
@@ -383,20 +384,33 @@ function attachBrowseViewSwitch() {
  * Pretraga u browse tabu — debounced input + klijentski filter.
  * Debounce 180ms je dovoljan da se re-render ne pokreće na svakom pritisku tastera.
  */
+function flipBrowseSortDirection() {
+  toggleBrowseSortDirection();
+  refreshLocPanel();
+}
+
 function attachBrowseSearch() {
   const host = locPanelHost;
   if (!host) return;
   const input = host.querySelector('#locBrowseSearch');
   const kindSel = host.querySelector('#locBrowseKind');
   const sortSelects = host.querySelectorAll('[data-loc-browse-sort]');
+  const sortDirButtons = host.querySelectorAll('[data-loc-browse-sort-dir]');
   kindSel?.addEventListener('change', () => {
     setBrowseKindFilter(kindSel.value || '');
     refreshLocPanel();
   });
   sortSelects.forEach(sel => {
     sel.addEventListener('change', () => {
-      setBrowseSort(sel.value || 'code_asc');
+      const { browseSort } = getLokacijeUiState();
+      const desc = String(browseSort || '').endsWith('_desc');
+      setBrowseSort((sel.value || 'code') + (desc ? '_desc' : '_asc'));
       refreshLocPanel();
+    });
+  });
+  sortDirButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      flipBrowseSortDirection();
     });
   });
   if (!input) return;
@@ -1091,15 +1105,18 @@ async function renderPanel(host, tabId) {
     ]
       .map(([v, label]) => `<option value="${escHtml(v)}"${browseKindFilter === v ? ' selected' : ''}>${escHtml(label)}</option>`)
       .join('');
+    const sortField = String(browseSort || 'code_asc').replace(/_(asc|desc)$/, '');
+    const sortDesc = String(browseSort || '').endsWith('_desc');
     const sortOptions = [
-      ['code_asc', 'Šifra A→Z'],
-      ['code_desc', 'Šifra Z→A'],
-      ['name_asc', 'Naziv A→Z'],
-      ['name_desc', 'Naziv Z→A'],
+      ['code', 'Šifra'],
+      ['name', 'Naziv'],
       ['kind', 'Tip'],
     ]
-      .map(([v, label]) => `<option value="${escHtml(v)}"${browseSort === v ? ' selected' : ''}>${escHtml(label)}</option>`)
+      .map(([v, label]) => `<option value="${escHtml(v)}"${sortField === v ? ' selected' : ''}>${escHtml(label)}</option>`)
       .join('');
+    const sortDirLabel = sortDesc ? '↓' : '↑';
+    const sortDirTitle = sortDesc ? 'Sort Z→A / 100→0' : 'Sort A→Z / 0→100';
+    const sortDirButton = `<button type="button" class="btn btn-xs loc-sort-dir" data-loc-browse-sort-dir title="${escHtml(sortDirTitle)}" aria-label="${escHtml(sortDirTitle)}">${sortDirLabel}</button>`;
 
     const extraToolbar = `
       <div class="loc-master-heading">
@@ -1118,6 +1135,7 @@ async function renderPanel(host, tabId) {
         <span>Sort:</span>
         <select id="locBrowseSort" data-loc-browse-sort>${sortOptions}</select>
       </label>
+      ${sortDirButton}
       <label class="loc-inline-check">
         <input type="checkbox" id="locBrowseShowInactive" ${showInactiveLocations ? 'checked' : ''}>
         <span>Prikaži neaktivne</span>
@@ -1130,7 +1148,7 @@ async function renderPanel(host, tabId) {
     const content =
       browseViewMode === 'tree'
         ? renderLocationsTreeHtml(sorted, canEditLocs)
-        : renderLocationsTableHtml(sorted, canEditLocs, sortOptions);
+        : renderLocationsTableHtml(sorted, canEditLocs, sortOptions, sortDirButton);
 
     host.innerHTML = `
       <div class="kadr-panel active loc-panel">

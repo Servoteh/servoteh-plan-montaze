@@ -21,7 +21,7 @@ const VALID_TABS = new Set([
 const DEFAULT_TAB = 'dashboard';
 
 const VALID_BROWSE_KIND_FILTERS = new Set(['', 'hall', 'shelf', 'other']);
-const VALID_BROWSE_SORTS = new Set(['code_asc', 'code_desc', 'name_asc', 'name_desc', 'kind']);
+const VALID_BROWSE_SORTS = new Set(['code_asc', 'code_desc', 'name_asc', 'name_desc', 'kind_asc', 'kind_desc']);
 const VALID_LOCATION_FILTERS = new Set(['all', 'with', 'without']);
 
 /* Veličine stranice za items paginator — striktan whitelist da se LS ne koristi kao XSS vektor. */
@@ -113,6 +113,9 @@ export function setBrowseKindFilter(v) {
 }
 
 function normalizeBrowseSort(v) {
+  if (v === 'code') return 'code_asc';
+  if (v === 'name') return 'name_asc';
+  if (v === 'kind') return 'kind_asc';
   return VALID_BROWSE_SORTS.has(v) ? v : 'code_asc';
 }
 
@@ -123,6 +126,18 @@ export function loadBrowseSortFromStorage() {
 
 export function setBrowseSort(v) {
   state.browseSort = normalizeBrowseSort(v);
+  lsSetJSON(STORAGE_KEYS.LOC_SORT, state.browseSort);
+}
+
+export function toggleBrowseSortDirection() {
+  const current = normalizeBrowseSort(state.browseSort);
+  if (current === 'code_desc') state.browseSort = 'code_asc';
+  else if (current === 'code_asc') state.browseSort = 'code_desc';
+  else if (current === 'name_desc') state.browseSort = 'name_asc';
+  else if (current === 'name_asc') state.browseSort = 'name_desc';
+  else if (current === 'kind_desc') state.browseSort = 'kind_asc';
+  else if (current === 'kind_asc') state.browseSort = 'kind_desc';
+  else state.browseSort = 'code_asc';
   lsSetJSON(STORAGE_KEYS.LOC_SORT, state.browseSort);
 }
 

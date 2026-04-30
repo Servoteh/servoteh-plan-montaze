@@ -56,7 +56,7 @@ export function filterLocationsHierarchical(locs, query) {
   return locs.filter(l => keep.has(l.id));
 }
 
-const LOC_SORTS = new Set(['code_asc', 'code_desc', 'name_asc', 'name_desc', 'kind']);
+const LOC_SORTS = new Set(['code_asc', 'code_desc', 'name_asc', 'name_desc', 'kind_asc', 'kind_desc']);
 
 function collate(a, b) {
   return String(a || '').localeCompare(String(b || ''), 'sr', {
@@ -78,7 +78,11 @@ export function sortLocations(locs, sortKey = 'code_asc') {
     if (key === 'code_desc') return collate(b?.location_code, a?.location_code);
     if (key === 'name_asc') return collate(a?.name, b?.name) || collate(a?.location_code, b?.location_code);
     if (key === 'name_desc') return collate(b?.name, a?.name) || collate(a?.location_code, b?.location_code);
-    if (key === 'kind') {
+    if (key === 'kind_desc') {
+      return collate(b?.location_type, a?.location_type)
+        || collate(a?.location_code, b?.location_code);
+    }
+    if (key === 'kind_asc') {
       return collate(a?.location_type, b?.location_type)
         || collate(a?.location_code, b?.location_code);
     }

@@ -3500,6 +3500,12 @@ body.module-lokacije #module-lokacije { display:flex !important; flex:1; flex-di
   background:var(--surface);
   color:var(--text);
 }
+.loc-sort-dir {
+  min-width:28px;
+  padding:3px 7px;
+  font-size:12px;
+  line-height:1.1;
+}
 .loc-th-sort { display:inline-flex; align-items:center; gap:6px; }
 .loc-th-sort select {
   padding:3px 6px;
@@ -3510,6 +3516,11 @@ body.module-lokacije #module-lokacije { display:flex !important; flex:1; flex-di
   color:var(--text);
   text-transform:none;
   letter-spacing:0;
+}
+.loc-th-sort .loc-sort-dir {
+  min-width:24px;
+  padding:2px 5px;
+  font-size:10px;
 }
 .loc-master-heading {
   display:flex;
