@@ -68,10 +68,10 @@ export function renderModuleHub({ onModuleSelect, onLogout }) {
     <main class="hub-main">
       <div class="hub-intro">
         <h2>Dobrodošli nazad</h2>
-        <p>Izaberi modul sa kojim želiš da radiš. Aktivni moduli: <strong style="color:var(--text)">Plan Montaže</strong>, <strong style="color:var(--text)">Lokacije delova</strong>, <strong style="color:var(--text)">Održavanje mašina</strong> (skelet), <strong style="color:var(--text)">Planiranje proizvodnje</strong>, <strong style="color:var(--text)">Praćenje proizvodnje</strong>, <strong style="color:var(--text)">Sastanci</strong>, <strong style="color:var(--text)">Projektni biro</strong> i <strong style="color:var(--text)">Kadrovska</strong>${canAccessPodesavanja() ? ' i <strong style="color:var(--text)">Podešavanja</strong>' : ''}.</p>
+        <p>Izaberi modul sa kojim želiš da radiš. Aktivni moduli uključuju <strong style="color:var(--text)">Projektovanje</strong> (plan rada — Projektni biro), <strong style="color:var(--text)">Plan Montaže</strong>, <strong style="color:var(--text)">Lokacije delova</strong>, <strong style="color:var(--text)">Održavanje mašina</strong> (skelet), <strong style="color:var(--text)">Planiranje proizvodnje</strong>, <strong style="color:var(--text)">Praćenje proizvodnje</strong>, <strong style="color:var(--text)">Sastanci</strong>, <strong style="color:var(--text)">Kadrovska</strong>${canAccessPodesavanja() ? ' i <strong style="color:var(--text)">Podešavanja</strong>' : ''}.</p>
         <nav class="hub-quick-links" aria-label="Brzi linkovi modula">
           <span class="hub-quick-links-label">Brzo:</span>
-          <a href="/projektni-biro" class="hub-quick-link" data-module="projektni-biro">Projektni biro</a>
+          <a href="/projektni-biro" class="hub-quick-link hub-quick-link--primary" data-module="projektni-biro">Projektovanje</a>
           <span class="hub-quick-links-sep" aria-hidden="true">·</span>
           <a href="/plan-montaze" class="hub-quick-link" data-module="plan-montaze">Plan Montaže</a>
           <span class="hub-quick-links-sep" aria-hidden="true">·</span>
@@ -80,13 +80,14 @@ export function renderModuleHub({ onModuleSelect, onLogout }) {
       </div>
 
       <div class="hub-grid">
-        <button type="button" class="hub-card" data-module="projektni-biro" aria-label="Otvori Projektni biro">
+        <button type="button" class="hub-card hub-card--projektovanje" data-module="projektni-biro" aria-label="Otvori Projektovanje (Projektni biro)">
           <div class="hub-card-icon" aria-hidden="true">📐</div>
-          <div class="hub-card-title">Projektni biro</div>
-          <div class="hub-card-desc">Plan rada inženjera po projektima: zadaci, rokovi, opterećenje i alarmi. Kanban i izveštaji u sledećim fazama.</div>
+          <div class="hub-card-title">Projektovanje</div>
+          <div class="hub-card-subtitle">Projektni biro · plan rada</div>
+          <div class="hub-card-desc">Plan rada inženjera po projektima: zadaci, rokovi, Kanban, Gantt, opterećenje i alarmi.</div>
           <div class="hub-card-footer">
             <span class="hub-card-cta">Otvori →</span>
-            <span class="hub-card-badge badge-active">PB1</span>
+            <span class="hub-card-badge badge-active">Aktivno</span>
           </div>
         </button>
 

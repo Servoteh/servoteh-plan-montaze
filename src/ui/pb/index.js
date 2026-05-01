@@ -27,7 +27,7 @@ function mqMobile() {
  */
 export function renderPbModule(root, { onBackToHub, onLogout } = {}) {
   if (!getAuth().user) {
-    showToast('Prijavi se da otvoriš Projektni biro');
+    showToast('Prijavi se da otvoriš Projektovanje');
     onBackToHub?.();
     return;
   }
@@ -71,7 +71,7 @@ export function renderPbModule(root, { onBackToHub, onLogout } = {}) {
       <header class="kadrovska-header pb-header">
         <div class="kadrovska-header-left">
           <button type="button" class="btn-hub-back" id="pbBackBtn" aria-label="Nazad na module"><span>←</span> Moduli</button>
-          <div class="kadrovska-title"><span class="ktitle-mark" aria-hidden="true">📐</span> Projektni biro</div>
+          <div class="kadrovska-title"><span class="ktitle-mark" aria-hidden="true">📐</span> Projektovanje <span class="kadrovska-title-sub">Projektni biro</span></div>
         </div>
         <div class="kadrovska-header-right">
           <button type="button" class="theme-toggle" id="pbThemeBtn" aria-label="Tema">🌙</button>
