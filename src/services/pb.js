@@ -3,6 +3,7 @@
  */
 
 import { sbReq } from './supabase.js';
+import { SUPABASE_CONFIG, hasSupabaseConfig } from '../lib/constants.js';
 import { getCurrentUser, getIsOnline } from '../state/auth.js';
 
 /** @returns {string|null} */
@@ -104,6 +105,61 @@ export async function updatePbTask(id, data) {
     payload,
   );
   return Array.isArray(res) && res[0] ? res[0] : null;
+}
+
+/**
+ * Brza promena statusa (Kanban). Vraća `{ ok, row?, status? }` za razlikovanje 403 i mreže.
+ */
+export async function quickUpdatePbTaskStatus(id, newStatus) {
+  if (!id || !newStatus || !getIsOnline()) return { ok: false, status: 0 };
+  const email = actorEmail();
+  const payload = { status: newStatus, updated_by: email };
+  return patchPbTasksResponse(
+    `pb_tasks?id=eq.${encodeURIComponent(id)}&deleted_at=is.null`,
+    payload,
+  );
+}
+
+/**
+ * @returns {Promise<{ ok: boolean, row?: object, status: number }>}
+ */
+async function patchPbTasksResponse(path, payload) {
+  if (!hasSupabaseConfig()) return { ok: false, status: 0 };
+
+  const user = getCurrentUser();
+  const token = user?._token || SUPABASE_CONFIG.anonKey;
+  const headers = {
+    'Content-Type': 'application/json',
+    'apikey': SUPABASE_CONFIG.anonKey,
+    'Authorization': `Bearer ${token}`,
+    Prefer: 'return=representation',
+  };
+
+  try {
+    const r = await fetch(SUPABASE_CONFIG.url + '/rest/v1/' + path, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify(payload),
+    });
+    const txt = await r.text();
+    if (!r.ok) {
+      console.error('SB PATCH err', { path, status: r.status, body: txt });
+      return { ok: false, status: r.status };
+    }
+    let parsed = null;
+    if (txt) {
+      try {
+        parsed = JSON.parse(txt);
+      } catch {
+        parsed = null;
+      }
+    }
+    const row = Array.isArray(parsed) && parsed[0] ? parsed[0] : null;
+    return { ok: true, status: r.status, row };
+  } catch (e) {
+    console.error('SB PATCH fetch failed', e);
+    return { ok: false, status: 0 };
+  }
 }
 
 export async function softDeletePbTask(id) {

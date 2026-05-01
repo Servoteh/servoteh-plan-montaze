@@ -12,6 +12,8 @@ import {
   openTaskEditorModal,
   openTextAreaModal,
   confirmDeletePbTask,
+  loadPbState,
+  syncPbModuleFilters,
 } from './shared.js';
 import { updatePbTask } from '../../services/pb.js';
 import { canEditProjektniBiro } from '../../state/auth.js';
@@ -45,6 +47,7 @@ export function countWorkdaysBetween(a, b) {
   return n;
 }
 
+function delayRealEnd(task) {
   const planEnd = parseYmd(task.datum_zavrsetka_plan);
   const realEnd = parseYmd(task.datum_zavrsetka_real);
   if (!planEnd || !realEnd) return null;
@@ -162,12 +165,13 @@ function buildAlarms(tasks, loadRows) {
  */
 export function renderPlanTab(root, ctx) {
   const canEdit = canEditProjektniBiro();
+  const pbMod = loadPbState();
   let filters = {
-    search: '',
+    search: pbMod.moduleSearch ?? '',
     status: 'all',
     vrsta: 'all',
     prioritet: 'all',
-    showDone: false,
+    showDone: pbMod.moduleShowDone ?? false,
     problemOnly: false,
   };
   let sortCol = 'datumi';
@@ -341,6 +345,7 @@ export function renderPlanTab(root, ctx) {
 
     root.querySelector('#pbSearch')?.addEventListener('input', e => {
       filters.search = e.target.value;
+      syncPbModuleFilters({ moduleSearch: filters.search });
       paint();
     });
     root.querySelector('#pbFStatus')?.addEventListener('change', e => {
@@ -357,6 +362,7 @@ export function renderPlanTab(root, ctx) {
     });
     root.querySelector('#pbFDone')?.addEventListener('change', e => {
       filters.showDone = e.target.checked;
+      syncPbModuleFilters({ moduleShowDone: filters.showDone });
       paint();
     });
     root.querySelector('#pbFProb')?.addEventListener('click', () => {
@@ -365,6 +371,7 @@ export function renderPlanTab(root, ctx) {
     });
     root.querySelector('#pbFReset')?.addEventListener('click', () => {
       filters = { search: '', status: 'all', vrsta: 'all', prioritet: 'all', showDone: false, problemOnly: false };
+      syncPbModuleFilters({ moduleSearch: '', moduleShowDone: false });
       paint();
     });
 

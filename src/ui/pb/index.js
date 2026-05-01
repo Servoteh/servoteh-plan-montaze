@@ -1,5 +1,5 @@
 /**
- * Projektni biro — root shell (tabs + Plan + Coming soon placeholders).
+ * Projektni biro — root shell (tabs + Plan + Kanban + Gantt + placeholders).
  */
 
 import { escHtml, showToast } from '../../lib/dom.js';
@@ -12,8 +12,15 @@ import {
   getPbTasks,
   getPbLoadStats,
 } from '../../services/pb.js';
-import { loadPbState, savePbState, openTaskEditorModal } from './shared.js';
+import {
+  loadPbState,
+  savePbState,
+  openTaskEditorModal,
+  savePbGanttMonth,
+} from './shared.js';
 import { renderPlanTab } from './planTab.js';
+import { renderKanbanTab } from './kanbanTab.js';
+import { renderGanttTab } from './ganttTab.js';
 
 let teardownResize = null;
 
@@ -38,21 +45,37 @@ export function renderPbModule(root, { onBackToHub, onLogout } = {}) {
   let tasks = [];
   let loadStats = [];
 
+  function mergeStoredState() {
+    const s = loadPbState();
+    state.activeProject = s.activeProject;
+    state.activeEngineer = s.activeEngineer;
+    state.activeTab = s.activeTab;
+    state.moduleSearch = s.moduleSearch ?? '';
+    state.moduleShowDone = s.moduleShowDone ?? false;
+    state.ganttStartDate = s.ganttStartDate ?? null;
+  }
+
   const ctx = {
     get projects() { return projects; },
     get engineers() { return engineers; },
     get tasks() { return tasks; },
     get loadStats() { return loadStats; },
+    get moduleSearch() { return state.moduleSearch ?? ''; },
+    get moduleShowDone() { return state.moduleShowDone ?? false; },
     onRefresh: () => loadAll(),
   };
 
   async function loadAll() {
+    mergeStoredState();
     const projFilter = state.activeProject === 'all' ? {} : { projectId: state.activeProject };
     const engFilter = state.activeEngineer === 'all' ? {} : { employeeId: state.activeEngineer };
     const [p, e, t, l] = await Promise.all([
       getPbProjects(),
       getPbEngineers(),
-      getPbTasks({ ...projFilter, ...engFilter }),
+      getPbTasks({
+        ...projFilter,
+        ...engFilter,
+      }),
       getPbLoadStats(30),
     ]);
     projects = p;
@@ -154,24 +177,67 @@ export function renderPbModule(root, { onBackToHub, onLogout } = {}) {
     return `<button type="button" role="tab" class="pb-tab-btn ${active ? 'active' : ''}" data-pb-tab="${escHtml(id)}" aria-selected="${active}">${escHtml(label)}</button>`;
   }
 
+  function switchToPlanShowDone() {
+    state.activeTab = 'plan';
+    state.moduleShowDone = true;
+    savePbState(state);
+    paintChrome();
+    mountActiveTab();
+  }
+
   function mountActiveTab() {
     const body = root.querySelector('#pbTabBody');
     if (!body) return;
+    mergeStoredState();
     const tab = state.activeTab || 'plan';
     if (tab === 'plan') {
       renderPlanTab(body, ctx);
       return;
     }
+    if (tab === 'kanban') {
+      renderKanbanTab(body, {
+        tasks,
+        projects,
+        engineers,
+        search: state.moduleSearch ?? '',
+        showDone: state.moduleShowDone ?? false,
+        onRefresh: () => loadAll(),
+        onSwitchToPlanShowDone: switchToPlanShowDone,
+      });
+      return;
+    }
+    if (tab === 'gantt') {
+      let viewMonth = state.ganttStartDate
+        ? new Date(state.ganttStartDate)
+        : new Date();
+      if (Number.isNaN(viewMonth.getTime())) viewMonth = new Date();
+      viewMonth.setDate(1);
+      renderGanttTab(body, {
+        tasks,
+        projects,
+        engineers,
+        search: state.moduleSearch ?? '',
+        viewMonth,
+        onViewMonthChange: d => {
+          const x = new Date(d);
+          x.setDate(1);
+          x.setHours(0, 0, 0, 0);
+          savePbGanttMonth(x.toISOString());
+          mergeStoredState();
+          mountActiveTab();
+        },
+        onRefresh: () => loadAll(),
+      });
+      return;
+    }
     const labels = {
-      kanban: 'Kanban tabla',
-      gantt: 'Gantt dijagram',
       izvestaji: 'Izveštaji rada',
       analiza: 'Analiza',
     };
     body.innerHTML = `
       <div class="pb-coming-soon">
         <h3>${escHtml(labels[tab] || 'U pripremi')}</h3>
-        <p>Ova funkcija dolazi u sledećim sprintovima (PB2 / PB3).</p>
+        <p>Ova funkcija dolazi u sledećem sprintu (PB3).</p>
       </div>`;
   }
 

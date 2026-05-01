@@ -31,17 +31,30 @@ Interni alat za planiranje i praćenje inženjerskih zadataka po projektima: rok
 |------|--------|
 | `src/ui/pb/index.js` | Shell: projekat dropdown, chip filter inženjera, tab traka, FAB |
 | `src/ui/pb/planTab.js` | Plan: statistike, alarmi, load meter, filteri, kartice / tabela |
+| `src/ui/pb/kanbanTab.js` | Kanban: kolone po statusu, brza promena statusa, „+“ po koloni |
+| `src/ui/pb/ganttTab.js` | Gantt: vremenska osa po inženjeru, plan vs real |
 | `src/ui/pb/shared.js` | Modali, session state `pb_state_v1` |
-| `src/services/pb.js` | REST/RPC pozivi |
+| `src/services/pb.js` | REST/RPC pozivi (`quickUpdatePbTaskStatus` za Kanban) |
 | `src/styles/pb.css` | Stilovi modula |
 
 Ruta: **`/projektni-biro`** (History API).
+
+### Kanban tab
+
+Pet kolona: Nije počelo, U toku, Pregled, Blokirano, Završeno. Deljivi filteri sa modulom: projekat, inženjer, pretraga naziva, checkbox „Prikaži završene“ (iz Plan taba, sinhronizovano preko `pb_state_v1`). Filteri status/vrsta/prioritet iz Plan taba se u Kanbanu ne koriste. Kolona Završeno podrazumevano prikazuje samo završene zadatke čiji je datum završetka (real ili plan) u poslednjih 10 dana; link na dnu vodi na Plan sa uključenim „Prikaži završene“. Sa kartice: brza promena statusa (PATCH preko `quickUpdatePbTaskStatus`), „+“ otvara novi zadatak sa statusom kolone.
+
+### Gantt tab
+
+Opseg: od prvog dana izabranog meseca do kraja narednog meseca (~60 dana). Navigacija mesec ±, dugme „Danas“ skroluje horizontalno do današnjeg dana. Grupisanje po inženjeru (abecedno), na dnu „Bez inženjera“. Trake po `datum_pocetka_plan`–`datum_zavrsetka_plan`; ispod, ako postoje realni datumi, zelena traka ostvarenog perioda. Vertikalna linija „danas“. Klik na traku ili naziv zadatka otvara isti editor kao Plan. Drag-and-drop datuma nije u PB2.
 
 ## Integracije
 
 - **Projekti:** `projects` — aktivni = `status != 'archived'` (isti princip kao `loadProjektiLite`).
 - **Zaposleni:** `employees` — `is_active = true` za listu inženjera.
 
-## Otvoreno za PB2 / PB3
+## Otvorena pitanja za PB3 / PB4
 
-- Kanban tabla, Gantt, izveštaji sati (`pb_work_reports` UI), analitika, eventualna rola `pb_editor` u `user_roles`, eksplicitni PB-only editori bez šireg Kadrovska kruga.
+- **Izveštaji:** `pb_work_reports` UI (slobodni unos sati, kalendar).
+- **Analiza** po projektu.
+- Alarm notifikacije (email / WhatsApp).
+- Opcioni **PB4:** drag-and-drop izmena datuma u Gantt prikazu.

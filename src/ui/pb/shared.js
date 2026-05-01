@@ -28,6 +28,9 @@ export function loadPbState() {
       activeProject: o.activeProject ?? 'all',
       activeEngineer: o.activeEngineer ?? 'all',
       activeTab: o.activeTab ?? 'plan',
+      moduleSearch: o.moduleSearch ?? '',
+      moduleShowDone: o.moduleShowDone ?? false,
+      ganttStartDate: o.ganttStartDate ?? null,
     };
   } catch {
     return defaultPbState();
@@ -43,7 +46,25 @@ function defaultPbState() {
     activeProject: 'all',
     activeEngineer: 'all',
     activeTab: 'plan',
+    moduleSearch: '',
+    moduleShowDone: false,
+    ganttStartDate: null,
   };
+}
+
+/** Sinhronizacija Plan / Kanban / Gantt filtera (pretraga + prikaži završene). */
+export function syncPbModuleFilters(patch) {
+  const s = loadPbState();
+  if ('moduleSearch' in patch) s.moduleSearch = patch.moduleSearch;
+  if ('moduleShowDone' in patch) s.moduleShowDone = patch.moduleShowDone;
+  savePbState(s);
+}
+
+/** Čuva mesec za Gantt navigaciju (prvi dan meseca, ISO string). */
+export function savePbGanttMonth(isoDateString) {
+  const s = loadPbState();
+  s.ganttStartDate = isoDateString;
+  savePbState(s);
 }
 
 export function statusBadgeClass(status) {
