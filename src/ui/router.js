@@ -2,8 +2,7 @@
  * Mini router — bira koji "screen" se renderuje u root mount-u.
  *
  * URL (History API) je izvor istine za deep linkove; `/*` ide na index.html
- * preko Cloudflare Pages (public/_redirects). Korisnik na `/` i dalje može
- * da dobije poslednji modul iz sessionStorage (ponašanje kao ranije).
+ * preko Cloudflare Pages (public/_redirects). `/` prikazuje hub sa svim modulima.
  */
 
 import { ssGet, ssSet, ssRemove } from '../lib/storage.js';
