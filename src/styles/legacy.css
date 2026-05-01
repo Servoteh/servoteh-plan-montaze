@@ -1203,6 +1203,24 @@ tr.row-finished td { color: var(--text3); }
   user-select:none;
 }
 
+.hub-quick-link.hub-quick-link--primary {
+  font-size:1.05em;
+  font-weight:700;
+}
+
+.hub-card-subtitle {
+  font-size:11px;
+  font-weight:600;
+  color:var(--accent);
+  letter-spacing:0.02em;
+  margin:-4px 0 2px;
+}
+
+.hub-card.hub-card--projektovanje {
+  border-color:color-mix(in srgb, var(--accent) 45%, var(--border));
+  box-shadow:0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent) inset;
+}
+
 .hub-grid {
   display:grid;
   grid-template-columns:repeat(auto-fill, minmax(260px, 1fr));
@@ -1503,6 +1521,13 @@ body.module-kadrovska > #module-settings { display:none !important; }
   display:flex; align-items:center; justify-content:center;
   font-size:14px;
   box-shadow:0 3px 10px rgba(232,82,58,0.3);
+}
+
+.kadrovska-title-sub {
+  font-size:12px;
+  font-weight:600;
+  color:var(--text3);
+  margin-left:4px;
 }
 
 .kadrovska-toolbar {
