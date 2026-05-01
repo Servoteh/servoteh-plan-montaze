@@ -241,10 +241,10 @@ export function canPrioritizeTeme() {
 }
 
 /**
- * Projektni biro — modul vide svi autentifikovani osim viewer (read-only blokada na UI).
+ * Projektni biro — modul vide svi prijavljeni (viewer je read-only u UI-ju).
  */
 export function canAccessProjektniBiro() {
-  return !!state.user && state.role !== 'viewer';
+  return !!state.user;
 }
 
 /**

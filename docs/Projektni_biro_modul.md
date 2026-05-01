@@ -8,6 +8,7 @@ Interni alat za planiranje i praćenje inženjerskih zadataka po projektima: rok
 
 | Akcija | Ko |
 |--------|-----|
+| Čitanje hub i modula | Svi prijavljeni |
 | Čitanje `pb_tasks` / load RPC | `authenticated`, redovi sa `deleted_at IS NULL` |
 | INSERT / UPDATE `pb_tasks`, `pb_work_reports` | `current_user_is_admin()` ili `has_edit_role()` (isto kao Kadrovska edit krug — PM/LeadPM/Menadžment/HR/admin). Implementacija u DB: `pb_can_edit_tasks()`. |
 | DELETE `pb_work_reports` | Samo admin (`current_user_is_admin()`). |

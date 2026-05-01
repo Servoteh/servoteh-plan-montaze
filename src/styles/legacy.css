@@ -1171,6 +1171,38 @@ tr.row-finished td { color: var(--text3); }
   font-size:14px; color:var(--text2); max-width:640px; line-height:1.55;
 }
 
+.hub-quick-links {
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:8px 10px;
+  margin-top:14px;
+  padding:12px 14px;
+  border-radius:10px;
+  border:1px solid var(--border);
+  background:color-mix(in srgb, var(--surface2) 85%, transparent);
+  font-size:13px;
+}
+.hub-quick-links-label {
+  font-weight:600;
+  color:var(--text2);
+  margin-right:4px;
+}
+.hub-quick-link {
+  color:var(--accent);
+  font-weight:600;
+  text-decoration:none;
+  border-bottom:1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.hub-quick-link:hover {
+  color:var(--accent-hover, var(--accent));
+  border-bottom-color:var(--accent);
+}
+.hub-quick-links-sep {
+  color:var(--text3);
+  user-select:none;
+}
+
 .hub-grid {
   display:grid;
   grid-template-columns:repeat(auto-fill, minmax(260px, 1fr));

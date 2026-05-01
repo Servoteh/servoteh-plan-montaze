@@ -60,7 +60,6 @@ import {
   canAccessPlanProizvodnje,
   canAccessSastanci,
   canAccessLokacije,
-  canAccessProjektniBiro,
 } from '../state/auth.js';
 import { resetKadrovskaState } from '../state/kadrovska.js';
 import { resetSastanciState } from '../state/sastanci.js';
@@ -698,10 +697,6 @@ function assertModuleAllowed(moduleId) {
   }
   if (moduleId === 'lokacije-delova' && !canAccessLokacije()) {
     showToast('🔒 Lokacije delova zahtevaju prijavu');
-    return false;
-  }
-  if (moduleId === 'projektni-biro' && !canAccessProjektniBiro()) {
-    showToast('🔒 Projektni biro — nemaš pristup');
     return false;
   }
   if (moduleId === 'odrzavanje-masina' && !canAccessMaintenance()) {

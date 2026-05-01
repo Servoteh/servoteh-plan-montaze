@@ -32,7 +32,6 @@ import {
   canAccessSastanci,
   canEditSastanci,
   canAccessLokacije,
-  canAccessProjektniBiro,
 } from '../../state/auth.js';
 
 export function renderModuleHub({ onModuleSelect, onLogout }) {
@@ -70,16 +69,24 @@ export function renderModuleHub({ onModuleSelect, onLogout }) {
       <div class="hub-intro">
         <h2>Dobrodošli nazad</h2>
         <p>Izaberi modul sa kojim želiš da radiš. Aktivni moduli: <strong style="color:var(--text)">Plan Montaže</strong>, <strong style="color:var(--text)">Lokacije delova</strong>, <strong style="color:var(--text)">Održavanje mašina</strong> (skelet), <strong style="color:var(--text)">Planiranje proizvodnje</strong>, <strong style="color:var(--text)">Praćenje proizvodnje</strong>, <strong style="color:var(--text)">Sastanci</strong>, <strong style="color:var(--text)">Projektni biro</strong> i <strong style="color:var(--text)">Kadrovska</strong>${canAccessPodesavanja() ? ' i <strong style="color:var(--text)">Podešavanja</strong>' : ''}.</p>
+        <nav class="hub-quick-links" aria-label="Brzi linkovi modula">
+          <span class="hub-quick-links-label">Brzo:</span>
+          <a href="/projektni-biro" class="hub-quick-link" data-module="projektni-biro">Projektni biro</a>
+          <span class="hub-quick-links-sep" aria-hidden="true">·</span>
+          <a href="/plan-montaze" class="hub-quick-link" data-module="plan-montaze">Plan Montaže</a>
+          <span class="hub-quick-links-sep" aria-hidden="true">·</span>
+          <a href="/plan-proizvodnje" class="hub-quick-link" data-module="plan-proizvodnje">Plan proizvodnje</a>
+        </nav>
       </div>
 
       <div class="hub-grid">
-        <button type="button" class="hub-card${canAccessProjektniBiro() ? '' : ' is-disabled'}" data-module="projektni-biro" aria-label="Otvori Projektni biro"${canAccessProjektniBiro() ? '' : ' aria-disabled="true"'}>
+        <button type="button" class="hub-card" data-module="projektni-biro" aria-label="Otvori Projektni biro">
           <div class="hub-card-icon" aria-hidden="true">📐</div>
           <div class="hub-card-title">Projektni biro</div>
           <div class="hub-card-desc">Plan rada inženjera po projektima: zadaci, rokovi, opterećenje i alarmi. Kanban i izveštaji u sledećim fazama.</div>
           <div class="hub-card-footer">
-            <span class="hub-card-cta">${canAccessProjektniBiro() ? 'Otvori →' : 'Pristup zaključan'}</span>
-            <span class="hub-card-badge badge-active">${canAccessProjektniBiro() ? 'PB1' : 'Zaključano'}</span>
+            <span class="hub-card-cta">Otvori →</span>
+            <span class="hub-card-badge badge-active">PB1</span>
           </div>
         </button>
 
@@ -175,26 +182,30 @@ export function renderModuleHub({ onModuleSelect, onLogout }) {
     onLogout?.();
   });
 
+  function trySelectModule(moduleId) {
+    if (moduleId === 'kadrovska' && !canAccessKadrovska()) {
+      showToast('🔒 Kadrovska je dostupna samo HR/admin korisnicima');
+      return;
+    }
+    if (moduleId === 'sastanci' && !canAccessSastanci()) {
+      showToast('🔒 Sastanci zahtevaju validnu autentifikaciju');
+      return;
+    }
+    if (moduleId === 'lokacije-delova' && !canAccessLokacije()) {
+      showToast('🔒 Lokacije delova zahtevaju prijavu');
+      return;
+    }
+    onModuleSelect?.(moduleId);
+  }
+
   container.querySelectorAll('button[data-module]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const moduleId = btn.dataset.module;
-      if (moduleId === 'kadrovska' && !canAccessKadrovska()) {
-        showToast('🔒 Kadrovska je dostupna samo HR/admin korisnicima');
-        return;
-      }
-      if (moduleId === 'sastanci' && !canAccessSastanci()) {
-        showToast('🔒 Sastanci zahtevaju validnu autentifikaciju');
-        return;
-      }
-      if (moduleId === 'lokacije-delova' && !canAccessLokacije()) {
-        showToast('🔒 Lokacije delova zahtevaju prijavu');
-        return;
-      }
-      if (moduleId === 'projektni-biro' && !canAccessProjektniBiro()) {
-        showToast('🔒 Projektni biro — nemaš pristup');
-        return;
-      }
-      onModuleSelect?.(moduleId);
+    btn.addEventListener('click', () => trySelectModule(btn.dataset.module));
+  });
+
+  container.querySelectorAll('a.hub-quick-link[data-module]').forEach(a => {
+    a.addEventListener('click', e => {
+      e.preventDefault();
+      trySelectModule(a.dataset.module);
     });
   });
 

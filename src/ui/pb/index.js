@@ -5,7 +5,7 @@
 import { escHtml, showToast } from '../../lib/dom.js';
 import { logout } from '../../services/auth.js';
 import { toggleTheme } from '../../lib/theme.js';
-import { canAccessProjektniBiro, canEditProjektniBiro, getAuth } from '../../state/auth.js';
+import { canEditProjektniBiro, getAuth } from '../../state/auth.js';
 import {
   getPbProjects,
   getPbEngineers,
@@ -26,8 +26,8 @@ function mqMobile() {
  * @param {{ onBackToHub: () => void, onLogout: () => void }} options
  */
 export function renderPbModule(root, { onBackToHub, onLogout } = {}) {
-  if (!canAccessProjektniBiro()) {
-    showToast('Nemaš pristup modulu Projektni biro');
+  if (!getAuth().user) {
+    showToast('Prijavi se da otvoriš Projektni biro');
     onBackToHub?.();
     return;
   }
