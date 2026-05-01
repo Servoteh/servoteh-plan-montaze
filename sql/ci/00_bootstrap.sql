@@ -138,6 +138,7 @@ CREATE TABLE IF NOT EXISTS public.employees (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   full_name TEXT NOT NULL DEFAULT '',
   department TEXT DEFAULT '',
+  email TEXT DEFAULT '',
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()

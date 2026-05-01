@@ -952,3 +952,201 @@ body.module-projektni-biro {
   line-height: 1.35;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
 }
+
+/* Izveštaji */
+.pb-izv-grid {
+  display: grid;
+  gap: 20px;
+}
+
+@media (min-width: 960px) {
+  .pb-izv-grid {
+    grid-template-columns: minmax(280px, 340px) 1fr;
+    align-items: start;
+  }
+  .pb-izv-sum {
+    grid-column: 1 / -1;
+  }
+}
+
+.pb-izv-cal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.pb-cal-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.pb-cal-table th,
+.pb-cal-table td {
+  padding: 4px;
+  text-align: center;
+}
+
+.pb-cal-cell {
+  width: 100%;
+  min-height: 52px;
+  border: 1px solid var(--border, #333);
+  border-radius: 8px;
+  background: var(--surface2, #222);
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+}
+
+.pb-cal-cell--muted {
+  opacity: 0.45;
+}
+
+.pb-cal-cell--wknd {
+  background: color-mix(in srgb, var(--surface3, #333) 65%, var(--surface2, #222));
+}
+
+.pb-cal-cell--today {
+  border-color: rgba(230, 140, 60, 0.85);
+}
+
+.pb-cal-cell--sel {
+  outline: 2px solid var(--accent, #6ea8fe);
+}
+
+.pb-cal-num {
+  font-weight: 600;
+}
+
+.pb-cal-dot {
+  font-size: 0.7rem;
+  color: var(--accent, #6ea8fe);
+}
+
+.pb-izv-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border, #333);
+}
+
+.pb-izv-row-main {
+  flex: 1;
+}
+
+.pb-izv-sum-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-end;
+  margin-bottom: 12px;
+}
+
+.pb-izv-sum-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pb-izv-sum-row {
+  display: grid;
+  grid-template-columns: 36px 1fr auto auto;
+  gap: 10px;
+  align-items: center;
+}
+
+/* Analiza */
+.pb-an-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pb-an-proj {
+  max-width: 520px;
+}
+
+.pb-an-stats small {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text3, #888);
+}
+
+.pb-an-tl-bar {
+  position: relative;
+  height: 12px;
+  background: var(--surface3, #333);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.pb-an-tl-fill {
+  height: 100%;
+  background: color-mix(in srgb, var(--accent, #6ea8fe) 55%, transparent);
+}
+
+.pb-an-tl-marker {
+  position: absolute;
+  top: -4px;
+  width: 4px;
+  height: 20px;
+  background: rgba(230, 140, 60, 0.95);
+  transform: translateX(-50%);
+}
+
+.pb-an-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.pb-an-task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pb-an-task {
+  border: 1px solid var(--border, #333);
+  border-radius: 10px;
+  padding: 12px;
+  background: var(--surface2, #222);
+}
+
+.pb-an-task--prob {
+  border-color: var(--red, #d9534f);
+}
+
+.pb-an-task-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.pb-an-problems-title {
+  color: var(--red, #f07178);
+}
+
+.pb-an-problems {
+  border-top: 1px solid var(--border, #333);
+  padding-top: 16px;
+}
+
+/* Podešavanja PB */
+.pb-settings-grid {
+  display: grid;
+  gap: 12px;
+  max-width: 560px;
+}
+
+.pb-settings-span2 {
+  grid-column: 1 / -1;
+}

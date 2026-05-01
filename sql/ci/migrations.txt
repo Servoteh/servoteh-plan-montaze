@@ -47,6 +47,7 @@ sql/migrations/extend_maint_cmms_daily_summary.sql
 # Projektni biro — pb_tasks, pb_work_reports, load RPC
 sql/migrations/add_pb_module.sql
 sql/migrations/pb_load_stats_mechanical_engineering.sql
+sql/migrations/add_pb_notifications.sql
 
 # Faza 1 security hardening (2026-04-23). Migracija je idempotentna i
 # preživljava izvrsavanje cak i ako v_production_operations ne postoji

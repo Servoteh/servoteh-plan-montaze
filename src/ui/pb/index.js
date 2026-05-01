@@ -1,16 +1,17 @@
 /**
- * Projektni biro — root shell (tabs + Plan + Kanban + Gantt + placeholders).
+ * Projektni biro — root shell (tabs + Plan + Kanban + Gantt + Izveštaji + Analiza).
  */
 
 import { escHtml, showToast } from '../../lib/dom.js';
 import { logout } from '../../services/auth.js';
 import { toggleTheme } from '../../lib/theme.js';
-import { canEditProjektniBiro, getAuth } from '../../state/auth.js';
+import { canEditProjektniBiro, getAuth, isAdmin } from '../../state/auth.js';
 import {
   getPbProjects,
   getPbEngineers,
   getPbTasks,
   getPbLoadStats,
+  getPbWorkReports,
 } from '../../services/pb.js';
 import {
   loadPbState,
@@ -21,6 +22,9 @@ import {
 import { renderPlanTab } from './planTab.js';
 import { renderKanbanTab } from './kanbanTab.js';
 import { renderGanttTab } from './ganttTab.js';
+import { renderIzvestaji } from './izvestajiTab.js';
+import { renderAnaliza } from './analizaTab.js';
+import { renderPbPodesavanja } from './podesavanjaTab.js';
 
 let teardownResize = null;
 
@@ -44,6 +48,8 @@ export function renderPbModule(root, { onBackToHub, onLogout } = {}) {
   let engineers = [];
   let tasks = [];
   let loadStats = [];
+  let workReports = [];
+  let workReportsLoaded = false;
 
   function mergeStoredState() {
     const s = loadPbState();
@@ -65,6 +71,12 @@ export function renderPbModule(root, { onBackToHub, onLogout } = {}) {
     onRefresh: () => loadAll(),
   };
 
+  async function loadWorkReports() {
+    const wr = await getPbWorkReports();
+    workReports = Array.isArray(wr) ? wr : [];
+    workReportsLoaded = true;
+  }
+
   async function loadAll() {
     mergeStoredState();
     const projFilter = state.activeProject === 'all' ? {} : { projectId: state.activeProject };
@@ -83,7 +95,7 @@ export function renderPbModule(root, { onBackToHub, onLogout } = {}) {
     tasks = t;
     loadStats = l;
     paintChrome();
-    mountActiveTab();
+    void mountActiveTab();
   }
 
   function paintChrome() {
@@ -118,6 +130,7 @@ export function renderPbModule(root, { onBackToHub, onLogout } = {}) {
         ${pbTabBtn('gantt', 'Gantt', state.activeTab === 'gantt')}
         ${pbTabBtn('izvestaji', 'Izveštaji', state.activeTab === 'izvestaji')}
         ${pbTabBtn('analiza', 'Analiza', state.activeTab === 'analiza')}
+        ${isAdmin() ? pbTabBtn('podesavanja', '⚙ Podešavanja', state.activeTab === 'podesavanja') : ''}
       </nav>`;
 
     root.querySelector('#pbBackBtn')?.addEventListener('click', () => onBackToHub?.());
@@ -148,7 +161,7 @@ export function renderPbModule(root, { onBackToHub, onLogout } = {}) {
         state.activeTab = btn.dataset.pbTab || 'plan';
         savePbState(state);
         paintChrome();
-        mountActiveTab();
+        void mountActiveTab();
       });
     });
 
@@ -182,10 +195,10 @@ export function renderPbModule(root, { onBackToHub, onLogout } = {}) {
     state.moduleShowDone = true;
     savePbState(state);
     paintChrome();
-    mountActiveTab();
+    void mountActiveTab();
   }
 
-  function mountActiveTab() {
+  async function mountActiveTab() {
     const body = root.querySelector('#pbTabBody');
     if (!body) return;
     mergeStoredState();
@@ -224,21 +237,48 @@ export function renderPbModule(root, { onBackToHub, onLogout } = {}) {
           x.setHours(0, 0, 0, 0);
           savePbGanttMonth(x.toISOString());
           mergeStoredState();
-          mountActiveTab();
+          void mountActiveTab();
         },
         onRefresh: () => loadAll(),
       });
       return;
     }
-    const labels = {
-      izvestaji: 'Izveštaji rada',
-      analiza: 'Analiza',
-    };
-    body.innerHTML = `
-      <div class="pb-coming-soon">
-        <h3>${escHtml(labels[tab] || 'U pripremi')}</h3>
-        <p>Ova funkcija dolazi u sledećem sprintu (PB3).</p>
-      </div>`;
+    if (tab === 'izvestaji') {
+      if (!workReportsLoaded) {
+        body.innerHTML = '<p class="pb-muted">Učitavanje…</p>';
+        await loadWorkReports();
+      }
+      renderIzvestaji(body, {
+        getWorkReports: () => workReports,
+        engineers,
+        canEdit: canEditProjektniBiro(),
+        defaultEmployeeId: null,
+        actorEmail: getAuth().user?.emailRaw || getAuth().user?.email || null,
+        onRefresh: async () => {
+          await loadWorkReports();
+          void mountActiveTab();
+        },
+      });
+      return;
+    }
+    if (tab === 'analiza') {
+      renderAnaliza(body, {
+        tasks,
+        engineers,
+        projects,
+        initialProjectId: state.activeProject !== 'all' ? state.activeProject : null,
+      });
+      return;
+    }
+    if (tab === 'podesavanja') {
+      if (!isAdmin()) {
+        body.innerHTML = '<p class="pb-muted">Samo administrator.</p>';
+        return;
+      }
+      body.innerHTML = '';
+      await renderPbPodesavanja(body, {});
+      return;
+    }
   }
 
   root.className = 'pb-module kadrovska-section';
