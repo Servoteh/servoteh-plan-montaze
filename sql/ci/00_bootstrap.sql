@@ -143,6 +143,29 @@ CREATE TABLE IF NOT EXISTS public.employees (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- Minimalni org stub za pb_get_load_stats filter (produkcija: add_kadr_org_structure.sql).
+CREATE TABLE IF NOT EXISTS public.departments (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  sort_order SMALLINT NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS public.sub_departments (
+  id SERIAL PRIMARY KEY,
+  department_id INTEGER NOT NULL REFERENCES public.departments(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  sort_order SMALLINT NOT NULL DEFAULT 0
+);
+ALTER TABLE public.employees
+  ADD COLUMN IF NOT EXISTS department_id INTEGER REFERENCES public.departments(id),
+  ADD COLUMN IF NOT EXISTS sub_department_id INTEGER REFERENCES public.sub_departments(id);
+INSERT INTO public.departments (id, name, sort_order) VALUES (5, 'Inženjering i projektovanje', 40)
+  ON CONFLICT (id) DO NOTHING;
+SELECT setval(pg_get_serial_sequence('public.departments', 'id'), GREATEST((SELECT COALESCE(MAX(id), 1) FROM public.departments), 5));
+INSERT INTO public.sub_departments (id, department_id, name, sort_order)
+VALUES (5001, 5, 'Mašinsko projektovanje', 20)
+  ON CONFLICT (id) DO NOTHING;
+SELECT setval(pg_get_serial_sequence('public.sub_departments', 'id'), GREATEST((SELECT COALESCE(MAX(id), 1) FROM public.sub_departments), 5001));
+
 -- Grant-ovi očekivani u migracijama (PostgREST style).
 GRANT USAGE ON SCHEMA public TO authenticated, anon, service_role;
 GRANT USAGE ON SCHEMA auth TO authenticated, service_role;
