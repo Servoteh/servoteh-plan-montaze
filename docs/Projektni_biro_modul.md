@@ -43,6 +43,8 @@ Interni alat za planiranje i praćenje inženjerskih zadataka po projektima: rok
 
 ### PB4 — dodatni RPC i helper-i (`sql/migrations/add_pb4_rls_and_agg.sql`)
 
+Produkcija (Supabase): migracija **primljena** na projekat (isti SQL kao u repou).
+
 - **`pb_current_employee_id()`** — UUID iz `employees` za JWT email (`SECURITY DEFINER`).
 - **`pb_engineering_lead_by_subdept()`** — da li je zaposleni u pododeljenju čije je ime „Rukovodstvo inženjeringa“ (join `sub_departments`).
 - **`pb_current_user_can_see_all_reports()`** — admin ili globalni leadpm/pm/menadzment ili rukovodstvo pododeljenja.
