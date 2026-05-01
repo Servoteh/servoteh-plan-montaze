@@ -31,7 +31,7 @@ export async function getPbProjects() {
 export async function getPbEngineers() {
   if (!getIsOnline()) return [];
   const url =
-    'employees?select=id,full_name,department'
+    'employees?select=id,full_name,department,email'
     + '&is_active=eq.true'
     + '&order=full_name.asc';
   const data = await sbReq(url);
@@ -181,4 +181,66 @@ export async function getPbLoadStats(windowDays = 30) {
   const body = { window_days: windowDays };
   const data = await sbReq('rpc/pb_get_load_stats', 'POST', body);
   return Array.isArray(data) ? data : [];
+}
+
+/**
+ * @param {{ employeeId?: string|null, dateFrom?: string|null, dateTo?: string|null }} filters
+ */
+export async function getPbWorkReports(filters = {}) {
+  if (!getIsOnline()) return [];
+  let url =
+    'pb_work_reports?select=*,employees(full_name)'
+    + '&order=datum.desc,created_at.desc';
+  const { employeeId, dateFrom, dateTo } = filters;
+  if (employeeId) url += `&employee_id=eq.${encodeURIComponent(employeeId)}`;
+  if (dateFrom) url += `&datum=gte.${encodeURIComponent(dateFrom)}`;
+  if (dateTo) url += `&datum=lte.${encodeURIComponent(dateTo)}`;
+  const data = await sbReq(url);
+  if (!Array.isArray(data)) return [];
+  return data.map(row => ({
+    ...row,
+    engineer_name: row.employees?.full_name ?? null,
+    employees: undefined,
+  }));
+}
+
+export async function createPbWorkReport(data) {
+  if (!getIsOnline()) return null;
+  const email = actorEmail();
+  const payload = {
+    employee_id: data.employee_id || null,
+    datum: data.datum || null,
+    sati: Number(data.sati) || 0,
+    opis: data.opis ?? '',
+    created_by: email,
+  };
+  const res = await sbReq('pb_work_reports', 'POST', payload, { upsert: false });
+  return Array.isArray(res) && res[0] ? res[0] : null;
+}
+
+export async function deletePbWorkReport(id) {
+  if (!id || !getIsOnline()) return false;
+  const res = await sbReq(`pb_work_reports?id=eq.${encodeURIComponent(id)}`, 'DELETE');
+  return res !== null;
+}
+
+export async function getPbNotifConfig() {
+  if (!getIsOnline()) return null;
+  const data = await sbReq('pb_notification_config?id=eq.1');
+  return Array.isArray(data) && data[0] ? data[0] : null;
+}
+
+export async function updatePbNotifConfig(patch) {
+  if (!getIsOnline()) return null;
+  const payload = {
+    ...patch,
+    updated_by: actorEmail(),
+    updated_at: new Date().toISOString(),
+  };
+  const res = await sbReq(
+    'pb_notification_config?id=eq.1',
+    'PATCH',
+    payload,
+  );
+  return Array.isArray(res) && res[0] ? res[0] : null;
 }
