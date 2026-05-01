@@ -124,7 +124,7 @@ SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_cfg         public.pb_notification_config%ROWTYPE;
-  v_today       DATE := CURRENT_DATE;
+  v_today       DATE := (now() AT TIME ZONE 'Europe/Belgrade')::date;
   v_enqueued    INTEGER := 0;
   v_task        RECORD;
   v_load        RECORD;
@@ -132,6 +132,11 @@ DECLARE
 BEGIN
   SELECT * INTO v_cfg FROM public.pb_notification_config WHERE id = 1;
   IF NOT FOUND OR NOT v_cfg.enabled THEN
+    RETURN 0;
+  END IF;
+
+  IF array_length(v_cfg.email_recipients, 1) IS NULL
+     OR array_length(v_cfg.email_recipients, 1) = 0 THEN
     RETURN 0;
   END IF;
 
@@ -323,50 +328,55 @@ BEGIN
     END IF;
   END LOOP;
 
-  -- 5. Preopterećenost
+  -- 5. Preopterećenost (izolovano — greška u load stats ne prekida ostale tipove)
   IF v_cfg.notify_on_overload AND coalesce(array_length(v_cfg.email_recipients, 1), 0) > 0 THEN
-    FOR v_load IN
-      SELECT *
-      FROM public.pb_get_load_stats(30)
-      WHERE load_pct > v_cfg.overload_threshold_pct
-    LOOP
-      IF NOT EXISTS (
-        SELECT 1 FROM public.pb_notification_log nl
-        WHERE nl.related_employee_id = v_load.employee_id
-          AND nl.trigger_type = 'overload'
-          AND nl.created_at::date = v_today
-      ) THEN
-        INSERT INTO public.pb_notification_log
-          (channel, recipient, recipient_user_id, subject, body,
-           trigger_type, related_task_id, related_employee_id, payload)
-        SELECT
-          'email',
-          trim(r.r),
-          (SELECT u.id FROM auth.users u WHERE lower(u.email) = lower(trim(r.r)) LIMIT 1),
-          'PB Preopterećenost: ' || v_load.full_name,
-          format(
-            'Inženjer %s je opterećen %s%% u narednih 30 dana'
-            || ' (max %sh, planirano %sh).',
-            v_load.full_name,
-            v_load.load_pct::text,
-            v_load.max_hours::text,
-            v_load.total_hours::text
-          ),
-          'overload',
-          NULL,
-          v_load.employee_id,
-          jsonb_build_object(
-            'employee_id', v_load.employee_id,
-            'full_name',   v_load.full_name,
-            'load_pct',    v_load.load_pct,
-            'total_hours', v_load.total_hours,
-            'max_hours',   v_load.max_hours
-          )
-        FROM unnest(v_cfg.email_recipients) AS r(r);
-        GET DIAGNOSTICS v_n = ROW_COUNT;
-        v_enqueued := v_enqueued + v_n;
-      END IF;
-    END LOOP;
+    BEGIN
+      FOR v_load IN
+        SELECT *
+        FROM public.pb_get_load_stats(30)
+        WHERE load_pct > v_cfg.overload_threshold_pct
+      LOOP
+        IF NOT EXISTS (
+          SELECT 1 FROM public.pb_notification_log nl
+          WHERE nl.related_employee_id = v_load.employee_id
+            AND nl.trigger_type = 'overload'
+            AND nl.created_at::date = v_today
+        ) THEN
+          INSERT INTO public.pb_notification_log
+            (channel, recipient, recipient_user_id, subject, body,
+             trigger_type, related_task_id, related_employee_id, payload)
+          SELECT
+            'email',
+            trim(r.r),
+            (SELECT u.id FROM auth.users u WHERE lower(u.email) = lower(trim(r.r)) LIMIT 1),
+            'PB Preopterećenost: ' || v_load.full_name,
+            format(
+              'Inženjer %s je opterećen %s%% u narednih 30 dana'
+              || ' (max %sh, planirano %sh).',
+              v_load.full_name,
+              v_load.load_pct::text,
+              v_load.max_hours::text,
+              v_load.total_hours::text
+            ),
+            'overload',
+            NULL,
+            v_load.employee_id,
+            jsonb_build_object(
+              'employee_id', v_load.employee_id,
+              'full_name',   v_load.full_name,
+              'load_pct',    v_load.load_pct,
+              'total_hours', v_load.total_hours,
+              'max_hours',   v_load.max_hours
+            )
+          FROM unnest(v_cfg.email_recipients) AS r(r);
+          GET DIAGNOSTICS v_n = ROW_COUNT;
+          v_enqueued := v_enqueued + v_n;
+        END IF;
+      END LOOP;
+    EXCEPTION
+      WHEN OTHERS THEN
+        RAISE WARNING 'pb_enqueue_notifications: overload / pb_get_load_stats greška: %', SQLERRM;
+    END;
   END IF;
 
   RETURN v_enqueued;
@@ -440,6 +450,8 @@ REVOKE ALL ON FUNCTION public.pb_dispatch_mark_failed(UUID, TEXT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.pb_dispatch_dequeue(INTEGER) TO service_role;
 GRANT EXECUTE ON FUNCTION public.pb_dispatch_mark_sent(UUID) TO service_role;
 GRANT EXECUTE ON FUNCTION public.pb_dispatch_mark_failed(UUID, TEXT) TO service_role;
+
+-- TODO(PB4): personal notifikacije na employees.email + trigger na pb_tasks — vidi docs/pb_review_report.md F5
 
 -- ── 6) pg_cron (best-effort — na instancama bez cron-a ignoriši grešku)
 DO $cron_wrap$

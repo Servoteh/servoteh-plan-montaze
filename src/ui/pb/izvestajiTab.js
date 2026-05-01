@@ -2,13 +2,18 @@
  * Izveštaji tab — kalendar, unos van-planskih sati, obračun.
  */
 
-import { escHtml, showToast } from '../../lib/dom.js';
+import { escHtml } from '../../lib/dom.js';
 import {
   filterWorkReportsByPeriod,
   sumHours,
   groupByEmployee,
 } from './izvestajiObracun.js';
 import { createPbWorkReport, deletePbWorkReport } from '../../services/pb.js';
+import {
+  pbErrorMessage,
+  showPbToast,
+  setPbIzvestajiSpeechRecog,
+} from './shared.js';
 
 function pad2(n) {
   return String(n).padStart(2, '0');
@@ -143,7 +148,7 @@ export function renderIzvestaji(root, ctx) {
                 ${ctx.canEdit ? '' : 'disabled'}></textarea>
             </label>
             ${ctx.canEdit ? `<div class="pb-izv-mic-row">
-              <button type="button" class="btn btn-sm" id="pbIzvMic">🎙 Glasovni unos</button>
+              <button type="button" class="btn btn-sm" id="pbIzvMic" title="">🎙 Glasovni unos</button>
             </div>` : ''}
             ${ctx.canEdit ? `<div class="pb-modal-actions">
               <button type="button" class="btn btn-primary" id="pbIzvSave">Sačuvaj</button>
@@ -225,21 +230,23 @@ export function renderIzvestaji(root, ctx) {
       const sat = Number(root.querySelector('#pbIzvSatN')?.value) || 1;
       const opis = root.querySelector('#pbIzvOpis')?.value?.trim() ?? '';
       if (!emp) {
-        showToast('Izaberi inženjera');
+        showPbToast('Izaberi inženjera', 'warning');
         return;
       }
-      const ok = await createPbWorkReport({
-        employee_id: emp,
-        datum: selectedDay,
-        sati: sat,
-        opis,
-      });
-      if (ok) {
-        showToast('Sačuvano');
+      try {
+        await createPbWorkReport({
+          employee_id: emp,
+          datum: selectedDay,
+          sati: sat,
+          opis,
+        });
+        showPbToast('Sačuvano', 'success');
         root.querySelector('#pbIzvOpis').value = '';
         await ctx.onRefresh?.();
         paint();
-      } else showToast('Čuvanje nije uspelo');
+      } catch (err) {
+        showPbToast(pbErrorMessage(err), 'error');
+      }
     });
 
     root.querySelector('#pbIzvCancel')?.addEventListener('click', () => {
@@ -250,30 +257,46 @@ export function renderIzvestaji(root, ctx) {
       btn.addEventListener('click', async () => {
         const id = btn.getAttribute('data-id');
         if (!id || !confirm('Obrisati izveštaj?')) return;
-        const ok = await deletePbWorkReport(id);
-        if (ok) {
-          showToast('Obrisano');
+        try {
+          await deletePbWorkReport(id);
+          showPbToast('Obrisano', 'success');
           await ctx.onRefresh?.();
           paint();
-        } else showToast('Brisanje nije uspelo');
+        } catch (err) {
+          showPbToast(pbErrorMessage(err), 'error');
+        }
       });
     });
 
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const micBtn = root.querySelector('#pbIzvMic');
+    if (micBtn) {
+      if (!SR) {
+        micBtn.style.display = 'none';
+        micBtn.disabled = true;
+        micBtn.title = 'Glasovni unos nije podržan u ovom pregledaču';
+      } else {
+        micBtn.title = 'Klik za start/stop diktata';
+      }
+    }
+
     let recog = null;
     root.querySelector('#pbIzvMic')?.addEventListener('click', () => {
-      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const SR2 = window.SpeechRecognition || window.webkitSpeechRecognition;
       const ta = root.querySelector('#pbIzvOpis');
-      if (!SR || !ta) {
-        showToast('Glasovni unos nije podržan u ovom pregledaču');
+      if (!SR2 || !ta) {
+        showPbToast('Glasovni unos nije podržan u ovom pregledaču', 'warning');
         return;
       }
       if (recog) {
         try { recog.stop(); } catch { /* */ }
         recog = null;
-        showToast('Mikrofon zaustavljen');
+        setPbIzvestajiSpeechRecog(null);
+        showPbToast('Mikrofon zaustavljen', 'info');
         return;
       }
-      recog = new SR();
+      recog = new SR2();
+      setPbIzvestajiSpeechRecog(recog);
       recog.lang = 'sr-RS';
       recog.continuous = false;
       recog.interimResults = false;
@@ -281,9 +304,9 @@ export function renderIzvestaji(root, ctx) {
         const t = ev.results?.[0]?.[0]?.transcript;
         if (t) ta.value = (ta.value ? ta.value + ' ' : '') + t;
       };
-      recog.onerror = () => showToast('Greška mikrofona');
+      recog.onerror = () => showPbToast('Greška mikrofona', 'error');
       recog.start();
-      showToast('Slušam… (klik ponovo za stop)');
+      showPbToast('Slušam… (klik ponovo za stop)', 'info');
     });
 
     function runSum() {

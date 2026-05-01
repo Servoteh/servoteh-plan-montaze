@@ -2,11 +2,13 @@
  * Kanban tab — kolone po statusu, quick edit, isti filteri kao Plan (search + showDone).
  */
 
-import { escHtml, showToast } from '../../lib/dom.js';
+import { escHtml } from '../../lib/dom.js';
 import {
   prioClass,
   statusBadgeClass,
   openTaskEditorModal,
+  pbErrorMessage,
+  showPbToast,
 } from './shared.js';
 import { quickUpdatePbTaskStatus } from '../../services/pb.js';
 import { canEditProjektniBiro } from '../../state/auth.js';
@@ -202,14 +204,24 @@ export function renderKanbanTab(root, ctx) {
         const id = btn.getAttribute('data-task');
         const to = btn.getAttribute('data-to');
         if (!id || !to) return;
+        const task = (ctx.tasks || []).find(x => x.id === id);
+        const prevStatus = task?.status;
+        if (task) task.status = to;
+        root.innerHTML = buildHtml();
+        wire();
         const res = await quickUpdatePbTaskStatus(id, to);
         if (res.ok) {
-          showToast('Status ažuriran');
+          showPbToast('Status ažuriran', 'success');
           ctx.onRefresh?.();
-        } else if (res.status === 401 || res.status === 403) {
-          showToast('Nemate pravo da menjate ovaj zadatak.');
         } else {
-          showToast('Izmena nije uspela');
+          if (task && prevStatus !== undefined) task.status = prevStatus;
+          root.innerHTML = buildHtml();
+          wire();
+          if (res.status === 401 || res.status === 403) {
+            showPbToast('Nemate pravo da menjate ovaj zadatak.', 'error');
+          } else {
+            showPbToast('Izmena nije uspela', 'error');
+          }
         }
       });
     });

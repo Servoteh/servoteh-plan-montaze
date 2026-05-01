@@ -630,6 +630,10 @@ textarea.note-area:focus { border-color: var(--accent); box-shadow: 0 0 0 2px va
 /* --- TOAST --- */
 .toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface2); border: 1px solid var(--border3); border-radius: var(--radius); padding: 10px 16px; font-size: 12px; color: var(--text); z-index: 2000; transform: translateY(60px); opacity: 0; transition: all 0.25s; box-shadow: var(--shadow-lg); }
 .toast.show { transform: translateY(0); opacity: 1; }
+.toast.toast--success { border-color: color-mix(in srgb, var(--green) 35%, transparent); }
+.toast.toast--error { border-color: color-mix(in srgb, var(--red) 35%, transparent); background: var(--red-bg); }
+.toast.toast--warning { border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
+.toast.toast--info { border-color: var(--border3); }
 
 /* --- ROW ACTIONS --- */
 .td-actions { width: 70px; text-align: center; white-space: nowrap; }

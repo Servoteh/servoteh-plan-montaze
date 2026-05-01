@@ -119,6 +119,77 @@ export async function sbReq(path, method = 'GET', body = null, options = {}) {
 }
 
 /**
+ * Isto kao `sbReq`, ali baca `Error` sa `err.code` (PostgREST / PG) umesto `null`.
+ * @returns {Promise<any>}
+ */
+export async function sbReqThrow(path, method = 'GET', body = null, options = {}) {
+  if (!hasSupabaseConfig()) {
+    const e = new Error('Supabase nije konfigurisan');
+    e.code = 'NO_CONFIG';
+    throw e;
+  }
+  const user = getCurrentUser();
+  const token = user?._token || SUPABASE_CONFIG.anonKey;
+  const headers = {
+    'Content-Type': 'application/json',
+    'apikey': SUPABASE_CONFIG.anonKey,
+    'Authorization': 'Bearer ' + token,
+  };
+  if (method === 'POST') {
+    const upsert = options.upsert !== false;
+    headers['Prefer'] = upsert
+      ? 'return=representation,resolution=merge-duplicates'
+      : 'return=representation';
+  } else if (method === 'PATCH') {
+    headers['Prefer'] = 'return=representation';
+  }
+  let r;
+  let txt;
+  try {
+    r = await fetch(SUPABASE_CONFIG.url + '/rest/v1/' + path, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    txt = await r.text();
+  } catch (net) {
+    const e = new Error(net?.message || 'Mrežna greška');
+    e.code = 'NETWORK';
+    throw e;
+  }
+  if (!r.ok) {
+    let code = '';
+    let msg = txt || r.statusText;
+    try {
+      const j = txt ? JSON.parse(txt) : {};
+      if (j.code) code = j.code;
+      if (j.message) msg = j.message;
+    } catch {
+      /* raw body */
+    }
+    if (!code && (r.status === 401 || r.status === 403)) code = '42501';
+    const err = new Error(msg);
+    err.code = code;
+    err.status = r.status;
+    throw err;
+  }
+  if (!txt) {
+    if (method === 'PATCH') return [];
+    if (method === 'DELETE') return true;
+    if (method === 'POST') return true;
+    if (method === 'GET') return [];
+    return null;
+  }
+  try {
+    return JSON.parse(txt);
+  } catch (parseErr) {
+    const err = new Error('Neispravan odgovor servera');
+    err.code = 'PARSE';
+    throw err;
+  }
+}
+
+/**
  * Wrapper nad `sbReq` koji vraća `{ rows, total }` gde je `total` iz Content-Range header-a.
  * Koristi se za paginated liste.
  * @param {string} path

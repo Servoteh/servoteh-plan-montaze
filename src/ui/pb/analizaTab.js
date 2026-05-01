@@ -1,5 +1,6 @@
 /**
  * Analiza tab — dashboard po projektu.
+ * // TODO(PB4): Workload heatmap — calendar grid po danima, boja = ukupni norma sati — vidi docs/pb_review_report.md F7
  */
 
 import { escHtml } from '../../lib/dom.js';
@@ -174,6 +175,7 @@ export function renderAnaliza(root, ctx) {
           <div class="pb-stat-card"><span>Norma ∑</span><strong>${stats.normSum.toFixed(1)}</strong><small>h/dan ukupno</small></div>
           <div class="pb-stat-card"><span>Blokirano</span><strong>${stats.blocked}</strong><small>${stats.blocked ? 'Akcija!' : 'OK'}</small></div>
         </div>
+        ${stats.total > 0 && stats.done === stats.total ? '<p class="pb-an-all-done">Svi zadaci su završeni.</p>' : ''}
 
         <section class="pb-an-sec"><h3 class="pb-section-title">Timeline projekta</h3>${timelineHtml}</section>
 
@@ -184,7 +186,7 @@ export function renderAnaliza(root, ctx) {
         <section class="pb-an-sec"><h3 class="pb-section-title">Zadaci projekta</h3>
           <div class="pb-an-task-list">${taskRows || '<p class="pb-muted">Nema zadataka.</p>'}</div>
         </section>
-        ${probSection}` : '<p class="pb-muted">Izaberi projekat.</p>'}
+        ${probSection}` : (plist.length ? '<p class="pb-muted">Izaberi projekat.</p>' : '<p class="pb-muted">Nema projekata sa zadacima. Dodajte zadatke u tabu Plan.</p>')}
       </div>`;
 
     root.querySelector('#pbAnProj')?.addEventListener('change', e => {

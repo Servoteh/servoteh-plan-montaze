@@ -7,7 +7,7 @@
 ## 1. Sažetak
 
 - **Tabela sa RLS politikama:** 47
-- **Ukupno efektivnih politika:** 137
+- **Ukupno efektivnih politika:** 138
 - **SECURITY DEFINER funkcija:** 87
 - **Objekata sa anon grant-om:** 2
 
@@ -269,6 +269,7 @@ Legenda flag-ova:
 
 | Politika | Akcija | Role | USING | WITH CHECK | Flagovi | Izvor |
 |---|---|---|---|---|---|---|
+| `pb_tasks_delete_admin_hard` | DELETE | `authenticated` | `public.current_user_is_admin()` | `` | ✅ | `sql/migrations/add_pb_constraints.sql` |
 | `pb_tasks_insert_editors` | INSERT | `authenticated` | `` | `public.pb_can_edit_tasks()` | ✅ | `sql/migrations/add_pb_module.sql` |
 | `pb_tasks_select_authenticated` | SELECT | `authenticated` | `deleted_at IS NULL` | `` | ✅ | `sql/migrations/add_pb_module.sql` |
 | `pb_tasks_update_editors` | UPDATE | `authenticated` | `public.pb_can_edit_tasks()` | `public.pb_can_edit_tasks()` | ✅ | `sql/migrations/add_pb_module.sql` |

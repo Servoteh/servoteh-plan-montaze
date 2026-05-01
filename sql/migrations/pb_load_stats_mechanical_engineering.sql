@@ -101,5 +101,7 @@ BEGIN
 END;
 $$;
 
+-- TODO(PB4): uključiti opterećenost iz phases (Plan montaže) za ukupan load — vidi docs/pb_review_report.md F2
+
 REVOKE ALL ON FUNCTION public.pb_get_load_stats(INTEGER) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.pb_get_load_stats(INTEGER) TO authenticated;

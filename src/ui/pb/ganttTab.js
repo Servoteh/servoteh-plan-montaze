@@ -325,23 +325,33 @@ export function renderGanttTab(root, ctx) {
 
   root.innerHTML = empty || scrollBlock;
 
+  root._pbGanttAbort?.abort();
+  root._pbGanttAbort = new AbortController();
+  const sig = root._pbGanttAbort.signal;
+
   const scrollEl = root.querySelector('.pb-gantt-scroll');
+
+  function taskByRowEl(el) {
+    const tr = el?.closest?.('.pb-gantt-task-row');
+    const id = tr?.getAttribute('data-task-id');
+    return id ? list.find(x => x.id === id) : null;
+  }
 
   root.querySelector('#pbGanttPrev')?.addEventListener('click', () => {
     const d = new Date(baseMonth);
     d.setMonth(d.getMonth() - 1);
     ctx.onViewMonthChange?.(d);
-  });
+  }, { signal: sig });
   root.querySelector('#pbGanttNext')?.addEventListener('click', () => {
     const d = new Date(baseMonth);
     d.setMonth(d.getMonth() + 1);
     ctx.onViewMonthChange?.(d);
-  });
+  }, { signal: sig });
   root.querySelector('#pbGanttToday')?.addEventListener('click', () => {
     if (!scrollEl || todayIdx < 0) return;
     const target = Math.max(0, todayIdx * dayW - 4 * dayW);
     scrollEl.scrollTo({ left: target, behavior: 'smooth' });
-  });
+  }, { signal: sig });
 
   root.querySelector('#pbGanttNew')?.addEventListener('click', () => {
     openTaskEditorModal({
@@ -351,13 +361,14 @@ export function renderGanttTab(root, ctx) {
       canEdit,
       onSaved: () => ctx.onRefresh?.(),
     });
-  });
+  }, { signal: sig });
 
-  root.querySelectorAll('.pb-gantt-task-row .pb-gantt-name').forEach(td => {
-    td.addEventListener('click', () => {
-      const tr = td.closest('.pb-gantt-task-row');
-      const id = tr?.getAttribute('data-task-id');
-      const task = list.find(x => x.id === id);
+  root.addEventListener('click', e => {
+    const bar = e.target.closest('.pb-gantt-bar');
+    if (bar) {
+      e.stopPropagation();
+      hideTip();
+      const task = taskByRowEl(bar);
       if (!task) return;
       openTaskEditorModal({
         task,
@@ -366,28 +377,12 @@ export function renderGanttTab(root, ctx) {
         canEdit,
         onSaved: () => ctx.onRefresh?.(),
       });
-    });
-  });
-
-  root.querySelectorAll('.pb-gantt-bar').forEach(bar => {
-    const row = bar.closest('.pb-gantt-task-row');
-    const id = row?.getAttribute('data-task-id');
-    const task = list.find(x => x.id === id);
-    if (!task) return;
-    const html = tooltipHtml(task);
-
-    bar.addEventListener('touchstart', e => {
-      const touch = e.changedTouches?.[0];
-      if (touch) showTip(html, touch.clientX, touch.clientY);
-    }, { passive: true });
-
-    bar.addEventListener('mouseenter', e => {
-      if (!mobile) showTip(html, e.clientX, e.clientY);
-    });
-
-    bar.addEventListener('click', e => {
-      e.stopPropagation();
-      hideTip();
+      return;
+    }
+    const nm = e.target.closest('.pb-gantt-name');
+    if (nm) {
+      const task = taskByRowEl(nm);
+      if (!task) return;
       openTaskEditorModal({
         task,
         projects: ctx.projects,
@@ -395,10 +390,26 @@ export function renderGanttTab(root, ctx) {
         canEdit,
         onSaved: () => ctx.onRefresh?.(),
       });
-    });
-  });
+      return;
+    }
+    if (!e.target.closest('.pb-gantt-tip')) hideTip();
+  }, { signal: sig });
 
-  root.addEventListener('click', e => {
-    if (!e.target.closest('.pb-gantt-bar') && !e.target.closest('.pb-gantt-tip')) hideTip();
-  });
+  root.addEventListener('touchstart', e => {
+    const bar = e.target.closest('.pb-gantt-bar');
+    if (!bar) return;
+    const task = taskByRowEl(bar);
+    if (!task) return;
+    const touch = e.changedTouches?.[0];
+    if (touch) showTip(tooltipHtml(task), touch.clientX, touch.clientY);
+  }, { signal: sig, passive: true });
+
+  root.addEventListener('mouseover', e => {
+    if (mobile) return;
+    const bar = e.target.closest('.pb-gantt-bar');
+    if (!bar) return;
+    const task = taskByRowEl(bar);
+    if (!task) return;
+    showTip(tooltipHtml(task), e.clientX, e.clientY);
+  }, { signal: sig });
 }

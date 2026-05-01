@@ -5,6 +5,50 @@ body.module-projektni-biro {
   min-height: 100vh;
 }
 
+/* Skeleton / loading (Projektni biro) */
+.pb-tab-body--loading {
+  min-height: 200px;
+}
+.pb-loading-skel {
+  padding: 1rem;
+  animation: pb-pulse 1.2s ease-in-out infinite;
+}
+@keyframes pb-pulse {
+  0%, 100% { opacity: 0.65; }
+  50% { opacity: 1; }
+}
+.pb-skel-line {
+  height: 12px;
+  border-radius: 4px;
+  background: var(--border3);
+  margin-bottom: 12px;
+}
+.pb-skel-line--lg {
+  height: 18px;
+  width: 60%;
+}
+.pb-skel-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.pb-skel-card {
+  min-height: 72px;
+  border-radius: var(--radius);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+}
+.pb-load-error {
+  padding: 1.5rem;
+  text-align: center;
+}
+.pb-an-all-done {
+  color: var(--green);
+  margin: 0 0 1rem;
+  font-weight: 600;
+}
+
 .pb-module {
   max-width: 1400px;
   margin: 0 auto;

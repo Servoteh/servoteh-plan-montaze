@@ -1,8 +1,9 @@
 /**
  * Tab Plan — kartice (mobilni) + tabela (desktop), statistike, alarmi, load meter.
+ * // TODO(PB4): Excel export zadataka (SheetJS) — docs/pb_review_report.md F4
  */
 
-import { escHtml, showToast } from '../../lib/dom.js';
+import { escHtml } from '../../lib/dom.js';
 import {
   PB_TASK_STATUS,
   PB_TASK_VRSTA,
@@ -14,6 +15,8 @@ import {
   confirmDeletePbTask,
   loadPbState,
   syncPbModuleFilters,
+  pbErrorMessage,
+  showPbToast,
 } from './shared.js';
 import { updatePbTask } from '../../services/pb.js';
 import { canEditProjektniBiro } from '../../state/auth.js';
@@ -415,11 +418,13 @@ export function renderPlanTab(root, ctx) {
           canEdit,
           onSave: async v => {
             if (!canEdit) return;
-            const ok = await updatePbTask(id, { opis: v });
-            if (ok) {
-              showToast('Opis sačuvan');
+            try {
+              await updatePbTask(id, { opis: v });
+              showPbToast('Opis sačuvan', 'success');
               ctx.onRefresh?.();
-            } else showToast('Greška');
+            } catch (err) {
+              showPbToast(pbErrorMessage(err), 'error');
+            }
           },
         });
       });
@@ -437,11 +442,13 @@ export function renderPlanTab(root, ctx) {
           canEdit,
           onSave: async v => {
             if (!canEdit) return;
-            const ok = await updatePbTask(id, { problem: v });
-            if (ok) {
-              showToast('Problem sačuvan');
+            try {
+              await updatePbTask(id, { problem: v });
+              showPbToast('Problem sačuvan', 'success');
               ctx.onRefresh?.();
-            } else showToast('Greška');
+            } catch (err) {
+              showPbToast(pbErrorMessage(err), 'error');
+            }
           },
         });
       });

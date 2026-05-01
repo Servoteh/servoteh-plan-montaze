@@ -60,6 +60,8 @@ COMMENT ON COLUMN public.pb_tasks.norma_sati_dan IS
   'Planirani angažman po radnom danu za ovaj zadatak, max 7h';
 COMMENT ON COLUMN public.pb_tasks.procenat_zavrsenosti IS
   'Subjektivna procena završenosti 0-100%';
+-- TODO(PB4): opciona kolona bigtehn_rn_id (bigint → bigtehn_work_orders_cache) za drill-down na RN — vidi docs/pb_review_report.md F1
+-- TODO(PB5): recurring tasks — recurrence_rule text (RRULE); cron pb_generate_recurring_tasks — vidi docs/pb_review_report.md F6
 
 -- ── 3) Tabela pb_work_reports
 CREATE TABLE IF NOT EXISTS public.pb_work_reports (

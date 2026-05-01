@@ -2,8 +2,9 @@
  * Podešavanja PB — samo admin (notifikacije).
  */
 
-import { escHtml, showToast } from '../../lib/dom.js';
+import { escHtml } from '../../lib/dom.js';
 import { getPbNotifConfig, updatePbNotifConfig } from '../../services/pb.js';
+import { pbErrorMessage, showPbToast } from './shared.js';
 
 function parseEmails(s) {
   return String(s || '')
@@ -17,7 +18,13 @@ function parseEmails(s) {
  * @param {{ onSaved?: () => void }} ctx
  */
 export async function renderPbPodesavanja(root, ctx) {
-  const cfg = await getPbNotifConfig();
+  let cfg;
+  try {
+    cfg = await getPbNotifConfig();
+  } catch (err) {
+    root.innerHTML = `<p class="pb-muted">${escHtml(err?.message || 'Greška pri učitavanju')}</p>`;
+    return;
+  }
   if (!cfg) {
     root.innerHTML = '<p class="pb-muted">Konfiguracija nije dostupna.</p>';
     return;
@@ -62,12 +69,14 @@ export async function renderPbPodesavanja(root, ctx) {
         notify_on_deadline_overdue: root.querySelector('#pbCfgNd')?.checked ?? false,
         notify_on_no_engineer: root.querySelector('#pbCfgNe')?.checked ?? false,
       };
-      const row = await updatePbNotifConfig(payload);
-      if (row) {
-        showToast('Sačuvano');
-        Object.assign(cfg, row);
+      try {
+        const row = await updatePbNotifConfig(payload);
+        if (row) Object.assign(cfg, row);
+        showPbToast('Sačuvano', 'success');
         ctx.onSaved?.();
-      } else showToast('Čuvanje nije uspelo (samo admin)');
+      } catch (err) {
+        showPbToast(pbErrorMessage(err), 'error');
+      }
     });
   }
 

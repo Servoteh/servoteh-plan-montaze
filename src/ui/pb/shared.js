@@ -2,12 +2,64 @@
  * Zajedničke komponente za Projektni biro — modali, alarmi, load meter.
  */
 
-import { escHtml, showToast } from '../../lib/dom.js';
+import { escHtml } from '../../lib/dom.js';
 import {
   createPbTask,
   updatePbTask,
   softDeletePbTask,
 } from '../../services/pb.js';
+
+/** PostgREST / network greška → korisnički tekst (pb.js baca Error sa `code` gde je moguće). */
+export function pbErrorMessage(err) {
+  if (!err) return 'Nepoznata greška';
+  const code = err.code || err?.cause?.code || '';
+  const msg = String(err.message || '');
+  if (code === '42501' || code === 'PGRST301' || /permission denied|jwt/i.test(msg)) {
+    return 'Nemate pravo da izvršite ovu akciju.';
+  }
+  if (code === '23505') return 'Zapis sa tim podacima već postoji.';
+  if (code === '23503') return 'Referencirani podatak ne postoji.';
+  if (code === '23514') return 'Uneti podaci nisu ispravni (provera u bazi).';
+  if (/fetch|network|failed to fetch|Load failed/i.test(msg)) {
+    return 'Nema veze sa serverom. Proverite konekciju.';
+  }
+  return msg || 'Neočekivana greška.';
+}
+
+export function showPbToast(message, type = 'info') {
+  let t = document.getElementById('toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.className = 'toast';
+    t.id = 'toast';
+    document.body.appendChild(t);
+  }
+  t.textContent = message;
+  t.classList.remove('toast--success', 'toast--error', 'toast--warning', 'toast--info');
+  if (type === 'success') t.classList.add('toast--success');
+  else if (type === 'error') t.classList.add('toast--error');
+  else if (type === 'warning') t.classList.add('toast--warning');
+  else t.classList.add('toast--info');
+  t.classList.add('show');
+  clearTimeout(showPbToast._timer);
+  showPbToast._timer = setTimeout(() => {
+    t.classList.remove('show');
+  }, 2800);
+}
+
+let izvestajiSpeech = null;
+export function setPbIzvestajiSpeechRecog(r) {
+  izvestajiSpeech = r;
+}
+export function stopPbIzvestajiSpeech() {
+  if (!izvestajiSpeech) return;
+  try {
+    izvestajiSpeech.stop();
+  } catch {
+    /* */
+  }
+  izvestajiSpeech = null;
+}
 
 export const PB_STATE_KEY = 'pb_state_v1';
 
@@ -166,6 +218,7 @@ export function openTaskEditorModal(opts) {
         </label>
         <div class="pb-modal-actions">
           ${canEdit ? `<button type="button" class="btn btn-primary" id="pbTfSave">Sačuvaj</button>` : ''}
+          <!-- TODO(PB4): dugme Istorija — audit_log timeline — docs/pb_review_report.md F3 -->
           <button type="button" class="btn" id="pbTfCancel">Otkaži</button>
         </div>
       </div>
@@ -190,7 +243,7 @@ export function openTaskEditorModal(opts) {
     const naziv = wrap.querySelector('#pbTfNaziv')?.value?.trim();
     const projectId = wrap.querySelector('#pbTfProject')?.value || null;
     if (!naziv || !projectId) {
-      showToast('Unesi naziv i projekat');
+      showPbToast('Unesi naziv i projekat', 'warning');
       return;
     }
     const payload = {
@@ -207,14 +260,15 @@ export function openTaskEditorModal(opts) {
       norma_sati_dan: Number(normN?.value) || 4,
       procenat_zavrsenosti: Number(wrap.querySelector('#pbTfPct')?.value) || 0,
     };
-    let ok;
-    if (isNew) ok = await createPbTask(payload);
-    else ok = await updatePbTask(t.id, payload);
-    if (ok) {
-      showToast('Sačuvano');
+    try {
+      if (isNew) await createPbTask(payload);
+      else await updatePbTask(t.id, payload);
+      showPbToast('Sačuvano', 'success');
       close();
       onSaved?.();
-    } else showToast('Greška pri čuvanju');
+    } catch (err) {
+      showPbToast(pbErrorMessage(err), 'error');
+    }
   });
 
   document.body.appendChild(wrap);
@@ -251,9 +305,11 @@ export function openTextAreaModal({ title, initial, hint, canEdit, onSave }) {
 
 export async function confirmDeletePbTask(id, onDone) {
   if (!id || !confirm('Označiti zadatak kao obrisan (soft delete)?')) return;
-  const ok = await softDeletePbTask(id);
-  if (ok) {
-    showToast('Zadatak obrisan');
+  try {
+    await softDeletePbTask(id);
+    showPbToast('Zadatak obrisan', 'success');
     onDone?.();
-  } else showToast('Brisanje nije uspelo');
+  } catch (err) {
+    showPbToast(pbErrorMessage(err), 'error');
+  }
 }
