@@ -10,15 +10,18 @@ import {
   getLocationKindLabel,
   getLocationTypeLabel,
 } from '../../lib/lokacijeTypes.js';
-import { logout } from '../../services/auth.js';
+import { logout, restoreSession } from '../../services/auth.js';
 import { getAuth, canViewLokacijeSync, isAdmin, canEdit } from '../../state/auth.js';
 import {
   loadLokacijeTabFromStorage,
+  loadBrowseSortFromStorage,
   loadPredmetStateFromStorage,
   setLokacijeActiveTab,
   getLokacijeUiState,
   setBrowseFilter,
   setBrowseKindFilter,
+  setBrowseSort,
+  toggleBrowseSortDirection,
   setItemsFilter,
   setItemsPage,
   setItemsPageSize,
@@ -32,7 +35,7 @@ import {
   setReportPageSize,
   toggleReportSort,
 } from '../../state/lokacije.js';
-import { filterLocationsHierarchical } from '../../lib/lokacijeFilters.js';
+import { filterLocationsHierarchical, sortLocations } from '../../lib/lokacijeFilters.js';
 import { rowsToCsv, CSV_BOM } from '../../lib/csv.js';
 import {
   fetchAllMovements,
@@ -106,6 +109,30 @@ let locPanelHost = null;
 let showInactiveLocations = false;
 /** @type {'table'|'tree'} */
 let browseViewMode = 'table';
+let lastSessionRefreshAt = 0;
+
+function isJwtExpiringSoon(token) {
+  if (!token || typeof token !== 'string') return false;
+  const [, payload] = token.split('.');
+  if (!payload) return false;
+  try {
+    const b64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = b64.padEnd(b64.length + ((4 - (b64.length % 4)) % 4), '=');
+    const json = JSON.parse(atob(padded));
+    const expMs = Number(json.exp) * 1000;
+    return Number.isFinite(expMs) && expMs - Date.now() < 60 * 1000;
+  } catch {
+    return false;
+  }
+}
+
+async function ensureFreshLokacijeSession() {
+  const token = getAuth().user?._token;
+  const now = Date.now();
+  if (!isJwtExpiringSoon(token) || now - lastSessionRefreshAt < 30 * 1000) return;
+  lastSessionRefreshAt = now;
+  await restoreSession();
+}
 
 /**
  * Banner upozorenje ako su BigTehn cache tabele zastarele.
@@ -237,8 +264,9 @@ function attachBrowseActions(locs) {
  * Render klasične tabele lokacija. Koristi `depth` za indentaciju.
  * @param {object[]|null} locs
  * @param {boolean} canEditLocs
+ * @param {string} sortOptions
  */
-function renderLocationsTableHtml(locs, canEditLocs) {
+function renderLocationsTableHtml(locs, canEditLocs, sortOptions = '', sortDirButton = '') {
   const colspan = canEditLocs ? 6 : 5;
   const rows = Array.isArray(locs)
     ? locs
@@ -259,10 +287,13 @@ function renderLocationsTableHtml(locs, canEditLocs) {
         .join('')
       : '';
   const headActions = canEditLocs ? '<th>Akcije</th>' : '';
+  const codeHead = sortOptions
+    ? `<th><div class="loc-th-sort"><label><span>Šifra</span><select id="locBrowseSortHead" data-loc-browse-sort>${sortOptions}</select></label>${sortDirButton}</div></th>`
+    : '<th>Šifra</th>';
   return `
     <div class="loc-table-wrap">
       <table class="loc-table">
-        <thead><tr><th>Šifra</th><th>Naziv</th><th>Poslovno</th><th>Tehnički tip</th><th>Putanja</th>${headActions}</tr></thead>
+        <thead><tr>${codeHead}<th>Naziv</th><th>Poslovno</th><th>Tehnički tip</th><th>Putanja</th>${headActions}</tr></thead>
         <tbody>${rows || `<tr><td colspan="${colspan}" class="loc-muted">Nema lokacija. Unos master lokacija (admin/LeadPM/PM/menadžment) dolazi iz UI ili SQL.</td></tr>`}</tbody>
       </table>
     </div>`;
@@ -353,14 +384,34 @@ function attachBrowseViewSwitch() {
  * Pretraga u browse tabu — debounced input + klijentski filter.
  * Debounce 180ms je dovoljan da se re-render ne pokreće na svakom pritisku tastera.
  */
+function flipBrowseSortDirection() {
+  toggleBrowseSortDirection();
+  refreshLocPanel();
+}
+
 function attachBrowseSearch() {
   const host = locPanelHost;
   if (!host) return;
   const input = host.querySelector('#locBrowseSearch');
   const kindSel = host.querySelector('#locBrowseKind');
+  const sortSelects = host.querySelectorAll('[data-loc-browse-sort]');
+  const sortDirButtons = host.querySelectorAll('[data-loc-browse-sort-dir]');
   kindSel?.addEventListener('change', () => {
     setBrowseKindFilter(kindSel.value || '');
     refreshLocPanel();
+  });
+  sortSelects.forEach(sel => {
+    sel.addEventListener('change', () => {
+      const { browseSort } = getLokacijeUiState();
+      const desc = String(browseSort || '').endsWith('_desc');
+      setBrowseSort((sel.value || 'code') + (desc ? '_desc' : '_asc'));
+      refreshLocPanel();
+    });
+  });
+  sortDirButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      flipBrowseSortDirection();
+    });
   });
   if (!input) return;
   let t = null;
@@ -953,6 +1004,7 @@ async function renderPanel(host, tabId) {
     host.innerHTML = `<div class="kadr-panel active loc-panel"><p class="loc-muted">Supabase nije konfigurisan (VITE_SUPABASE_URL / ANON KEY).</p></div>`;
     return;
   }
+  await ensureFreshLokacijeSession();
 
   if (tabId === 'dashboard') {
     const [locs, plac, movs, syncStatus] = await Promise.all([
@@ -1038,9 +1090,10 @@ async function renderPanel(host, tabId) {
     const locs = await fetchLocations({ activeOnly: !showInactiveLocations });
     const canEditLocs = canEdit();
     const err = locs === null ? `<p class="loc-warn">Učitavanje neuspešno.</p>` : '';
-    const { browseFilter, browseKindFilter } = getLokacijeUiState();
+    const { browseFilter, browseKindFilter, browseSort } = getLokacijeUiState();
     const textFiltered = filterLocationsHierarchical(locs, browseFilter);
     const filtered = filterLocationsByKindHierarchical(textFiltered, browseKindFilter);
+    const sorted = sortLocations(filtered, browseSort);
     const matchCount = browseFilter
       ? `<span class="loc-muted loc-filter-hint">Pogodaka: ${Array.isArray(locs) ? filtered.length : 0} / ${Array.isArray(locs) ? locs.length : 0}</span>`
       : '';
@@ -1052,6 +1105,18 @@ async function renderPanel(host, tabId) {
     ]
       .map(([v, label]) => `<option value="${escHtml(v)}"${browseKindFilter === v ? ' selected' : ''}>${escHtml(label)}</option>`)
       .join('');
+    const sortField = String(browseSort || 'code_asc').replace(/_(asc|desc)$/, '');
+    const sortDesc = String(browseSort || '').endsWith('_desc');
+    const sortOptions = [
+      ['code', 'Šifra'],
+      ['name', 'Naziv'],
+      ['kind', 'Tip'],
+    ]
+      .map(([v, label]) => `<option value="${escHtml(v)}"${sortField === v ? ' selected' : ''}>${escHtml(label)}</option>`)
+      .join('');
+    const sortDirLabel = sortDesc ? '↓' : '↑';
+    const sortDirTitle = sortDesc ? 'Sort Z→A / 100→0' : 'Sort A→Z / 0→100';
+    const sortDirButton = `<button type="button" class="btn btn-xs loc-sort-dir" data-loc-browse-sort-dir title="${escHtml(sortDirTitle)}" aria-label="${escHtml(sortDirTitle)}">${sortDirLabel}</button>`;
 
     const extraToolbar = `
       <div class="loc-master-heading">
@@ -1066,6 +1131,11 @@ async function renderPanel(host, tabId) {
         <span>Tip:</span>
         <select id="locBrowseKind">${kindOptions}</select>
       </label>
+      <label class="loc-inline-check loc-sort-control">
+        <span>Sort:</span>
+        <select id="locBrowseSort" data-loc-browse-sort>${sortOptions}</select>
+      </label>
+      ${sortDirButton}
       <label class="loc-inline-check">
         <input type="checkbox" id="locBrowseShowInactive" ${showInactiveLocations ? 'checked' : ''}>
         <span>Prikaži neaktivne</span>
@@ -1077,8 +1147,8 @@ async function renderPanel(host, tabId) {
 
     const content =
       browseViewMode === 'tree'
-        ? renderLocationsTreeHtml(filtered, canEditLocs)
-        : renderLocationsTableHtml(filtered, canEditLocs);
+        ? renderLocationsTreeHtml(sorted, canEditLocs)
+        : renderLocationsTableHtml(sorted, canEditLocs, sortOptions, sortDirButton);
 
     host.innerHTML = `
       <div class="kadr-panel active loc-panel">
@@ -1087,7 +1157,7 @@ async function renderPanel(host, tabId) {
         ${content}
       </div>`;
     attachLocToolbar();
-    attachBrowseActions(filtered);
+    attachBrowseActions(sorted);
     attachBrowseViewSwitch();
     attachBrowseSearch();
     return;
@@ -1813,6 +1883,7 @@ function wireTabs(container, initialTabId) {
  */
 export function renderLokacijeModule(mountEl, { onBackToHub, onLogout } = {}) {
   loadLokacijeTabFromStorage();
+  loadBrowseSortFromStorage();
   loadPredmetStateFromStorage();
   let { activeTab: tabId } = getLokacijeUiState();
   if (TABS.find(t => t.id === tabId && t.adminOnly) && !canViewLokacijeSync()) {
