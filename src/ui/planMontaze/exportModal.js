@@ -9,7 +9,7 @@
  *   3. PDF (Single Gantt)  — html2canvas + jsPDF, multi-page A4 landscape.
  *   4. PDF (Total Gantt)   — isto, ali iz #totalGanttWrap. Pre snimanja
  *                           prebaci view na 'total' i čekaj tick.
- *   5. Import JSON — file input, replace allData (sa potvrdom).
+ *   5. Import JSON — file input, replace ili merge u allData (sa potvrdom).
  *
  * Svi handler-i prolaze kroz `canEdit()` proveru gde se menjaju podaci.
  */
@@ -39,6 +39,8 @@ import { queueCurrentWpSync } from '../../services/plan.js';
 
 let _overlayEl = null;
 let _onAfterImport = null;
+/** Shell rerender (npr. posle PDF export-a koji privremeno menja view). */
+let _onShellRefresh = null;
 
 /* SVG hatch pattern (data URI) za elektro trake u PDF-u.
    Identican onome u `legacy.css` (body.pdf-export blok), ali ga
@@ -55,6 +57,7 @@ const PDF_ELEC_HATCH_BG = `url("data:image/svg+xml;utf8,${PDF_ELEC_HATCH_SVG}")`
 export function openExportDialog(opts = {}) {
   closeExportDialog();
   _onAfterImport = opts.onAfterImport || null;
+  _onShellRefresh = opts.onShellRefresh || null;
 
   _overlayEl = document.createElement('div');
   _overlayEl.className = 'modal-overlay open';
@@ -93,7 +96,11 @@ export function openExportDialog(opts = {}) {
             📂 Učitaj JSON snapshot
             <input type="file" accept=".json,application/json" id="expImportFile" ${canEdit() ? '' : 'disabled'}>
           </label>
-          <p class="form-hint" style="margin-top:6px">⚠ Učitavanjem se zamenjuju lokalni podaci u memoriji. DB sync se zatim okida sa novim sadržajem.</p>
+          <label class="export-import-label" style="display:flex;align-items:center;gap:8px;margin-top:8px">
+            <input type="checkbox" id="expImportMerge" ${canEdit() ? '' : 'disabled'}>
+            <span>Spoji sa trenutnim podacima (isti ID se ažurira; ostalo ostaje)</span>
+          </label>
+          <p class="form-hint" style="margin-top:6px">⚠ Bez „Spoji”: zamenjuje sve projekte u memoriji. Sa „Spoji”: ažurira postojeće projekte/WP/faze po ID-u. DB sync posle uvoza.</p>
         </div>
       </div>
       <div class="modal-foot">
@@ -259,18 +266,37 @@ function _xlsxPhaseRows() {
 export async function exportGanttAsPDF(which) {
   closeExportDialog();
 
-  /* Ako trenutni view nije onaj koji izvozimo, prebaci na njega. */
   const targetView = which === 'gantt' ? 'gantt' : 'total';
-  if (planMontazeState.activeView !== targetView) {
+  const prevView = planMontazeState.activeView;
+  const prevProjectId = planMontazeState.activeProjectId;
+  const prevWpId = planMontazeState.activeWpId;
+  const needTempSwitch = planMontazeState.activeView !== targetView;
+
+  if (needTempSwitch) {
     setActiveView(targetView);
-    /* Tražimo da neko (parent) rerenderuje shell — onAfterViewSwitch hook
-       nije implementiran ovde, pa se oslanjamo na kratak delay i postojeći
-       state listener. U slučaju da parent ne reaguje, korisnik može sam
-       prebaciti view i pokrenuti export ponovo. */
+    _onShellRefresh?.();
     showToast('⏳ Pripremam ' + (which === 'gantt' ? 'aktivan' : 'ukupan') + ' Gant...');
-    /* Damo browser-u tick da rerenderuje. */
+    /* Dva rAF da #ganttWrap / #totalGanttWrap postoji u DOM-u. */
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
   }
+
+  const finish = (err) => {
+    if (needTempSwitch) {
+      setActiveView(prevView);
+      if (allData.projects.some(p => p.id === prevProjectId)) {
+        planMontazeState.activeProjectId = prevProjectId;
+        const p = allData.projects.find(p => p.id === prevProjectId);
+        if (p?.workPackages?.some(w => w.id === prevWpId)) {
+          planMontazeState.activeWpId = prevWpId;
+        }
+      }
+      _onShellRefresh?.();
+    }
+    if (err) {
+      console.error(err);
+      showToast('❌ Greška pri PDF-u');
+    }
+  };
 
   showToast('⏳ Učitavam PDF lib...');
   let jsPDF, html2canvas;
@@ -278,6 +304,7 @@ export async function exportGanttAsPDF(which) {
     ({ jsPDF, html2canvas } = await loadPdfLibs());
   } catch (e) {
     showToast('❌ PDF lib: ' + (e.message || e));
+    finish();
     return;
   }
 
@@ -286,6 +313,7 @@ export async function exportGanttAsPDF(which) {
   const el = document.getElementById(wrapId);
   if (!el) {
     showToast('⚠ Gant nije renderovan — otvori prvo Gant view');
+    finish();
     return;
   }
 
@@ -385,9 +413,9 @@ export async function exportGanttAsPDF(which) {
     const fn = `gantt_${which}_${new Date().toISOString().slice(0, 10)}.pdf`;
     pdf.save(fn);
     showToast('📄 PDF sačuvan');
+    finish();
   } catch (e) {
-    console.error(e);
-    showToast('❌ Greška pri PDF-u');
+    finish(e);
   }
 }
 
@@ -475,6 +503,72 @@ function _drawTypeLegend(pdf, pageW, topMm) {
   pdf.text(labelElec, x + swW + 1.2, yLine);
 }
 
+/* ── IMPORT: merge helpers (isti ID → ažuriranje) ────────────────────── */
+
+function _mergePhasesInto(curPhases, incomingPhases) {
+  const list = (curPhases || []).slice();
+  for (const np of incomingPhases || []) {
+    const i = list.findIndex(p => p.id === np.id);
+    if (i === -1) list.push(np);
+    else Object.assign(list[i], np);
+  }
+  return list;
+}
+
+function _mergeWorkPackagesInto(curWps, incomingWps) {
+  const list = (curWps || []).slice();
+  for (const nw of incomingWps || []) {
+    const i = list.findIndex(w => w.id === nw.id);
+    if (i === -1) {
+      list.push(nw);
+      continue;
+    }
+    const cw = list[i];
+    Object.keys(nw).forEach(k => {
+      if (k === 'phases') return;
+      cw[k] = nw[k];
+    });
+    cw.phases = _mergePhasesInto(cw.phases, nw.phases);
+  }
+  return list;
+}
+
+function _mergeProjectsFromSnapshot(incomingProjects) {
+  for (const np of incomingProjects) {
+    const idx = allData.projects.findIndex(p => p.id === np.id);
+    if (idx === -1) {
+      allData.projects.push(np);
+      continue;
+    }
+    const cur = allData.projects[idx];
+    Object.keys(np).forEach(k => {
+      if (k === 'workPackages') return;
+      cur[k] = np[k];
+    });
+    cur.workPackages = _mergeWorkPackagesInto(cur.workPackages, np.workPackages);
+  }
+}
+
+function _applyPointersAfterImport({ merge }) {
+  planMontazeState.filteredIndices = null;
+  if (!merge) {
+    planMontazeState.activeProjectId = allData.projects[0]?.id || null;
+    planMontazeState.activeWpId = allData.projects[0]?.workPackages?.[0]?.id || null;
+    return;
+  }
+  const stillProject = allData.projects.some(p => p.id === planMontazeState.activeProjectId);
+  if (!stillProject) {
+    planMontazeState.activeProjectId = allData.projects[0]?.id || null;
+    planMontazeState.activeWpId = allData.projects[0]?.workPackages?.[0]?.id || null;
+    return;
+  }
+  const p = allData.projects.find(pr => pr.id === planMontazeState.activeProjectId);
+  const stillWp = p?.workPackages?.some(w => w.id === planMontazeState.activeWpId);
+  if (!stillWp) {
+    planMontazeState.activeWpId = p.workPackages?.[0]?.id || null;
+  }
+}
+
 /* ── IMPORT: JSON ────────────────────────────────────────────────────── */
 
 function _onImportFileChange(ev) {
@@ -485,7 +579,11 @@ function _onImportFileChange(ev) {
   }
   const file = ev.target.files?.[0];
   if (!file) return;
-  if (!confirm('Učitavanje će zameniti trenutne projekte u memoriji. Nastavi?')) {
+  const merge = document.getElementById('expImportMerge')?.checked;
+  const msg = merge
+    ? 'Spajanje će ažurirati postojeće projekte/WP/faze sa istim ID-jem i dodati nove. Nastavi?'
+    : 'Učitavanje će zameniti trenutne projekte u memoriji. Nastavi?';
+  if (!confirm(msg)) {
     ev.target.value = '';
     return;
   }
@@ -497,9 +595,12 @@ function _onImportFileChange(ev) {
         showToast('❌ Format nije ispravan (očekuje "projects" niz)');
         return;
       }
-      /* Replace allData.projects in place tako da svi postojeći getteri vide novi state. */
-      allData.projects.length = 0;
-      d.projects.forEach(p => allData.projects.push(p));
+      if (!merge) {
+        allData.projects.length = 0;
+        d.projects.forEach(p => allData.projects.push(p));
+      } else {
+        _mergeProjectsFromSnapshot(d.projects);
+      }
 
       /* Sidecar mape (3D modeli, location colors) — merge umesto replace. */
       if (d._phaseModels && typeof d._phaseModels === 'object') {
@@ -510,10 +611,8 @@ function _onImportFileChange(ev) {
         Object.assign(locationColorMap, d._locationColorMap);
       }
 
-      /* Resetuj pointers na prvi projekt/WP. */
-      planMontazeState.activeProjectId = allData.projects[0]?.id || null;
-      planMontazeState.activeWpId = allData.projects[0]?.workPackages?.[0]?.id || null;
-      planMontazeState.filteredIndices = null;
+      /* Resetuj pointers (merge čuva aktivni proj/WP ako i dalje postoje). */
+      _applyPointersAfterImport({ merge });
 
       allData.projects.forEach(ensureProjectLocations);
       ensureLocationColorsForProjects();

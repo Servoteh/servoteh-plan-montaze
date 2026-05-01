@@ -96,9 +96,9 @@ async function _trackInflight(fn) {
 
 /**
  * Učitaj sve projekte iz baze + njihove WP-ove i faze. Replace-uje
- * `allData.projects`. Vraća true ako je sve uspelo, false ako je makar jedan
- * korak vratio null. UI treba posle ovoga da pozove `cacheToLocal` ekvivalent
- * (`persistState`).
+ * `allData.projects`. Čuva aktivni projekat/WP ako i dalje postoje posle load-a.
+ * Vraća true ako je sve uspelo, false ako je makar jedan korak vratio null.
+ * UI treba posle ovoga da pozove `cacheToLocal` ekvivalent (`persistState`).
  */
 export async function fetchAllProjectsHierarchy() {
   if (!getIsOnline()) return false;
@@ -109,8 +109,22 @@ export async function fetchAllProjectsHierarchy() {
     p.workPackages = wps || [];
   }
   /* Replace allData.projects in place tako da getteri vide novi state. */
+  const keepProjectId = planMontazeState.activeProjectId;
+  const keepWpId = planMontazeState.activeWpId;
   allData.projects.length = 0;
   projects.forEach(p => allData.projects.push(p));
+  if (allData.projects.some(p => p.id === keepProjectId)) {
+    planMontazeState.activeProjectId = keepProjectId;
+    const p = allData.projects.find(x => x.id === keepProjectId);
+    if (p?.workPackages?.some(w => w.id === keepWpId)) {
+      planMontazeState.activeWpId = keepWpId;
+    } else {
+      planMontazeState.activeWpId = p.workPackages?.[0]?.id || null;
+    }
+  } else {
+    planMontazeState.activeProjectId = allData.projects[0]?.id || null;
+    planMontazeState.activeWpId = allData.projects[0]?.workPackages?.[0]?.id || null;
+  }
   allData.projects.forEach(ensureProjectLocations);
   ensureLocationColorsForProjects();
   ensurePeopleFromProjects();
