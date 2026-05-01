@@ -93,7 +93,7 @@ eskalacija ako search_path nije postavljen ili ako logika ne proverava ulogu.
 | `maint_wo_row_visible` | `sql/migrations/add_maint_work_orders.sql` |
 | `maint_work_orders_assign_wo_number` | `sql/migrations/add_maint_work_orders.sql` |
 | `mark_in_progress_from_tech_routing` | `sql/migrations/add_production_g6_auto_in_progress.sql` |
-| `pb_get_load_stats` | `sql/migrations/add_pb_module.sql` |
+| `pb_get_load_stats` | `sql/migrations/pb_load_stats_mechanical_engineering.sql` |
 | `production_machine_group_slug` | `sql/migrations/add_production_g5_reassign_rpc.sql` |
 | `reassign_production_line` | `sql/migrations/add_production_g5_reassign_rpc.sql` |
 | `salary_payroll_set_created_by` | `sql/migrations/add_kadr_salary_payroll.sql` |

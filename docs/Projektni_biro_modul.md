@@ -23,7 +23,7 @@ Interni alat za planiranje i praćenje inženjerskih zadataka po projektima: rok
 
 ## RPC
 
-- **`pb_get_load_stats(window_days integer DEFAULT 30)`** — agregat opterećenja po aktivnom zaposlenom (`SECURITY DEFINER`, `SET search_path = public, pg_temp`). `GRANT EXECUTE` samo `authenticated`.
+- **`pb_get_load_stats(window_days integer DEFAULT 30)`** — agregat opterećenja po aktivnom zaposlenom (`SECURITY DEFINER`, `SET search_path = public, pg_temp`). `GRANT EXECUTE` samo `authenticated`. **Load meter u UI-ju:** samo zaposleni iz pododeljenja **„Mašinsko projektovanje“** unutar odeljenja **„Inženjering i projektovanje“** (`employees.sub_department_id`); ako FK nije podešen, fallback na tekstualno `employees.department` koje sadrži „projektovanje“ i („mašinsko“ ili „masinski“).
 
 ## UI
 
